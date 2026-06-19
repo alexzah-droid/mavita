@@ -10,20 +10,24 @@
 
 | Параметр | Значение |
 |---|---|
-| ОС | Ubuntu 24.04 |
-| CPU | 1 core |
-| RAM | 4 GB |
+| ОС | Ubuntu 22.04 LTS |
+| IP | `45.130.147.108` |
+| Домен | `mavita.ru` |
+| CPU | 1 vCPU (KVM) |
+| RAM | 1 GB + 2 GB swap |
 | Диск | 10 GB NVMe |
 
 **Распределение RAM в продакшне:**
 
 | Процесс | Потребление |
 |---|---|
-| Nginx | ~50 MB |
-| Next.js (Node) | ~300 MB |
-| PostgreSQL | ~300 MB |
-| ОС | ~200 MB |
-| Резерв | ~3 150 MB |
+| Nginx | ~20 MB |
+| Next.js (Node, PM2) | ~300 MB |
+| PostgreSQL | ~150 MB |
+| ОС | ~150 MB |
+| Резерв | ~380 MB |
+
+> Swap 2 GB добавлен на случай пиковой нагрузки при `npm run build` (~700 MB).
 
 ---
 

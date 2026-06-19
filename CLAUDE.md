@@ -117,4 +117,4 @@ NEXT_PUBLIC_BASE_URL
 
 `.nojekyll` — сайт публикуется через GitHub Pages (КП-материалы).
 
-Магазин деплоится на VPS (Ubuntu 24.04) через GitHub Actions: `git pull` → `npm run build` → `pm2 reload mavita`. Nginx — reverse proxy на порт 3000, SSL через Certbot.
+Магазин деплоится на VPS `45.130.147.108` (Ubuntu 22.04, `mavita.ru`) через GitHub Actions: `git pull` → `npm run build` → `pm2 reload mavita`. Nginx — reverse proxy на порт 3000, SSL через Certbot.

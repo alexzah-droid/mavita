@@ -1,0 +1,29 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next
+/out
+
+# production build
+/build
+
+# env (I7: реальные секреты не коммитятся)
+.env
+.env*.local
+.env.production
+
+# misc
+.DS_Store
+*.pem
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# uploads (фото товаров загружаются в рантайме)
+/public/uploads
+
+# test coverage
+/coverage
