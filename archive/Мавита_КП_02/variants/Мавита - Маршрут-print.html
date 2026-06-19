@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>МАВИТА · Маршрут — путешествие к тишине</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Manrope:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="carto.css" />
+  <script src="deck-stage.js"></script>
+</head>
+<body>
+
+  <template id="__bundler_thumbnail" data-bg-color="#0f1410">
+    <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="800" fill="#0f1410"/>
+      <g stroke="#efe5cf" stroke-width="6" fill="none" opacity=".7">
+        <path d="M 240 480 C 360 380, 480 580, 600 480 S 840 380, 960 480"/>
+        <path d="M 240 540 C 360 440, 480 640, 600 540 S 840 440, 960 540"/>
+        <path d="M 240 420 C 360 320, 480 520, 600 420 S 840 320, 960 420"/>
+      </g>
+      <text x="600" y="280" text-anchor="middle" font-family="Times" font-style="italic" font-size="64" fill="#d28a55">МАВИТА</text>
+      <text x="600" y="380" text-anchor="middle" font-family="Times" font-size="120" fill="#efe5cf">МАРШРУТ</text>
+      <circle cx="600" cy="660" r="14" fill="#d28a55"/>
+    </svg>
+  </template>
+
+  <a class="back" href="../index.html">← К версиям</a>
+
+  <!-- shared topo svg as <defs>, used in each slide -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <pattern id="topo" x="0" y="0" width="1920" height="1080" patternUnits="userSpaceOnUse">
+        <g fill="none" stroke="currentColor" stroke-width="1.1" opacity=".55">
+          <path d="M -200 540 C 200 320, 600 760, 1000 540 S 1700 320, 2200 540"/>
+          <path d="M -200 620 C 220 400, 620 860, 1020 620 S 1720 400, 2200 620"/>
+          <path d="M -200 460 C 180 240, 580 680, 980 460 S 1680 240, 2200 460"/>
+          <path d="M -200 700 C 240 480, 640 940, 1040 700 S 1740 480, 2200 700"/>
+          <path d="M -200 380 C 160 160, 560 600, 960 380 S 1660 160, 2200 380"/>
+          <path d="M -200 780 C 260 560, 660 1020, 1060 780 S 1760 560, 2200 780"/>
+          <path d="M -200 300 C 140 80, 540 520, 940 300 S 1640 80, 2200 300"/>
+          <path d="M -200 860 C 280 640, 680 1100, 1080 860 S 1780 640, 2200 860"/>
+          <path d="M -200 220 C 120 0, 520 440, 920 220 S 1620 0, 2200 220"/>
+          <path d="M -200 940 C 300 720, 700 1180, 1100 940 S 1800 720, 2200 940"/>
+          <!-- ridges -->
+          <path d="M 0 1080 L 220 720 L 380 880 L 560 600 L 720 760 L 920 480 L 1080 660 L 1280 380 L 1440 540 L 1640 300 L 1820 460 L 1920 380 L 1920 1080 Z" opacity=".18" fill="currentColor" stroke="none"/>
+        </g>
+      </pattern>
+    </defs>
+  </svg>
+
+  <deck-stage>
+
+    <!-- ============================================================
+         01 — COVER (старт)
+         ============================================================ -->
+    <section data-screen-label="01 Старт">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+
+      <div class="slide-content cover">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="МАВИТА" /><span>Мавита · est. 2023</span></div>
+          <div>Маршрут · выпуск зимы 2026</div>
+        </div>
+
+        <div class="center">
+          <span class="eyebrow">Коммерческое предложение · слайд-маршрут</span>
+          <h1>
+            Маршрут<br/>к&nbsp;тишине<span class="sub it">в&nbsp;пятнадцати остановках.</span>
+          </h1>
+          <p class="deck">
+            Свеча · аромат · звук — три ощущения, которые возвращают на место
+            после слишком громкого дня.
+          </p>
+          <div class="meta">
+            <div>Остановок<em>15</em></div>
+            <div>Серия в продаже<em>Горы · 7 позиций</em></div>
+            <div>Время прохождения<em>один тихий вечер</em></div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">60.93° N · 30.31° E<br/><em>Точка отправления</em></div>
+            <div class="stop">Остановка<br/><em>01 — Старт</em></div>
+          </div>
+          <div>Прокрутите → или нажмите пробел</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         02 — МАНИФЕСТ
+         ============================================================ -->
+    <section data-screen-label="02 Манифест">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>02 / 15 — Манифест</div>
+        </div>
+
+        <span class="eyebrow" style="margin-top: 48px;">Манифест ритуала</span>
+        <h2 class="display" style="max-width: 14ch;">
+          Не декор.<br/><span class="it">Состояние.</span>
+        </h2>
+        <p class="lede" style="margin-top: 32px; max-width: 50ch;">
+          Маленький ритуал восстановления — собранный за десять секунд из формы,
+          аромата и звука природы. В центре города, на двадцатом этаже, без билетов.
+        </p>
+
+        <div class="steps">
+          <div class="step"><div class="n">01</div><h3>Зажгите свечу</h3><p>Тяжёлая, ручная, фактурная — она ощущается, ещё не успев загореться.</p></div>
+          <div class="step"><div class="n">02</div><h3>Включите звук</h3><p>QR на открытке с сургучной печатью открывает аудио стихии: лес, море или горы.</p></div>
+          <div class="step"><div class="n">03</div><h3>Замедлитесь</h3><p>Десять минут без задач. Только дыхание, аромат и звук, которые держат вас здесь.</p></div>
+          <div class="step"><div class="n">04</div><h3>Вернитесь к себе</h3><p>Не «отдых», а заземление. Ощущение, что вы снова дома — внутри себя.</p></div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">δ. 0м над уровнем шума<br/><em>Базовая точка</em></div>
+            <div class="stop">Остановка<br/><em>02 — Манифест</em></div>
+          </div>
+          <div>4 шага · 10 минут</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         03 — ВИКТОРИЯ
+         ============================================================ -->
+    <section data-screen-label="03 Виктория">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>03 / 15 — Об авторе</div>
+        </div>
+
+        <div class="two-col" style="margin-top: 24px; align-items: center;">
+          <div class="about-photo">
+            <img src="../assets/about.jpeg" alt="Виктория, основатель МАВИТА" />
+            <div class="cap">Виктория · основатель</div>
+          </div>
+          <div>
+            <span class="eyebrow">Кто стоит за брендом</span>
+            <p class="quote">«Я создала свечи, которые дают <span class="it">энергию&nbsp;стихий</span> — даже если вы весь день не выходили из дома.»</p>
+            <p style="color: var(--ink-soft); max-width: 46ch; font-size: 20px;">
+              Дочь альпиниста — любовь к высоте, камню и тишине пришла оттуда.
+              Работает только с натуральными маслами: пачули, эвкалипт, кипарис,
+              можжевельник, пихта, апельсин, имбирь.
+            </p>
+            <div class="sig" style="margin-top: 32px;">Виктория<small>— автор МАВИТА</small></div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">Санкт-Петербург<br/><em>База бренда</em></div>
+            <div class="stop">Остановка<br/><em>03 — Виктория</em></div>
+          </div>
+          <div>Интервью</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         04 — ИМЯ
+         ============================================================ -->
+    <section data-screen-label="04 Имя">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>04 / 15 — Магия имени</div>
+        </div>
+
+        <span class="eyebrow" style="margin-top: 32px; align-self: center;">Магия имени</span>
+
+        <div class="name-split">
+          <div>
+            <div class="name-glyph">Ма</div>
+            <div class="name-mean">земля · опора</div>
+            <p class="name-gloss">Корень в древних языках, отсылающий к материнской земле — основе всего живого.</p>
+          </div>
+          <div class="name-plus">+</div>
+          <div class="name-glyph r">
+            Вита
+            <div class="name-mean">жизнь · дыхание</div>
+            <p class="name-gloss">Тепло, движение, аромат — три ощущения, возвращающие жизнь в тело и в комнату.</p>
+          </div>
+        </div>
+
+        <p class="lede" style="text-align:center; margin: 60px auto 0; max-width: 50ch;">
+          МАВИТА — земля, на&nbsp;которой стоит жизнь. Каждая свеча буквально упаковывает это сочетание.
+        </p>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">этимология бренда<br/><em>Старо-латинский корень</em></div>
+            <div class="stop">Остановка<br/><em>04 — Имя</em></div>
+          </div>
+          <div>Ма + Вита</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         05 — СТИХИИ
+         ============================================================ -->
+    <section data-screen-label="05 Стихии">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>05 / 15 — Три стихии</div>
+        </div>
+
+        <span class="eyebrow" style="margin-top: 48px;">Три стихии · три состояния</span>
+        <h2 class="display" style="font-size: 130px; max-width: 16ch;">Выберите, куда хочется <span class="it">вернуться.</span></h2>
+
+        <div class="three-up">
+          <div class="elem-card">
+            <div class="n">I · Заземление</div>
+            <h3>Лес</h3>
+            <div class="mood">мох · хвоя · влажная земля</div>
+            <div class="notes">Папоротник · кедр<br/>Дождь · кора<br/>Шелест листвы</div>
+            <span class="badge off">В разработке</span>
+          </div>
+          <div class="elem-card">
+            <div class="n">II · Отпускание</div>
+            <h3>Море</h3>
+            <div class="mood">соль · озон · минералы</div>
+            <div class="notes">Бриз · водоросли<br/>Песок · закат<br/>Прибой</div>
+            <span class="badge off">Лето 2026</span>
+          </div>
+          <div class="elem-card">
+            <div class="n">III · Ясность</div>
+            <h3>Горы</h3>
+            <div class="mood">камень · древесина · лава</div>
+            <div class="notes">Можжевельник · пихта<br/>Холодный воздух<br/>Застывшая лава</div>
+            <span class="badge on">В продаже · 7 позиций</span>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">биом · разветвление маршрута<br/><em>Дальше — серия «Горы»</em></div>
+            <div class="stop">Остановка<br/><em>05 — Стихии</em></div>
+          </div>
+          <div>Серия «Горы» — впереди</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         06–12 — PRODUCTS
+         ============================================================ -->
+
+    <!-- 06 -->
+    <section data-screen-label="06 Квадратная">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>06 / 15 — Каталог · №01</div>
+        </div>
+
+        <div class="product-grid">
+          <div class="pmedia">
+            <div class="pfig">№ 01 · Fig. 02</div>
+            <img src="../assets/2.jpeg" alt="Квадратная контейнерная" />
+          </div>
+          <div class="pinfo">
+            <div class="col">Горы · Неизведанные тропы свободы</div>
+            <h2>Квадратная.<br/>Контейнерная.</h2>
+            <div class="it-name">Гипсовый куб с крапчатой фактурой</div>
+            <p>Тяжёлая, фактурная, будто срез лавового камня. Тёплый аромат: кедр, можжевельник, лёгкая дымка. Свеча, рядом с которой хочется молчать.</p>
+            <div class="specs">
+              <div><div class="k">Тип</div><div class="v">Контейнерная</div></div>
+              <div><div class="k">Материал</div><div class="v">Гипс · воск</div></div>
+              <div><div class="k">Крышка</div><div class="v">Универсальная</div></div>
+            </div>
+            <div class="price-row">
+              <div class="price">1 800<small> ₽</small></div>
+              <a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ №01">Обсудить заказ →</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">подножие<br/><em>«Тропы свободы»</em></div>
+            <div class="stop">Остановка<br/><em>06 — №01</em></div>
+          </div>
+          <div>1 / 7 позиций серии</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section data-screen-label="07 Круглая">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>07 / 15 — Каталог · №02</div>
+        </div>
+
+        <div class="product-grid r">
+          <div class="pmedia">
+            <div class="pfig">№ 02 · Fig. 03</div>
+            <img src="../assets/3.jpeg" alt="Круглая контейнерная" />
+          </div>
+          <div class="pinfo">
+            <div class="col">Горы · Неизведанные тропы свободы</div>
+            <h2>Круглая.<br/>Контейнерная.</h2>
+            <div class="it-name">Старшая сестра квадратной</div>
+            <p>Тот же камень, чуть шире. Объём горит ровнее и дольше — ритуал получается длиннее. Для тех, кто зажигает свечу на весь вечер.</p>
+            <div class="specs">
+              <div><div class="k">Тип</div><div class="v">Контейнерная</div></div>
+              <div><div class="k">Форма</div><div class="v">Цилиндр</div></div>
+              <div><div class="k">Горение</div><div class="v">Длительное</div></div>
+            </div>
+            <div class="price-row">
+              <div class="price">2 000<small> ₽</small></div>
+              <a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ №02">Обсудить заказ →</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">южный склон<br/><em>«Тропы свободы»</em></div>
+            <div class="stop">Остановка<br/><em>07 — №02</em></div>
+          </div>
+          <div>2 / 7 позиций серии</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 08 -->
+    <section data-screen-label="08 Лава">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>08 / 15 — Каталог · №03</div>
+        </div>
+
+        <div class="product-grid">
+          <div class="pmedia">
+            <div class="pfig">№ 03 · Fig. 04</div>
+            <img src="../assets/4.jpeg" alt="Покой застывшей лавы" />
+          </div>
+          <div class="pinfo">
+            <div class="col">Горы · Могущественный покой</div>
+            <h2>Покой<br/>застывшей<br/>лавы.</h2>
+            <div class="it-name">Минеральный, чуть дымный профиль</div>
+            <p>Камень, который уже остыл, но всё ещё помнит огонь. Свеча для длинных разговоров с самим собой — и для вечеров после слишком громкого дня.</p>
+            <div class="specs">
+              <div><div class="k">Профиль</div><div class="v">Минеральный</div></div>
+              <div><div class="k">Дымка</div><div class="v">Лёгкая</div></div>
+              <div><div class="k">Настроение</div><div class="v">Глубокое</div></div>
+            </div>
+            <div class="price-row">
+              <div class="price">1 800<small> ₽</small></div>
+              <a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ №03">Обсудить заказ →</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">кратер<br/><em>«Покой лавы»</em></div>
+            <div class="stop">Остановка<br/><em>08 — №03</em></div>
+          </div>
+          <div>3 / 7 позиций серии</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 09 -->
+    <section data-screen-label="09 Пирамида x2">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>09 / 15 — Каталог · №04</div>
+        </div>
+
+        <div class="product-grid r">
+          <div class="pmedia">
+            <div class="pfig">№ 04 · Fig. 05</div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 6px; width:100%; height:100%;">
+              <img src="../assets/5a.jpeg" alt="Каменная пирамида — фронт" style="width:100%; height:100%; object-fit:cover;" />
+              <img src="../assets/5b.jpeg" alt="Каменная пирамида — детали" style="width:100%; height:100%; object-fit:cover;" />
+            </div>
+          </div>
+          <div class="pinfo">
+            <div class="col">Горы · Неизведанные тропы свободы</div>
+            <h2>Каменная<br/>пирамида&nbsp;×2.</h2>
+            <div class="it-name">Как горный тур на тропе</div>
+            <p>Две контейнерные свечи, поставленные одна на другую. Универсальная крышка подходит к обеим — самая «архитектурная» позиция серии.</p>
+            <div class="specs">
+              <div><div class="k">Состав</div><div class="v">2 свечи</div></div>
+              <div><div class="k">Крышка</div><div class="v">Универсальная</div></div>
+              <div><div class="k">Подарок</div><div class="v">Да</div></div>
+            </div>
+            <div class="price-row">
+              <div class="price">1 500<small> ₽</small></div>
+              <a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ №04">Обсудить заказ →</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">перевал<br/><em>«Тропы свободы»</em></div>
+            <div class="stop">Остановка<br/><em>09 — №04</em></div>
+          </div>
+          <div>4 / 7 позиций серии</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section data-screen-label="10 Пирамида x3">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>10 / 15 — Каталог · №05</div>
+        </div>
+
+        <div class="product-grid">
+          <div class="pmedia">
+            <div class="pfig">№ 05 · Fig. 06</div>
+            <img src="../assets/6.jpeg" alt="Пирамида из трёх" />
+          </div>
+          <div class="pinfo">
+            <div class="col">Горы · Могущественный покой</div>
+            <h2>Пирамида<br/>из&nbsp;трёх<br/>камней.</h2>
+            <div class="it-name">Cairn · горный тур</div>
+            <p>Формовая свеча — три гальки, сложенные как знак, что здесь кто-то был. Горит как единая форма, проявляя структуру слоя за слоем.</p>
+            <div class="specs">
+              <div><div class="k">Тип</div><div class="v">Формовая</div></div>
+              <div><div class="k">Камней</div><div class="v">3</div></div>
+              <div><div class="k">Силуэт</div><div class="v">Cairn</div></div>
+            </div>
+            <div class="price-row">
+              <div class="price">1 700<small> ₽</small></div>
+              <a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ №05">Обсудить заказ →</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">тропа выше границы леса<br/><em>«Покой лавы»</em></div>
+            <div class="stop">Остановка<br/><em>10 — №05</em></div>
+          </div>
+          <div>5 / 7 позиций серии</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section data-screen-label="11 Скала">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>11 / 15 — Каталог · №06</div>
+        </div>
+
+        <div class="product-grid r">
+          <div class="pmedia">
+            <div class="pfig">№ 06 · Fig. 07</div>
+            <img src="../assets/7.jpeg" alt="Скала" />
+          </div>
+          <div class="pinfo">
+            <div class="col">Горы · Могущественный покой</div>
+            <h2>Скала.</h2>
+            <div class="it-name">Гранёная вершина на закате</div>
+            <p>Силуэтное движение в тени. Самая «портретная» свеча серии: красиво стоит, красиво горит.</p>
+            <div class="specs">
+              <div><div class="k">Тип</div><div class="v">Формовая</div></div>
+              <div><div class="k">Силуэт</div><div class="v">Пик</div></div>
+              <div><div class="k">Размер</div><div class="v">Средний</div></div>
+            </div>
+            <div class="price-row">
+              <div class="price">800<small> ₽</small></div>
+              <a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ №06">Обсудить заказ →</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">вершина<br/><em>«Покой лавы»</em></div>
+            <div class="stop">Остановка<br/><em>11 — №06</em></div>
+          </div>
+          <div>6 / 7 позиций серии</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12 -->
+    <section data-screen-label="12 Галька">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>12 / 15 — Каталог · №07</div>
+        </div>
+
+        <div class="product-grid">
+          <div class="pmedia">
+            <div class="pfig">№ 07 · Fig. 08</div>
+            <img src="../assets/8.jpeg" alt="Галька" />
+          </div>
+          <div class="pinfo">
+            <div class="col">Горы · Могущественный покой</div>
+            <h2>Галька.<br/>Пара.</h2>
+            <div class="it-name">Окатыши: тёплый дым и холодный камень</div>
+            <p>Маленький, тихий объект, который удобно дарить в паре с открыткой и сургучной печатью.</p>
+            <div class="specs">
+              <div><div class="k">Тип</div><div class="v">Формовая</div></div>
+              <div><div class="k">Силуэт</div><div class="v">Окатыш</div></div>
+              <div><div class="k">В паре</div><div class="v">2 шт.</div></div>
+            </div>
+            <div class="price-row">
+              <div class="price">900<small> ₽</small></div>
+              <a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ №07">Обсудить заказ →</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">долина у воды<br/><em>«Покой лавы»</em></div>
+            <div class="stop">Остановка<br/><em>12 — №07</em></div>
+          </div>
+          <div>7 / 7 позиций серии</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         13 — QR-РИТУАЛ
+         ============================================================ -->
+    <section data-screen-label="13 QR-ритуал">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>13 / 15 — QR-ритуал</div>
+        </div>
+
+        <span class="eyebrow" style="margin-top: 24px;">Главная фишка</span>
+        <h2 class="display" style="font-size: 110px; max-width: 22ch; margin-bottom: 0;">Свеча — это <span class="it">половина</span> опыта.</h2>
+
+        <div class="qr-slide">
+          <div class="qr-card" aria-hidden="true">
+            <div>
+              <div class="crest">МАВИТА</div>
+              <div class="crestsub">Ваша стихия — внутри</div>
+            </div>
+            <div>
+              <div class="qr-frame">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="100" height="100" fill="#f7efdc"/>
+                  <g fill="#0f1410">
+                    <rect x="6" y="6" width="22" height="22"/><rect x="72" y="6" width="22" height="22"/><rect x="6" y="72" width="22" height="22"/>
+                    <rect x="11" y="11" width="12" height="12" fill="#f7efdc"/><rect x="77" y="11" width="12" height="12" fill="#f7efdc"/><rect x="11" y="77" width="12" height="12" fill="#f7efdc"/>
+                    <rect x="14" y="14" width="6" height="6"/><rect x="80" y="14" width="6" height="6"/><rect x="14" y="80" width="6" height="6"/>
+                    <rect x="34" y="6" width="4" height="4"/><rect x="42" y="6" width="4" height="4"/><rect x="50" y="6" width="4" height="4"/><rect x="58" y="6" width="4" height="4"/><rect x="66" y="6" width="4" height="4"/>
+                    <rect x="34" y="14" width="4" height="4"/><rect x="46" y="14" width="4" height="4"/><rect x="54" y="14" width="4" height="4"/><rect x="66" y="14" width="4" height="4"/>
+                    <rect x="38" y="22" width="4" height="4"/><rect x="50" y="22" width="4" height="4"/><rect x="62" y="22" width="4" height="4"/>
+                    <rect x="6" y="34" width="4" height="4"/><rect x="14" y="34" width="4" height="4"/><rect x="22" y="34" width="4" height="4"/><rect x="34" y="34" width="4" height="4"/><rect x="42" y="34" width="4" height="4"/><rect x="54" y="34" width="4" height="4"/><rect x="66" y="34" width="4" height="4"/><rect x="74" y="34" width="4" height="4"/><rect x="86" y="34" width="4" height="4"/>
+                    <rect x="10" y="42" width="4" height="4"/><rect x="22" y="42" width="4" height="4"/><rect x="30" y="42" width="4" height="4"/><rect x="42" y="42" width="4" height="4"/><rect x="50" y="42" width="4" height="4"/><rect x="62" y="42" width="4" height="4"/><rect x="78" y="42" width="4" height="4"/><rect x="86" y="42" width="4" height="4"/>
+                    <rect x="6" y="50" width="4" height="4"/><rect x="18" y="50" width="4" height="4"/><rect x="26" y="50" width="4" height="4"/><rect x="38" y="50" width="4" height="4"/><rect x="50" y="50" width="4" height="4"/><rect x="58" y="50" width="4" height="4"/><rect x="70" y="50" width="4" height="4"/><rect x="82" y="50" width="4" height="4"/><rect x="90" y="50" width="4" height="4"/>
+                    <rect x="14" y="58" width="4" height="4"/><rect x="26" y="58" width="4" height="4"/><rect x="34" y="58" width="4" height="4"/><rect x="46" y="58" width="4" height="4"/><rect x="58" y="58" width="4" height="4"/><rect x="66" y="58" width="4" height="4"/><rect x="78" y="58" width="4" height="4"/><rect x="86" y="58" width="4" height="4"/>
+                    <rect x="6" y="66" width="4" height="4"/><rect x="22" y="66" width="4" height="4"/><rect x="34" y="66" width="4" height="4"/><rect x="42" y="66" width="4" height="4"/><rect x="54" y="66" width="4" height="4"/><rect x="62" y="66" width="4" height="4"/><rect x="74" y="66" width="4" height="4"/><rect x="82" y="66" width="4" height="4"/><rect x="90" y="66" width="4" height="4"/>
+                    <rect x="34" y="74" width="4" height="4"/><rect x="46" y="74" width="4" height="4"/><rect x="58" y="74" width="4" height="4"/><rect x="70" y="74" width="4" height="4"/><rect x="86" y="74" width="4" height="4"/>
+                    <rect x="38" y="82" width="4" height="4"/><rect x="50" y="82" width="4" height="4"/><rect x="62" y="82" width="4" height="4"/><rect x="74" y="82" width="4" height="4"/><rect x="82" y="82" width="4" height="4"/><rect x="90" y="82" width="4" height="4"/>
+                    <rect x="34" y="90" width="4" height="4"/><rect x="42" y="90" width="4" height="4"/><rect x="54" y="90" width="4" height="4"/><rect x="66" y="90" width="4" height="4"/><rect x="78" y="90" width="4" height="4"/><rect x="86" y="90" width="4" height="4"/>
+                  </g>
+                </svg>
+              </div>
+              <div class="qr-cap">Считайте — и услышьте стихию</div>
+            </div>
+            <div class="seal">М</div>
+          </div>
+
+          <div>
+            <p class="lede" style="max-width: 38ch; margin-bottom: 36px;">
+              К каждой свече прилагается дизайнерская открытка с сургучной печатью.
+              Считываете QR — поверх аромата включается звук стихии.
+            </p>
+
+            <div class="tracks">
+              <div class="track-row"><span class="name">Лес после <span class="it">дождя</span></span><span class="dur">12:40</span></div>
+              <div class="track-row"><span class="name">Горная <span class="it">река</span></span><span class="dur">08:20</span></div>
+              <div class="track-row"><span class="name">Дыхание <span class="it">моря</span></span><span class="dur">14:10</span></div>
+              <div class="track-row"><span class="name">Шелест <span class="it">листвы</span></span><span class="dur">09:55</span></div>
+              <div class="track-row"><span class="name">Тихий <span class="it">костёр</span></span><span class="dur">21:30</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">место встречи аромата и звука<br/><em>QR · сургуч · открытка</em></div>
+            <div class="stop">Остановка<br/><em>13 — QR-ритуал</em></div>
+          </div>
+          <div>5 дорожек · ~67 минут</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         14 — ПОДАРКИ
+         ============================================================ -->
+    <section data-screen-label="14 Подарки">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>14 / 15 — Подарочные сценарии</div>
+        </div>
+
+        <span class="eyebrow" style="margin-top: 48px;">Не набор предметов · сценарий вечера</span>
+        <h2 class="display" style="font-size: 130px; max-width: 18ch;">Три способа <span class="it">подарить</span> ритуал.</h2>
+
+        <div class="gifts-grid">
+          <div class="gift-card">
+            <div class="n">Сценарий I</div>
+            <h3>Вечер<br/>восстановления.</h3>
+            <p>Контейнерная свеча, открытка с QR на «горную реку», карточка-инструкция: как замедлиться за 20 минут.</p>
+            <ul>
+              <li>Контейнерная свеча · 1</li>
+              <li>Открытка с сургучной печатью</li>
+              <li>QR-дорожка «Горная река»</li>
+            </ul>
+          </div>
+          <div class="gift-card">
+            <div class="n">Сценарий II</div>
+            <h3>Антистресс-<br/>ритуал.</h3>
+            <p>Формовая «Скала» и «Галька» в паре. Минимум вещей, максимум опоры.</p>
+            <ul>
+              <li>Формовая «Скала» · 1</li>
+              <li>Формовая «Галька» · 2</li>
+              <li>Открытка с QR «Тихий костёр»</li>
+            </ul>
+          </div>
+          <div class="gift-card">
+            <div class="n">Сценарий III</div>
+            <h3>Мини-<br/>путешествие.</h3>
+            <p>Каменная пирамида из двух свечей с универсальной крышкой и три аудио-дорожки на выбор.</p>
+            <ul>
+              <li>Пирамида из 2 свечей</li>
+              <li>Универсальная крышка</li>
+              <li>3 QR-дорожки на выбор</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">подарочные форматы<br/><em>На заказ и под повод</em></div>
+            <div class="stop">Остановка<br/><em>14 — Подарки</em></div>
+          </div>
+          <div>3 сценария · от 900 ₽</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         15 — ФИНАЛ / КОНТАКТЫ
+         ============================================================ -->
+    <section data-screen-label="15 Финал">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content closing">
+        <div class="chrome-top">
+          <div class="brand"><img src="../assets/logo.png" alt="" /><span>Мавита</span></div>
+          <div>15 / 15 — Финал маршрута</div>
+        </div>
+
+        <div class="closing-inner">
+          <img class="closing-logo" src="../assets/logo.png" alt="МАВИТА" />
+          <h1>Зажгите <span class="it">тишину.</span><br/>Напишите нам.</h1>
+          <p class="deck">
+            Подберём свечу или сценарий под повод. Обсудим партию для подарков
+            сотрудникам или клиентам, добавим открытку с вашей подписью.
+          </p>
+          <div class="contact-row">
+            <a href="mailto:mavitasvechi@mail.ru"><div class="k">Почта</div><div class="v">mavitasvechi@mail.ru</div></a>
+            <a href="https://vk.com/mavitasvechi" target="_blank" rel="noopener"><div class="k">ВКонтакте</div><div class="v">vk.com/mavitasvechi</div></a>
+            <a href="tel:+79211899008"><div class="k">Телефон</div><div class="v">+7 (921) 189-90-08</div></a>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">конечная точка<br/><em>Ма · Земля &nbsp;·&nbsp; Вита · Жизнь</em></div>
+            <div class="stop">Остановка<br/><em>15 — Финал</em></div>
+          </div>
+          <div>МАВИТА · 2026</div>
+        </div>
+      </div>
+    </section>
+
+  </deck-stage>
+
+  <script>
+    // wheel / trackpad → deck navigation (debounced)
+    (function () {
+      const deck = document.querySelector("deck-stage");
+      if (!deck) return;
+      let busy = false;
+      let acc = 0;
+      const THRESHOLD = 40;
+      window.addEventListener("wheel", (e) => {
+        // ignore trackpad horizontal-only swipes
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+        if (busy) { e.preventDefault(); return; }
+        acc += e.deltaY;
+        if (Math.abs(acc) < THRESHOLD) return;
+        e.preventDefault();
+        if (acc > 0) deck.next(); else deck.prev();
+        acc = 0;
+        busy = true;
+        setTimeout(() => { busy = false; }, 650);
+      }, { passive: false });
+
+      // touch swipe (vertical) → deck navigation
+      let touchStartY = null;
+      window.addEventListener("touchstart", (e) => {
+        touchStartY = e.touches[0].clientY;
+      }, { passive: true });
+      window.addEventListener("touchend", (e) => {
+        if (touchStartY == null) return;
+        const dy = e.changedTouches[0].clientY - touchStartY;
+        if (Math.abs(dy) > 60) {
+          if (dy < 0) deck.next(); else deck.prev();
+        }
+        touchStartY = null;
+      }, { passive: true });
+    })();
+  </script>
+
+<script>
+(async () => {
+  try { await customElements.whenDefined('deck-stage'); } catch (e) {}
+  const ds = document.querySelector('deck-stage');
+  if (ds) {
+    // Weigh only slide children — same filter as deck-stage.length. Skipping
+    // slotted script/style/template keeps inline Babel/CSS from registering
+    // as stable "content" before the framework has mounted anything.
+    const weigh = () => {
+      let text = 0, media = 0;
+      for (const c of ds.children) {
+        const t = c.tagName;
+        if (t === 'SCRIPT' || t === 'STYLE' || t === 'TEMPLATE') continue;
+        text += (c.textContent || '').trim().length;
+        media += c.querySelectorAll('img,svg,canvas,video').length;
+      }
+      return text + media * 100;
+    };
+    const deadline = Date.now() + 15000;
+    let last = -1, stable = 0;
+    while (Date.now() < deadline) {
+      const n = weigh();
+      if (n > 0 && n === last) { if (++stable >= 2) break; } else { stable = 0; }
+      last = n;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  }
+  try { await document.fonts.ready; } catch (e) {}
+  setTimeout(() => { try { window.print(); } catch (e) {} }, 200);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>МАВИТА · четыре направления оформления КП</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Manrope:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    @font-face { font-family:"Broadsheet"; src:url("assets/Broadsheet.ttf") format("truetype"); font-display:swap; }
+    @font-face { font-family:"OldNewspaper"; src:url("assets/OldNewspaperTypes-Regular.ttf") format("truetype"); font-display:swap; }
+
+    :root {
+      --bg: #1c1812;
+      --bg-2: #2a241a;
+      --paper: #efe5cf;
+      --ink-soft: rgba(239,229,207,.72);
+      --ink-mute: rgba(239,229,207,.5);
+      --ember: #d28a55;
+      --moss: #a8c478;
+      --rule: rgba(239,229,207,.18);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; }
+    body {
+      background: var(--bg);
+      color: var(--paper);
+      font-family: "Manrope", system-ui, sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content:""; position: fixed; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse at 80% 20%, rgba(210,138,85,.10), transparent 50%),
+        radial-gradient(ellipse at 10% 80%, rgba(168,196,120,.06), transparent 50%);
+    }
+    body::after {
+      content:""; position: fixed; inset: 0; pointer-events: none;
+      background-image:
+        radial-gradient(rgba(239,229,207,.04) 1px, transparent 1px);
+      background-size: 4px 4px;
+      opacity: .6;
+    }
+
+    .shell {
+      position: relative; z-index: 2;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 60px clamp(24px, 5vw, 64px) 80px;
+    }
+
+    .top {
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: "OldNewspaper", monospace;
+      font-size: 12px;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      margin-bottom: 80px;
+    }
+    .top img {
+      width: 38px; filter: invert(1) brightness(1.05); opacity: .9;
+    }
+    .top .brand { display: flex; align-items: center; gap: 14px; letter-spacing: .32em; }
+
+    .hero {
+      max-width: 1100px;
+      margin-bottom: 100px;
+    }
+    .eyebrow {
+      font-family: "OldNewspaper", monospace;
+      font-size: 13px;
+      letter-spacing: .3em;
+      text-transform: uppercase;
+      color: var(--ember);
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 36px;
+    }
+    .eyebrow::before { content:""; width: 40px; height: 1px; background: var(--ember); }
+    h1 {
+      font-family: "Broadsheet", "Cormorant Garamond", serif;
+      font-weight: 400;
+      font-size: clamp(54px, 8vw, 130px);
+      line-height: .9;
+      letter-spacing: -.01em;
+      margin: 0 0 32px;
+    }
+    h1 em {
+      font-family: "Cormorant Garamond", serif;
+      font-style: italic;
+      color: var(--ember);
+      font-weight: 400;
+    }
+    .deck {
+      font-family: "Cormorant Garamond", serif;
+      font-style: italic;
+      font-size: clamp(22px, 2.2vw, 30px);
+      line-height: 1.4;
+      color: var(--ink-soft);
+      max-width: 52ch;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 28px;
+    }
+
+    .card {
+      position: relative;
+      background: var(--bg-2);
+      border: 1px solid var(--rule);
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      min-height: 460px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform .35s, background .35s, border-color .35s;
+      overflow: hidden;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      background: #322a1d;
+      border-color: rgba(210,138,85,.5);
+    }
+    .card::before {
+      content:""; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+      background: var(--accent);
+    }
+    .card[data-accent="ember"] { --accent: var(--ember); }
+    .card[data-accent="moss"]  { --accent: var(--moss);  }
+    .card[data-accent="paper"] { --accent: var(--paper); }
+    .card[data-accent="sea"]   { --accent: #6e96a3; }
+
+    .card .meta {
+      display: flex; justify-content: space-between;
+      font-family: "OldNewspaper", monospace;
+      font-size: 11px;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      margin-bottom: 36px;
+    }
+    .card .meta .n { color: var(--accent); }
+    .card h2 {
+      font-family: "Broadsheet", "Cormorant Garamond", serif;
+      font-weight: 400;
+      font-size: clamp(40px, 4.5vw, 64px);
+      line-height: .98;
+      margin: 0 0 12px;
+    }
+    .card .it {
+      font-family: "Cormorant Garamond", serif;
+      font-style: italic;
+      font-size: clamp(20px, 2vw, 26px);
+      color: var(--accent);
+      margin-bottom: 22px;
+    }
+    .card p {
+      font-size: 16px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+      margin: 0 0 24px;
+      max-width: 44ch;
+    }
+    .card .features {
+      list-style: none; padding: 0; margin: auto 0 28px;
+      border-top: 1px solid var(--rule);
+      padding-top: 18px;
+    }
+    .card .features li {
+      font-family: "OldNewspaper", monospace;
+      font-size: 11px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      padding: 5px 0;
+      padding-left: 18px;
+      position: relative;
+    }
+    .card .features li::before {
+      content:"+"; position: absolute; left: 0; color: var(--accent);
+    }
+    .card .open {
+      align-self: flex-start;
+      font-family: "OldNewspaper", monospace;
+      font-size: 12px;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+      color: var(--accent);
+      padding: 12px 22px;
+      border: 1px solid var(--accent);
+      transition: background .25s, color .25s;
+    }
+    .card:hover .open { background: var(--accent); color: var(--bg); }
+
+    /* preview tags row showing the aesthetic */
+    .card .swatches {
+      display: flex; gap: 8px;
+      margin-bottom: 26px;
+    }
+    .card .swatches span {
+      width: 22px; height: 22px;
+      border: 1px solid var(--rule);
+    }
+
+    .foot {
+      margin-top: 80px;
+      padding-top: 28px;
+      border-top: 1px solid var(--rule);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-family: "OldNewspaper", monospace;
+      font-size: 11px;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; }
+      .top { margin-bottom: 50px; }
+      .hero { margin-bottom: 56px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="top">
+      <div class="brand">
+        <img src="assets/logo.png" alt="МАВИТА" />
+        <span>Мавита · обзор</span>
+      </div>
+      <div>4 направления · 2026</div>
+    </div>
+
+    <header class="hero">
+      <span class="eyebrow">КП Мавита · четыре направления оформления</span>
+      <h1>Один бренд — <em>четыре способа</em> рассказать.</h1>
+      <p class="deck">
+        Одно и то же предложение МАВИТА, представленное в четырёх разных
+        визуальных подходах. Можно выбрать одно, смешать сильные стороны или
+        использовать под разные аудитории.
+      </p>
+    </header>
+
+    <div class="grid">
+
+      <!-- V1 -->
+      <a class="card" data-accent="ember" href="Мавита - Коммерческое предложение.html">
+        <div class="meta"><span class="n">Направление I</span><span>Текущая версия</span></div>
+        <div class="swatches">
+          <span style="background:#2e2b27;"></span>
+          <span style="background:#efe5cf;"></span>
+          <span style="background:#b7704a;"></span>
+          <span style="background:#404a32;"></span>
+        </div>
+        <h2>Премиальный<br/>ритуал.</h2>
+        <div class="it">тёмный кинематограф · длинный scroll</div>
+        <p>Длинный одностраничный документ. Тёмный hero, кремовое тело, переключатель стихий, интерактивный QR-плеер. Главный вариант — спокойный, премиальный, ритуальный.</p>
+        <ul class="features">
+          <li>Полный одностраничный нарратив</li>
+          <li>Интерактивные стихии и аудио-сцены</li>
+          <li>Тёмная палитра · Broadsheet display</li>
+        </ul>
+        <span class="open">Открыть →</span>
+      </a>
+
+      <!-- V2 -->
+      <a class="card" data-accent="paper" href="variants/Мавита - Газета.html">
+        <div class="meta"><span class="n">Направление II</span><span>Editorial</span></div>
+        <div class="swatches">
+          <span style="background:#ece1c4;"></span>
+          <span style="background:#1a1610;"></span>
+          <span style="background:#93271a;"></span>
+          <span style="background:#3e4b2b;"></span>
+        </div>
+        <h2>МАВИТА<br/>Herald.</h2>
+        <div class="it">газетная вёрстка · многоколоночность</div>
+        <p>Редакционная многоколоночная вёрстка. Газетный «масштаб» — масштабная шапка, оглавление, передовица с буквицей, табличный каталог, рубрикатор, объявления.</p>
+        <ul class="features">
+          <li>Газетные сетки и тройные двойные линии</li>
+          <li>Буквица · подписи Fig.</li>
+          <li>Богатые шрифтовые контрасты</li>
+        </ul>
+        <span class="open">Открыть →</span>
+      </a>
+
+      <!-- V3 -->
+      <a class="card" data-accent="ember" href="variants/Мавита - Маршрут.html">
+        <div class="meta"><span class="n">Направление III</span><span>Slide deck</span></div>
+        <div class="swatches">
+          <span style="background:#0f1410;"></span>
+          <span style="background:#efe5cf;"></span>
+          <span style="background:#d28a55;"></span>
+          <span style="background:#a8c478;"></span>
+        </div>
+        <h2>Маршрут<br/>к&nbsp;тишине.</h2>
+        <div class="it">слайд-дек · путешествие в 15 остановках</div>
+        <p>Слайд-дек на полный экран. Каждый раздел — «остановка» на маршруте, координаты, топографические линии в фоне. Управление стрелками/пробелом, режим презентации.</p>
+        <ul class="features">
+          <li>15 полноэкранных слайдов 1920×1080</li>
+          <li>Карто-стилистика и координаты</li>
+          <li>Можно показывать как презентацию</li>
+        </ul>
+        <span class="open">Открыть →</span>
+      </a>
+
+      <!-- V4 -->
+      <a class="card" data-accent="paper" href="variants/Мавита - Галерея.html">
+        <div class="meta"><span class="n">Направление IV</span><span>Minimal</span></div>
+        <div class="swatches">
+          <span style="background:#faf7ee;"></span>
+          <span style="background:#f0ecdf;"></span>
+          <span style="background:#1c1c1a;"></span>
+          <span style="background:#6c5634;"></span>
+        </div>
+        <h2>Галерея<br/>МАВИТА.</h2>
+        <div class="it">музейная экспозиция · максимум воздуха</div>
+        <p>Минималистичная музейная экспозиция. Светлая палитра, огромный воздух, экспонаты с каталожными табличками, индекс залов слева. Тон — каталог камерной выставки.</p>
+        <ul class="features">
+          <li>13 «залов» с фиксированной навигацией</li>
+          <li>Каталожные таблички (год, материал)</li>
+          <li>Cormorant Garamond как ведущий шрифт</li>
+        </ul>
+        <span class="open">Открыть →</span>
+      </a>
+
+    </div>
+
+    <div class="foot">
+      <div>МАВИТА · обзор направлений · 2026</div>
+      <div>Ма · Земля &nbsp;·&nbsp; Вита · Жизнь</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,1005 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>МАВИТА · Коммерческое предложение для партнёров</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Manrope:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="kp.css" />
+  <script src="deck-stage.js"></script>
+</head>
+<body>
+
+  <template id="__bundler_thumbnail" data-bg-color="#0f1410">
+    <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="800" fill="#0f1410"/>
+      <g stroke="#efe5cf" stroke-width="6" fill="none" opacity=".55">
+        <path d="M 240 480 C 360 380, 480 580, 600 480 S 840 380, 960 480"/>
+        <path d="M 240 540 C 360 440, 480 640, 600 540 S 840 440, 960 540"/>
+      </g>
+      <text x="600" y="270" text-anchor="middle" font-family="Times" font-style="italic" font-size="44" fill="#d28a55">МАВИТА</text>
+      <text x="600" y="400" text-anchor="middle" font-family="Times" font-size="110" fill="#efe5cf">КП</text>
+      <text x="600" y="500" text-anchor="middle" font-family="Times" font-style="italic" font-size="32" fill="#a8c478">партнёрам · опт</text>
+      <circle cx="600" cy="640" r="10" fill="#d28a55"/>
+    </svg>
+  </template>
+
+  <!-- shared topo svg as <defs>, used in each slide -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <pattern id="topo" x="0" y="0" width="1920" height="1080" patternUnits="userSpaceOnUse">
+        <g fill="none" stroke="currentColor" stroke-width="1.1" opacity=".55">
+          <path d="M -200 540 C 200 320, 600 760, 1000 540 S 1700 320, 2200 540"/>
+          <path d="M -200 620 C 220 400, 620 860, 1020 620 S 1720 400, 2200 620"/>
+          <path d="M -200 460 C 180 240, 580 680, 980 460 S 1680 240, 2200 460"/>
+          <path d="M -200 700 C 240 480, 640 940, 1040 700 S 1740 480, 2200 700"/>
+          <path d="M -200 380 C 160 160, 560 600, 960 380 S 1660 160, 2200 380"/>
+          <path d="M -200 780 C 260 560, 660 1020, 1060 780 S 1760 560, 2200 780"/>
+          <path d="M -200 300 C 140 80, 540 520, 940 300 S 1640 80, 2200 300"/>
+          <path d="M -200 860 C 280 640, 680 1100, 1080 860 S 1780 640, 2200 860"/>
+          <path d="M -200 220 C 120 0, 520 440, 920 220 S 1620 0, 2200 220"/>
+          <path d="M -200 940 C 300 720, 700 1180, 1100 940 S 1800 720, 2200 940"/>
+          <path d="M 0 1080 L 220 720 L 380 880 L 560 600 L 720 760 L 920 480 L 1080 660 L 1280 380 L 1440 540 L 1640 300 L 1820 460 L 1920 380 L 1920 1080 Z" opacity=".18" fill="currentColor" stroke="none"/>
+        </g>
+      </pattern>
+
+      <!-- product silhouettes for placeholders -->
+      <symbol id="sym-sashe" viewBox="0 0 200 240">
+        <ellipse cx="100" cy="120" rx="78" ry="58" fill="none" stroke="#efe5cf" stroke-width="2" opacity=".5"/>
+        <ellipse cx="100" cy="120" rx="62" ry="46" fill="#efe5cf" opacity=".06"/>
+        <circle cx="100" cy="58" r="6" fill="#d28a55"/>
+        <path d="M 100 64 L 100 78" stroke="#efe5cf" stroke-width="1.5" opacity=".7"/>
+        <text x="100" y="218" text-anchor="middle" font-family="Times" font-style="italic" font-size="14" fill="#efe5cf" opacity=".5">aromasashe</text>
+      </symbol>
+      <symbol id="sym-auto" viewBox="0 0 200 240">
+        <rect x="76" y="60" width="48" height="120" rx="6" fill="none" stroke="#efe5cf" stroke-width="2" opacity=".6"/>
+        <rect x="86" y="44" width="28" height="20" rx="3" fill="none" stroke="#efe5cf" stroke-width="2" opacity=".6"/>
+        <rect x="92" y="30" width="16" height="16" fill="none" stroke="#efe5cf" stroke-width="2" opacity=".5"/>
+        <rect x="84" y="82" width="32" height="60" fill="#efe5cf" opacity=".08"/>
+        <text x="100" y="218" text-anchor="middle" font-family="Times" font-style="italic" font-size="14" fill="#efe5cf" opacity=".5">autoparfum</text>
+      </symbol>
+      <symbol id="sym-diff" viewBox="0 0 200 240">
+        <path d="M 70 96 Q 70 70 100 70 Q 130 70 130 96 L 130 180 Q 130 196 100 196 Q 70 196 70 180 Z" fill="none" stroke="#efe5cf" stroke-width="2" opacity=".6"/>
+        <rect x="94" y="48" width="12" height="22" fill="none" stroke="#efe5cf" stroke-width="2" opacity=".6"/>
+        <g stroke="#d28a55" stroke-width="1.5" opacity=".85" fill="none">
+          <path d="M 90 50 Q 88 30 96 16"/>
+          <path d="M 100 50 Q 102 28 96 12"/>
+          <path d="M 110 50 Q 114 32 108 14"/>
+        </g>
+        <text x="100" y="218" text-anchor="middle" font-family="Times" font-style="italic" font-size="14" fill="#efe5cf" opacity=".5">diffuser</text>
+      </symbol>
+      <symbol id="sym-sash-logo" viewBox="0 0 200 240">
+        <ellipse cx="100" cy="118" rx="80" ry="56" fill="none" stroke="#efe5cf" stroke-width="2" opacity=".55"/>
+        <ellipse cx="100" cy="118" rx="64" ry="42" fill="#efe5cf" opacity=".05"/>
+        <text x="100" y="116" text-anchor="middle" font-family="Times" font-style="italic" font-size="22" fill="#d28a55">МАВИТА</text>
+        <line x1="60" y1="128" x2="140" y2="128" stroke="#d28a55" stroke-width=".8" opacity=".7"/>
+        <text x="100" y="140" text-anchor="middle" font-family="Times" font-size="9" letter-spacing="2" fill="#efe5cf" opacity=".6">EST · 2026</text>
+        <circle cx="100" cy="54" r="5" fill="#d28a55"/>
+      </symbol>
+
+      <!-- Russia outline (simplified silhouette) -->
+      <symbol id="ru-outline" viewBox="0 0 700 360">
+        <!-- Mainland Russia: clockwise from Baltic, around Kola/north coast, far east, south border, Caucasus, back -->
+        <path d="M 36 196
+                 Q 42 188 52 178
+                 L 60 168
+                 Q 64 152 64 138
+                 Q 68 118 84 110
+                 L 96 100
+                 L 110 98
+                 Q 124 102 120 116
+                 L 104 124
+                 Q 90 124 80 134
+                 Q 78 144 92 148
+                 L 108 150
+                 L 128 138
+                 L 154 122
+                 L 184 108
+                 L 206 94
+                 Q 222 70 232 80
+                 L 238 92
+                 Q 246 100 254 96
+                 L 274 94
+                 Q 286 76 296 84
+                 L 304 96
+                 L 326 92
+                 L 346 86
+                 Q 366 48 384 48
+                 Q 400 70 394 88
+                 L 410 96
+                 L 432 88
+                 L 458 84
+                 L 484 86
+                 L 508 78
+                 L 530 84
+                 L 552 88
+                 L 574 90
+                 L 596 98
+                 L 620 104
+                 Q 648 100 664 116
+                 L 662 134
+                 Q 648 144 632 148
+                 L 618 162
+                 L 608 178
+                 Q 594 198 590 220
+                 L 598 244
+                 Q 596 270 580 282
+                 Q 566 278 562 256
+                 L 558 234
+                 L 546 222
+                 L 530 218
+                 L 514 226
+                 L 500 238
+                 L 488 252
+                 L 476 266
+                 Q 470 280 462 288
+                 L 452 296
+                 Q 444 302 432 296
+                 L 420 286
+                 L 408 278
+                 L 392 280
+                 L 374 282
+                 L 354 286
+                 L 332 290
+                 L 314 298
+                 L 296 302
+                 L 276 306
+                 L 256 308
+                 L 234 308
+                 L 210 308
+                 L 188 306
+                 L 168 302
+                 L 150 296
+                 L 134 292
+                 L 122 286
+                 Q 116 290 120 300
+                 L 112 306
+                 Q 102 304 94 296
+                 L 84 288
+                 Q 74 284 68 276
+                 L 58 268
+                 L 48 262
+                 Q 40 254 36 244
+                 L 34 226
+                 L 33 210
+                 Z"
+              fill="#efe5cf" opacity=".09" stroke="#efe5cf" stroke-width="1.2" stroke-opacity=".5" stroke-linejoin="round"/>
+        <!-- Kola peninsula tip (sharpen the northern bump) -->
+        <path d="M 78 92 L 88 78 L 102 82 L 108 92 Z"
+              fill="#efe5cf" opacity=".09" stroke="#efe5cf" stroke-width=".9" stroke-opacity=".45"/>
+        <!-- Kaliningrad detached -->
+        <path d="M 6 214 q -4 6 4 10 q 12 4 16 -4 q 0 -8 -10 -8 q -8 -2 -10 2 z"
+              fill="#efe5cf" opacity=".09" stroke="#efe5cf" stroke-width=".9" stroke-opacity=".45"/>
+        <!-- Sakhalin island -->
+        <path d="M 612 234 q -4 8 -2 22 q 4 18 14 14 q 6 -12 2 -26 q -6 -16 -14 -10 z"
+              fill="#efe5cf" opacity=".09" stroke="#efe5cf" stroke-width=".9" stroke-opacity=".45"/>
+        <!-- Novaya Zemlya hint -->
+        <path d="M 220 36 q 10 -6 16 4 q 6 14 -4 16 q -10 0 -12 -8 z M 232 60 q 6 -4 12 4 q 4 12 -4 12 q -10 -2 -8 -10 z"
+              fill="#efe5cf" opacity=".08" stroke="#efe5cf" stroke-width=".8" stroke-opacity=".4"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- speaker notes: empty (none requested) -->
+
+  <deck-stage>
+
+    <!-- ============================================================
+         01 — COVER
+         ============================================================ -->
+    <section data-screen-label="01 Обложка">
+      <div class="topo" style="opacity:.18;"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content cover">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="МАВИТА" /><span>МАВИТА · est. 2026 · Санкт-Петербург</span></div>
+          <div>КП партнёрам · опт 2026</div>
+        </div>
+
+        <div class="cover-row">
+          <div class="cover-text">
+            <span class="eyebrow">Партнёрам · опт 2026</span>
+            <h1 style="font-size: 124px;">
+              Коммерческое<br/>предложение.<span class="sub it">Авторские ароматические изделия — оптом и под ключ.</span>
+            </h1>
+            <p class="deck">
+              Ритуал тишины в каждой упаковке. Производство в Санкт-Петербурге,
+              индивидуальные тиражи, брендирование под клиента.
+            </p>
+            <div class="meta">
+              <div>Производство<em>Россия · СПб</em></div>
+              <div>Минимальный тираж<em>от 1 шт.</em></div>
+              <div>Брендирование<em>от 50 шт. — в подарок</em></div>
+            </div>
+          </div>
+          <div class="cover-emblem">
+            <img class="cover-logo-big" src="assets/logo.png" alt="МАВИТА" />
+            <div class="cover-emblem-cap">МАВИТА<br/><em>est. 2026 · Санкт-Петербург</em></div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">59.93° N · 30.36° E<br/><em>Санкт-Петербург</em></div>
+            <div class="stop">Слайд<br/><em>01 — Обложка</em></div>
+          </div>
+          <div>15 слайдов · нажмите → или пробел</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         02 — О БРЕНДЕ
+         ============================================================ -->
+    <section data-screen-label="02 О бренде">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>02 / 15 — О бренде</div>
+        </div>
+
+        <div class="two-col" style="margin-top: 24px; align-items: center;">
+          <div class="about-photo">
+            <img src="assets/about.jpeg" alt="Виктория Захарова, основатель МАВИТА" />
+            <div class="cap">Виктория Захарова · основатель</div>
+          </div>
+          <div>
+            <span class="eyebrow">Кто стоит за брендом</span>
+            <p class="quote">Приветствую — я&nbsp;Виктория, основатель бренда <span class="brand-name">МАВИТА.</span></p>
+            <p style="color: var(--ink-soft); max-width: 48ch; font-size: 20px; line-height: 1.55;">
+              Мы&nbsp;создаём авторскую ароматическую продукцию собственного производства
+              в&nbsp;Санкт-Петербурге с&nbsp;2026&nbsp;года. Каждое изделие изготавливается
+              вручную, из&nbsp;натуральных материалов и&nbsp;премиальных ароматов.
+              Не&nbsp;декор — а&nbsp;ритуал возвращения к&nbsp;себе через природу.
+            </p>
+            <p style="color: var(--ink-soft); max-width: 48ch; font-size: 20px; line-height: 1.55; margin-top: 20px;">
+              Предлагаем партнёрам сотрудничество в&nbsp;нескольких форматах:
+              реализация, продукт под&nbsp;вашим брендом и&nbsp;корпоративные подарки
+              с&nbsp;брендированием.
+            </p>
+            <div class="sig" style="margin-top: 32px;">Виктория Захарова<small>— автор МАВИТА · СПб</small></div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">Санкт-Петербург · студия<br/><em>База производства</em></div>
+            <div class="stop">Слайд<br/><em>02 — О бренде</em></div>
+          </div>
+          <div>Ма · Земля &nbsp;·&nbsp; Вита · Жизнь</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         03 — ПРЕИМУЩЕСТВА
+         ============================================================ -->
+    <section data-screen-label="03 Преимущества">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>03 / 15 — Преимущества сотрудничества</div>
+        </div>
+
+        <span class="eyebrow" style="margin-top: 40px;">Почему МАВИТА</span>
+        <h2 class="display" style="font-size: 120px; max-width: 16ch;">Три причины <span class="it">выбрать</span> нас.</h2>
+
+        <div class="adv-grid">
+          <div class="adv-card">
+            <div class="n">I · Смысл</div>
+            <h3>Ритуал,<br/>не&nbsp;декор.</h3>
+            <div class="mood">продукт со встроенной историей</div>
+            <p>Каждая свеча — это сценарий вечера: форма, аромат и&nbsp;звук природы через&nbsp;QR-открытку. Клиент платит не&nbsp;за&nbsp;воск, а&nbsp;за&nbsp;состояние. Это даёт более высокую воспринимаемую ценность и&nbsp;маржу полки.</p>
+          </div>
+          <div class="adv-card">
+            <div class="n">II · Производство</div>
+            <h3>Ручная<br/>работа.</h3>
+            <div class="mood">студия в Санкт-Петербурге</div>
+            <p>Контролируем каждое изделие — от&nbsp;заливки воска до&nbsp;сургучной печати на&nbsp;открытке. Работаем со&nbsp;срочными малыми и&nbsp;крупными тиражами от&nbsp;1&nbsp;до&nbsp;500+ единиц без потери качества.</p>
+          </div>
+          <div class="adv-card">
+            <div class="n">III · Материалы</div>
+            <h3>Экологичность и натуральность.</h3>
+            <div class="mood">гипс · растительный воск · хлопок · дерево</div>
+            <p>Только природные основы и&nbsp;премиальные аромамасла. Гипс, растительный воск, хлопковые и&nbsp;деревянные фитили, натуральные пигменты. Без отдушек-однодневок и&nbsp;агрессивной химии.</p>
+          </div>
+        </div>
+
+        <div class="adv-extras">
+          <div class="ex">Скидки на оптовые партии<small>от 50 единиц</small></div>
+          <div class="ex">Бесплатные образцы<small>при первом заказе</small></div>
+          <div class="ex">Индивидуальные условия<small>для постоянных партнёров</small></div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">три опоры бренда<br/><em>Смысл · производство · материалы</em></div>
+            <div class="stop">Слайд<br/><em>03 — Преимущества</em></div>
+          </div>
+          <div>3 причины · 3 бонуса</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         04 — ВАРИАНТЫ СОТРУДНИЧЕСТВА
+         ============================================================ -->
+    <section data-screen-label="04 Варианты">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>04 / 15 — Варианты сотрудничества</div>
+        </div>
+
+        <span class="eyebrow" style="margin-top: 40px;">Три формата</span>
+        <h2 class="display" style="font-size: 120px; max-width: 18ch;">Как мы можем <span class="it">работать</span> вместе.</h2>
+
+        <div class="coop-grid">
+          <div class="coop-card">
+            <div class="bigN">01</div>
+            <div class="roman">Формат I</div>
+            <h3>Реализация<br/>на&nbsp;вашей<br/>площадке.</h3>
+            <div class="sub">выгодное сотрудничество</div>
+            <p>Берёте нашу готовую продукцию под реализацию в&nbsp;ваш магазин, шоурум или маркет. Гибкие условия по&nbsp;объёму и&nbsp;возврату, поддержка по&nbsp;выкладке.</p>
+            <ul>
+              <li>Готовый каталог из 4 категорий</li>
+              <li>Минимальная партия от 10 единиц</li>
+              <li>Документы и сертификаты — наши</li>
+            </ul>
+          </div>
+          <div class="coop-card">
+            <div class="bigN">02</div>
+            <div class="roman">Формат II</div>
+            <h3>Продукт<br/>под&nbsp;вашим<br/>брендом.</h3>
+            <div class="sub">создание под ключ</div>
+            <p>Разрабатываем уникальное изделие специально под&nbsp;ваш бренд: от&nbsp;аромата и&nbsp;формы до&nbsp;упаковки и&nbsp;открытки. Подходит для&nbsp;кафе, отелей, шоурумов, бьюти-пространств.</p>
+            <ul>
+              <li>Индивидуальный аромат на разработку</li>
+              <li>Ваша форма / цвет / упаковка</li>
+              <li>От 200 единиц на тираж</li>
+            </ul>
+          </div>
+          <div class="coop-card">
+            <div class="bigN">03</div>
+            <div class="roman">Формат III</div>
+            <h3>Корпоративные<br/>подарки.</h3>
+            <div class="sub">клиентам · сотрудникам · партнёрам</div>
+            <p>Готовые подарочные боксы и&nbsp;единичные позиции с&nbsp;вашим лого на&nbsp;этикетке, открытке или&nbsp;инструкции. Сборка под повод и&nbsp;количество.</p>
+            <ul>
+              <li>Боксы под бюджет — от 900 ₽</li>
+              <li>Брендирование от 50 шт. в подарок</li>
+              <li>Срок сборки от 10 рабочих дней</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">три точки входа<br/><em>Подберём формат под задачу</em></div>
+            <div class="stop">Слайд<br/><em>04 — Варианты</em></div>
+          </div>
+          <div>Можно совмещать форматы</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         05 — АССОРТИМЕНТ (обзор 4 категорий)
+         ============================================================ -->
+    <section data-screen-label="05 Ассортимент">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>05 / 15 — Ассортимент</div>
+        </div>
+
+        <span class="eyebrow" style="margin-top: 40px;">Четыре категории</span>
+        <h2 class="display" style="font-size: 120px; max-width: 18ch;">Что мы <span class="it">делаем.</span></h2>
+
+        <div class="cat-grid">
+          <a class="cat-cell" href="#06">
+            <div class="pic">
+              <span class="tag">01</span>
+              <img src="assets/3.jpeg" alt="Аромасвеча" />
+            </div>
+            <h4>Аромасвечи</h4>
+            <div class="desc">Контейнерные и&nbsp;формовые. Гипс, воск, ручная заливка.</div>
+          </a>
+          <a class="cat-cell" href="#07">
+            <div class="pic">
+              <span class="tag">02</span>
+              <img src="assets/sashe.jpg" alt="Аромасаше" />
+            </div>
+            <h4>Аромасаше</h4>
+            <div class="desc">Воск или&nbsp;гипс. До&nbsp;90&nbsp;дней ароматизации.</div>
+          </a>
+          <a class="cat-cell" href="#08">
+            <div class="pic">
+              <span class="tag">03</span>
+              <img src="assets/autoparfum.jpg" alt="Автопарфюм" />
+            </div>
+            <h4>Автопарфюм</h4>
+            <div class="desc">7&nbsp;мл, бельгийская основа. До&nbsp;2&nbsp;месяцев аромата.</div>
+          </a>
+          <a class="cat-cell" href="#09">
+            <div class="pic">
+              <span class="tag">04</span>
+              <img src="assets/diffuser.jpg" alt="Аромадиффузор" />
+            </div>
+            <h4>Аромадиффузор</h4>
+            <div class="desc">50&nbsp;мл. Интерьерная ароматизация на&nbsp;2&nbsp;месяца.</div>
+          </a>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">обзор каталога<br/><em>4 категории · карточки далее</em></div>
+            <div class="stop">Слайд<br/><em>05 — Ассортимент</em></div>
+          </div>
+          <div>Слайды 06–09 — подробно по категориям</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         06 — АРОМАСВЕЧИ
+         ============================================================ -->
+    <section data-screen-label="06 Аромасвечи" id="06">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>06 / 15 — Каталог · Аромасвечи</div>
+        </div>
+
+        <div class="product-grid">
+          <div class="pmedia">
+            <div class="pfig">Кат. 01 · Fig. A</div>
+            <img src="assets/2.jpeg" alt="Аромасвеча — серия Горы" />
+          </div>
+          <div class="pinfo">
+            <div class="col">Кат. 01 · Аромасвечи</div>
+            <h2>Аромасвеча.</h2>
+            <div class="it-name">Контейнерная или формовая</div>
+            <p>Семь активных позиций в серии «Горы»: квадратная и&nbsp;круглая контейнерные, формовые «Скала», «Галька», пирамиды из&nbsp;2 и&nbsp;3 камней. Каждая — самостоятельный ритуал.</p>
+            <ul class="spec-list">
+              <li>Объём — 100&nbsp;мл<small>тара на выбор — стекло, гипс, металл</small></li>
+              <li>Растительный воск<small>натуральные пигменты</small></li>
+              <li>Фитиль — хлопок или дерево<small>на выбор клиента</small></li>
+              <li>Время горения — 15 часов<small>при стандартном использовании</small></li>
+              <li>Аромат — из каталога или индивидуально<small>см. слайд 10</small></li>
+            </ul>
+            <div class="spec-foot">* упаковка не&nbsp;входит в&nbsp;базовую стоимость · добавляется опционально</div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">кат. 01<br/><em>Аромасвеча · 100&nbsp;мл</em></div>
+            <div class="stop">Слайд<br/><em>06 — Свечи</em></div>
+          </div>
+          <div>Опт-цены: слайд 12</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         07 — АРОМАСАШЕ
+         ============================================================ -->
+    <section data-screen-label="07 Аромасаше" id="07">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>07 / 15 — Каталог · Аромасаше</div>
+        </div>
+
+        <div class="product-grid r">
+          <div class="pmedia">
+            <div class="pfig">Кат. 02 · Fig. B</div>
+            <img src="assets/sashe.jpg" alt="Аромасаше — гипсовое" />
+          </div>
+          <div class="pinfo">
+            <div class="col">Кат. 02 · Аромасаше</div>
+            <h2>Аромасаше.</h2>
+            <div class="it-name">Восковое или гипсовое</div>
+            <p>Декоративный ароматический объект для шкафа, авто, ящика стола или подарочного бокса. Не&nbsp;горит, не&nbsp;пачкается — просто живёт рядом и&nbsp;ароматизирует пространство.</p>
+            <ul class="spec-list">
+              <li>Воск — форма ромб, 35&nbsp;г<small>до 90 дней ароматизации</small></li>
+              <li>Гипс — форма круг, 30&nbsp;г<small>до 60 дней ароматизации</small></li>
+              <li>Цвет / глиттер / декор<small>на выбор клиента</small></li>
+              <li>Аромат из каталога<small>или индивидуально под бренд</small></li>
+              <li>Упаковка БОПП — в стоимости<small>прозрачный пакет с биркой</small></li>
+            </ul>
+            <div class="spec-foot">
+</div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">кат. 02<br/><em>Аромасаше · 30–35&nbsp;г</em></div>
+            <div class="stop">Слайд<br/><em>07 — Саше</em></div>
+          </div>
+          <div>Опт-цены: слайд 12</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         08 — АВТОПАРФЮМ
+         ============================================================ -->
+    <section data-screen-label="08 Автопарфюм" id="08">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>08 / 15 — Каталог · Автопарфюм</div>
+        </div>
+
+        <div class="product-grid">
+          <div class="pmedia">
+            <div class="pfig">Кат. 03 · Fig. C</div>
+            <img src="assets/autoparfum.jpg" alt="Автопарфюм — 7 мл" />
+          </div>
+          <div class="pinfo">
+            <div class="col">Кат. 03 · Автопарфюм</div>
+            <h2>Автопарфюм.</h2>
+            <div class="it-name">Флакон 7 мл · долгое испарение</div>
+            <p>Ароматизатор для&nbsp;авто на&nbsp;премиальной парфюмерной основе. Не&nbsp;дешёвая отдушка — настоящий парфюмерный профиль в&nbsp;маленьком флаконе. Хорошо подходит для&nbsp;подарка клиентам.</p>
+            <ul class="spec-list">
+              <li>Флакон — 7&nbsp;мл<small>дизайн и цвет на выбор</small></li>
+              <li>Парфюмерная база<small>японская и&nbsp;бельгийская основа</small></li>
+              <li>Безопасный состав<small>декларация соответствия</small></li>
+              <li>Аромат из каталога<small>или индивидуально под бренд</small></li>
+              <li>Срок использования — ~2&nbsp;месяца<small>средняя интенсивность</small></li>
+            </ul>
+            <div class="spec-foot">* упаковка не&nbsp;входит в&nbsp;базовую стоимость · добавляется опционально</div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">кат. 03<br/><em>Автопарфюм · 7&nbsp;мл</em></div>
+            <div class="stop">Слайд<br/><em>08 — Автопарфюм</em></div>
+          </div>
+          <div>Опт-цены: слайд 13</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         09 — ДИФФУЗОР
+         ============================================================ -->
+    <section data-screen-label="09 Диффузор" id="09">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>09 / 15 — Каталог · Диффузор</div>
+        </div>
+
+        <div class="product-grid r">
+          <div class="pmedia">
+            <div class="pfig">Кат. 04 · Fig. D</div>
+            <img src="assets/diffuser.jpg" alt="Аромадиффузор — 50 мл" />
+          </div>
+          <div class="pinfo">
+            <div class="col">Кат. 04 · Аромадиффузор</div>
+            <h2>Аромадиффузор.</h2>
+            <div class="it-name">Флакон 50 мл · ротанговые или фибровые палочки</div>
+            <p>Постоянная ароматизация помещения без&nbsp;огня и&nbsp;электричества. Хорошо работает в&nbsp;холлах, бьюти-пространствах, кафе и&nbsp;шоурумах — становится частью атмосферы заведения.</p>
+            <ul class="spec-list">
+              <li>Флакон — 50&nbsp;мл<small>цвет и форма на выбор</small></li>
+              <li>База — японская / бельгийская<small>безопасный профессиональный состав</small></li>
+              <li></li>
+              <li>Аромат из каталога<small>или индивидуально под бренд</small></li>
+              <li>Срок использования — ~2&nbsp;месяца<small>при стандартной интенсивности</small></li>
+            </ul>
+            <div class="spec-foot">* упаковка не&nbsp;входит в&nbsp;базовую стоимость · добавляется опционально</div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">кат. 04<br/><em>Диффузор · 50&nbsp;мл</em></div>
+            <div class="stop">Слайд<br/><em>09 — Диффузор</em></div>
+          </div>
+          <div>Опт-цены: слайд 13</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         10 — КАТАЛОГ АРОМАТОВ (три стихии)
+         ============================================================ -->
+    <section data-screen-label="10 Каталог ароматов">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>10 / 15 — Каталог ароматов</div>
+        </div>
+
+        <span class="eyebrow" style="margin-top: 24px;">Три стихии · три направления</span>
+        <h2 class="display" style="font-size: 86px; max-width: 22ch;">Каталог <span class="it">ароматов</span> МАВИТА.</h2>
+
+        <div class="aroma-grid" style="margin-top: 28px;">
+          <div class="aroma-col">
+            <div class="num">I · Заземление</div>
+            <h3>Лес.</h3>
+            <div class="mood">мох · хвоя · влажная земля</div>
+            <ul>
+              <li><span class="n">01</span>Лес после дождя</li>
+              <li><span class="n">02</span>Кедр и папоротник</li>
+              <li><span class="n">03</span>Можжевельник и кора</li>
+              <li><span class="n">04</span>Эвкалипт и хвоя</li>
+              <li><span class="n">05</span>Сосновая смола</li>
+            </ul>
+            <span class="badge off">в разработке</span>
+          </div>
+          <div class="aroma-col">
+            <div class="num">II · Отпускание</div>
+            <h3>Море.</h3>
+            <div class="mood">соль · озон · минералы</div>
+            <ul>
+              <li><span class="n">06</span>Дыхание моря</li>
+              <li><span class="n">07</span>Соль и водоросли</li>
+              <li><span class="n">08</span>Бриз и цитрус</li>
+              <li><span class="n">09</span>Закат у воды</li>
+              <li><span class="n">10</span>Минералы и озон</li>
+            </ul>
+            <span class="badge off">лето 2026</span>
+          </div>
+          <div class="aroma-col">
+            <div class="num">III · Ясность</div>
+            <h3>Горы.</h3>
+            <div class="mood">камень · древесина · застывшая лава</div>
+            <ul>
+              <li><span class="n">11</span>Неизведанные тропы свободы</li>
+              <li><span class="n">12</span>Могущественный покой лавы</li>
+              <li><span class="n">13</span>Пачули и пихта</li>
+              <li><span class="n">14</span>Имбирь и апельсин</li>
+              <li><span class="n">15</span>Холодный воздух</li>
+            </ul>
+            <span class="badge on">в продаже</span>
+          </div>
+        </div>
+
+        <p class="spec-foot" style="border-top: 0; padding-top: 12px; max-width: 100ch; margin-top: 14px; font-size: 11px;">
+          У&nbsp;вас есть возможность подобрать индивидуальный аромат — изготавливаем под&nbsp;запрос по&nbsp;референсам или&nbsp;ольфакторному ТЗ.
+        </p>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">15 базовых · ∞ индивидуальных<br/><em>+ разработка под бренд</em></div>
+            <div class="stop">Слайд<br/><em>10 — Ароматы</em></div>
+          </div>
+          <div>Образцы — бесплатно при первом заказе</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         11 — БРЕНДИРОВАНИЕ
+         ============================================================ -->
+    <section data-screen-label="11 Брендирование">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>11 / 15 — Брендирование</div>
+        </div>
+
+        <span class="eyebrow" style="margin-top: 32px;">Ваш бренд на нашей продукции</span>
+        <h2 class="display" style="font-size: 110px; max-width: 22ch;">Сделаем продукт <span class="it">вашим.</span></h2>
+
+        <div class="brand-split">
+          <div class="brand-samples">
+            <div class="brand-sample">
+              <img src="assets/brand-label.jpg" alt="Пример этикетки с логотипом партнёра" />
+              <div class="cap"><em>Этикетка на свече</em>пример · тираж от 50&nbsp;шт.</div>
+            </div>
+            <div class="brand-sample">
+              <img src="assets/brand-card.jpg" alt="Пример открытки с логотипом партнёра" />
+              <div class="cap"><em>Открытка с подписью партнёра</em>пример · тираж от 100&nbsp;шт.</div>
+            </div>
+          </div>
+
+          <div>
+            <p style="font-family: var(--f-headline); font-style: italic; font-size: 26px; color: var(--ink-soft); line-height: 1.35; max-width: 30ch;">
+              Добавляем ваш логотип на&nbsp;этикетку, инструкцию и&nbsp;открытку — бренд продолжает жить в&nbsp;доме клиента после&nbsp;покупки.
+            </p>
+            <ul class="brand-services">
+              <li>Этикетка на свече / диффузоре</li>
+              <li>Инструкция / благодарственное письмо</li>
+              <li>Подарочная упаковка с лого</li>
+              <li>Индивидуальный дизайн под ваш бренд</li>
+            </ul>
+            <p style="font-family: var(--f-mono); font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--ember); margin-top: 24px;">
+              Брендирование типографии — в&nbsp;подарок от&nbsp;50&nbsp;шт.
+            </p>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">5 точек контакта с клиентом<br/><em>Этикетка · открытка · инструкция</em></div>
+            <div class="stop">Слайд<br/><em>11 — Брендирование</em></div>
+          </div>
+          <div>Дизайн — наша студия или ваш</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         12 — ОПТ I: свечи + саше
+         ============================================================ -->
+    <section data-screen-label="12 Опт I">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>12 / 15 — Оптовые условия · I</div>
+        </div>
+
+        <span class="eyebrow" style="margin-top: 32px;">Свечи и саше</span>
+        <h2 class="display" style="font-size: 110px; max-width: 22ch;">Опт <span class="it">по тиражам.</span></h2>
+        <p class="lede" style="margin-top: 12px; max-width: 56ch; font-size: 22px;">Скидка считается от&nbsp;количества единиц в&nbsp;заказе. Действует на&nbsp;одну позицию каталога.</p>
+
+        <div class="wholesale-grid">
+          <div class="ws-card">
+            <div class="ws-head">
+              <div class="thumb"><img src="assets/4.jpeg" alt="Аромасвеча" /></div>
+              <div>
+                <h3>Аромасвечи.</h3>
+                <div class="meta">100 мл · растительный воск</div>
+              </div>
+            </div>
+            <div class="ws-table">
+              <div class="row head"><div class="k">Тираж</div><div class="v">Цена · ₽/шт</div></div>
+              <div class="row"><div class="k">от 1 до 50 шт.</div><div class="v">1&nbsp;500&nbsp;₽</div></div>
+              <div class="row"><div class="k">от 51 до 100 шт.</div><div class="v">1&nbsp;350&nbsp;₽</div></div>
+              <div class="row"><div class="k">от 101 до 200 шт.</div><div class="v">1&nbsp;200&nbsp;₽</div></div>
+              <div class="row best"><div class="k">от 201 шт.</div><div class="v">1&nbsp;050&nbsp;₽</div></div>
+            </div>
+          </div>
+
+          <div class="ws-card">
+            <div class="ws-head">
+              <div class="thumb"><img src="assets/sashe.jpg" alt="Аромасаше" /></div>
+              <div>
+                <h3>Аромасаше.</h3>
+                <div class="meta">воск 35 г / гипс 30 г</div>
+              </div>
+            </div>
+            <div class="ws-table">
+              <div class="row head"><div class="k">Тираж</div><div class="v">Цена · ₽/шт</div></div>
+              <div class="row"><div class="k">от 1 до 50 шт.</div><div class="v">650&nbsp;₽</div></div>
+              <div class="row"><div class="k">от 51 до 100 шт.</div><div class="v">580&nbsp;₽</div></div>
+              <div class="row"><div class="k">от 101 до 200 шт.</div><div class="v">500&nbsp;₽</div></div>
+              <div class="row best"><div class="k">от 201 шт.</div><div class="v">440&nbsp;₽</div></div>
+            </div>
+          </div>
+        </div>
+
+        <p class="ws-foot" style="margin-top: 28px; color: var(--ember);">
+          + Брендирование типографии (этикетка / инструкция с&nbsp;логотипом) — в&nbsp;подарок от&nbsp;50&nbsp;шт.
+        </p>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">оптовая лестница<br/><em>1 → 50 → 100 → 200+</em></div>
+            <div class="stop">Слайд<br/><em>12 — Опт I</em></div>
+          </div>
+          <div>Цены на 2026 · действительны 30 дней</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         13 — ОПТ II: автопарфюм + диффузор
+         ============================================================ -->
+    <section data-screen-label="13 Опт II">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>13 / 15 — Оптовые условия · II</div>
+        </div>
+
+        <span class="eyebrow" style="margin-top: 32px;">Автопарфюм и диффузор</span>
+        <h2 class="display" style="font-size: 110px; max-width: 22ch;">Опт <span class="it">по тиражам.</span></h2>
+        <p class="lede" style="margin-top: 12px; max-width: 56ch; font-size: 22px;">Цены за&nbsp;единицу при&nbsp;заказе одной позиции. При&nbsp;смешанном заказе скидки считаются по&nbsp;общему количеству.</p>
+
+        <div class="wholesale-grid">
+          <div class="ws-card">
+            <div class="ws-head">
+              <div class="thumb"><img src="assets/autoparfum.jpg" alt="Автопарфюм" /></div>
+              <div>
+                <h3>Автопарфюм.</h3>
+                <div class="meta">7 мл · парфюмерная база</div>
+              </div>
+            </div>
+            <div class="ws-table">
+              <div class="row head"><div class="k">Тираж</div><div class="v">Цена · ₽/шт</div></div>
+              <div class="row"><div class="k">от 1 до 50 шт.</div><div class="v">580&nbsp;₽</div></div>
+              <div class="row"><div class="k">от 51 до 100 шт.</div><div class="v">520&nbsp;₽</div></div>
+              <div class="row"><div class="k">от 101 до 200 шт.</div><div class="v">460&nbsp;₽</div></div>
+              <div class="row best"><div class="k">от 201 шт.</div><div class="v">400&nbsp;₽</div></div>
+            </div>
+          </div>
+
+          <div class="ws-card">
+            <div class="ws-head">
+              <div class="thumb"><img src="assets/diffuser.jpg" alt="Диффузор" /></div>
+              <div>
+                <h3>Диффузор.</h3>
+                <div class="meta">50 мл · ротанговые палочки</div>
+              </div>
+            </div>
+            <div class="ws-table">
+              <div class="row head"><div class="k">Тираж</div><div class="v">Цена · ₽/шт</div></div>
+              <div class="row"><div class="k">от 1 до 50 шт.</div><div class="v">1&nbsp;250&nbsp;₽</div></div>
+              <div class="row"><div class="k">от 51 до 100 шт.</div><div class="v">1&nbsp;100&nbsp;₽</div></div>
+              <div class="row"><div class="k">от 101 до 200 шт.</div><div class="v">980&nbsp;₽</div></div>
+              <div class="row best"><div class="k">от 201 шт.</div><div class="v">850&nbsp;₽</div></div>
+            </div>
+          </div>
+        </div>
+
+        <p class="ws-foot" style="margin-top: 28px; color: var(--ember);">
+          + Брендирование типографии (этикетка / инструкция с&nbsp;логотипом) — в&nbsp;подарок от&nbsp;50&nbsp;шт.
+        </p>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">оптовая лестница<br/><em>1 → 50 → 100 → 200+</em></div>
+            <div class="stop">Слайд<br/><em>13 — Опт II</em></div>
+          </div>
+          <div>Цены на 2026 · действительны 30 дней</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         14 — СРОКИ / ДОСТАВКА
+         ============================================================ -->
+    <section data-screen-label="14 Сроки / Доставка">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>14 / 15 — Сроки и доставка</div>
+        </div>
+
+        <span class="eyebrow" style="margin-top: 20px;">Логистика и сроки</span>
+        <h2 class="display" style="font-size: 78px; max-width: 24ch;">Из Санкт-Петербурга — <span class="it">в&nbsp;любой регион.</span></h2>
+
+        <div class="delivery-grid" style="margin-top: 28px;">
+          <div class="delivery-left">
+            <div class="del-block">
+              <div class="k">Малый заказ</div>
+              <div class="v">~10 рабочих<br/>дней.</div>
+              <div class="nb">Партии до&nbsp;200&nbsp;единиц. Срочные заказы — по&nbsp;договорённости.</div>
+            </div>
+            <div class="del-block">
+              <div class="k">Опт от 201 шт.</div>
+              <div class="v">~20 рабочих<br/>дней.</div>
+              <div class="nb">Сроки могут сокращаться при&nbsp;серийных позициях из&nbsp;остатков.</div>
+            </div>
+            <div class="del-block">
+              <div class="k">Самовывоз</div>
+              <div class="v" style="font-size: 30px; line-height: 1.1;">Санкт-Петербург,<br/>студия МАВИТА.</div>
+              <div class="nb">Адрес уточняем после&nbsp;подтверждения заказа.</div>
+            </div>
+          </div>
+
+          <div class="delivery-map">
+            <h4>Доставка по России — на выбор</h4>
+            <img class="delivery-map-img" src="assets/map.png" alt="Маршруты доставки из Санкт-Петербурга по России" />
+            <div class="couriers">
+              <div class="pill">CDEK</div>
+              <div class="pill">5POST</div>
+              <div class="pill">Яндекс Доставка</div>
+              <div class="pill">Почта России</div>
+            </div>
+            <div class="legend">
+              <span>Тариф · по логистической компании</span>
+              <span style="text-align:right;">Упаковка<em>с защитой</em></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">точка отправления<br/><em>СПб · студия МАВИТА</em></div>
+            <div class="stop">Слайд<br/><em>14 — Доставка</em></div>
+          </div>
+          <div>4 курьерские службы на выбор</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         15 — КОНТАКТЫ
+         ============================================================ -->
+    <section data-screen-label="15 Контакты">
+      <div class="topo"><svg><rect width="100%" height="100%" fill="url(#topo)"/></svg></div>
+      <div class="slide-content closing">
+        <div class="chrome-top">
+          <div class="brand"><img src="assets/logo.png" alt="" /><span>МАВИТА</span></div>
+          <div>15 / 15 — Контакты</div>
+        </div>
+
+        <div class="closing-inner">
+          <img class="closing-logo" src="assets/logo.png" alt="МАВИТА" />
+          <h1>Напишите — <span class="it">соберём</span><br/>предложение под вас.</h1>
+          <p class="deck">
+            Обсудим формат сотрудничества, подберём ассортимент и&nbsp;тираж под&nbsp;вашу аудиторию,
+            пришлём бесплатные образцы и&nbsp;коммерческий расчёт.
+          </p>
+          <div class="contact-row">
+            <a href="mailto:mavitasvechi@mail.ru"><div class="k">Почта</div><div class="v">mavitasvechi@mail.ru</div></a>
+            <a href="https://vk.com/mavitasvechi" target="_blank" rel="noopener"><div class="k">ВКонтакте</div><div class="v">vk.com/mavitasvechi</div></a>
+            <a href="tel:+79211899008"><div class="k">Телефон</div><div class="v">+7 (921) 189-90-08</div></a>
+          </div>
+          <p style="font-family: var(--f-mono); font-size: 12px; letter-spacing: .26em; text-transform: uppercase; color: var(--ink-mute); margin-top: 28px;">
+            Если в&nbsp;каталоге нет того, что&nbsp;хотели — напишите. Команда МАВИТА постарается помочь.
+          </p>
+        </div>
+
+        <div class="chrome-bottom">
+          <div class="left">
+            <div class="coord">конечная точка маршрута<br/><em>Ма · Земля &nbsp;·&nbsp; Вита · Жизнь</em></div>
+            <div class="stop">Слайд<br/><em>15 — Контакты</em></div>
+          </div>
+          <div>МАВИТА · est. 2026 · Санкт-Петербург</div>
+        </div>
+      </div>
+    </section>
+
+  </deck-stage>
+
+  <script>
+    // wheel / trackpad → deck navigation (debounced)
+    (function () {
+      const deck = document.querySelector("deck-stage");
+      if (!deck) return;
+      let busy = false;
+      let acc = 0;
+      const THRESHOLD = 40;
+      window.addEventListener("wheel", (e) => {
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+        if (busy) { e.preventDefault(); return; }
+        acc += e.deltaY;
+        if (Math.abs(acc) < THRESHOLD) return;
+        e.preventDefault();
+        if (acc > 0) deck.next(); else deck.prev();
+        acc = 0;
+        busy = true;
+        setTimeout(() => { busy = false; }, 650);
+      }, { passive: false });
+
+      let touchStartY = null;
+      window.addEventListener("touchstart", (e) => {
+        touchStartY = e.touches[0].clientY;
+      }, { passive: true });
+      window.addEventListener("touchend", (e) => {
+        if (touchStartY == null) return;
+        const dy = e.changedTouches[0].clientY - touchStartY;
+        if (Math.abs(dy) > 60) {
+          if (dy < 0) deck.next(); else deck.prev();
+        }
+        touchStartY = null;
+      }, { passive: true });
+    })();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>МАВИТА · The Herald — выпуск №1, 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="herald.css" />
+  <style>
+    @media print {
+      @page { size: 297mm 420mm; margin: 12mm; } /* A3 portrait */
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      html, body { background: var(--paper) !important; }
+      body::before, body::after { display: none !important; }
+      .back { display: none !important; }
+      .shell {
+        padding: 0 !important;
+        max-width: none !important;
+        margin: 0 !important;
+      }
+      img { break-inside: avoid; }
+      .feature, .product, .elem, .sigil, .gift, .article {
+        break-inside: avoid;
+      }
+      .feature { break-before: page; }
+      .elements { break-before: page; }
+      .products { break-before: page; }
+      .sigil { break-before: page; }
+      footer, .colophon, .contacts, .closing { break-before: page; }
+    }
+  </style>
+</head>
+<body>
+  <template id="__bundler_thumbnail" data-bg-color="#ece1c4">
+    <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="800" fill="#ece1c4"/>
+      <text x="600" y="380" text-anchor="middle" font-family="Times" font-size="170" fill="#1a1610">HERALD</text>
+      <text x="600" y="500" text-anchor="middle" font-family="Times" font-style="italic" font-size="56" fill="#93271a">МАВИТА · выпуск №1</text>
+      <line x1="200" y1="560" x2="1000" y2="560" stroke="#1a1610" stroke-width="3"/>
+    </svg>
+  </template>
+  <a class="back" href="../index.html">← К версиям</a>
+
+  <div class="shell">
+
+    <!-- ============================================================
+         MASTHEAD
+         ============================================================ -->
+    <header class="masthead">
+      <div class="top">
+        <span>Vol. I · No. 1</span>
+        <span class="lat">Editio princeps — Россия · Санкт-Петербург</span>
+        <span>2026 · Зима</span>
+      </div>
+      <h1 class="title">МАВИТА &nbsp;Herald</h1>
+      <div class="sub">
+        <span class="l">Ремесло · Аромат · Стихия</span>
+        <span class="c">«Тишину можно зажечь»</span>
+        <span class="r">Цена: один спокойный вечер</span>
+      </div>
+    </header>
+
+    <!-- ============================================================
+         FRONT PAGE
+         ============================================================ -->
+    <section class="front">
+
+      <aside class="left sidebar">
+        <h3>В&nbsp;этом выпуске</h3>
+        <ul class="toc">
+          <li><span class="n">I</span><a href="#feature">О&nbsp;Виктории</a><span class="p">с.&nbsp;2</span></li>
+          <li><span class="n">II</span><a href="#name">Магия имени</a><span class="p">с.&nbsp;3</span></li>
+          <li><span class="n">III</span><a href="#elements">Три&nbsp;стихии</a><span class="p">с.&nbsp;4</span></li>
+          <li><span class="n">IV</span><a href="#catalog">Каталог «Горы»</a><span class="p">с.&nbsp;5</span></li>
+          <li><span class="n">V</span><a href="#ritual">QR-ритуал</a><span class="p">с.&nbsp;8</span></li>
+          <li><span class="n">VI</span><a href="#contact">Объявления</a><span class="p">с.&nbsp;9</span></li>
+        </ul>
+
+        <div class="weather">
+          <h3 class="red" style="margin-bottom:8px;">Внутри упаковки</h3>
+          <div class="row"><span>Свеча</span><em>гипс · воск</em></div>
+          <div class="row"><span>Открытка</span><em>с QR-кодом</em></div>
+          <div class="row"><span>Печать</span><em>сургуч, ручная</em></div>
+          <div class="row"><span>Аромат</span><em>кедр · можжевельник</em></div>
+        </div>
+
+        <div class="box">
+          <span class="stamp">в&nbsp;продаже</span>
+          <h4>Серия «Горы»</h4>
+          <p>Семь позиций ручной работы. Две коллекции: «Тропы свободы» и «Покой застывшей лавы».</p>
+        </div>
+      </aside>
+
+      <div class="center">
+        <div class="kicker" style="text-align:center;">Передовица · Манифест 2026</div>
+        <h2 class="headline">Свеча, которая возвращает.</h2>
+        <p class="deck">
+          Мы делаем не «уютные аксессуары», а маленький ритуал восстановления —
+          форму, аромат и звук, собранные в один вечер тишины.
+        </p>
+        <div class="byline">Автор · Виктория · основатель МАВИТА &nbsp;·&nbsp; Фото · студия бренда</div>
+
+        <figure class="lede-photo">
+          <img src="../assets/4.jpeg" alt="Аромасвеча на тёмном камне" />
+          <div class="cap">Fig. 01 — «Могущественный покой застывшей лавы», коллекция, серия «Горы».</div>
+        </figure>
+
+        <div class="cols-2">
+          <p>
+            В центре города у нас всё меньше шансов услышать тишину. Лифт,
+            пробки, уведомления, дедлайны, чужие голоса — звук городской жизни
+            не делает пауз. К вечеру мы возвращаемся домой выжатыми, с
+            ощущением, что внутри ничего не осталось. И не понимаем, как это
+            починить за один вечер.
+          </p>
+          <p>
+            МАВИТА предлагает не отдых, а ритуал. Тяжёлая, фактурная свеча
+            ложится в руку и сразу ощущается «настоящей». Открытка с сургучной
+            печатью — формальный, почти бумажный жест, который выводит из
+            режима «ещё одно сообщение». Считываете QR на открытке, и поверх
+            аромата включается звук стихии: лес после дождя, дыхание моря,
+            горная река, тихий костёр.
+          </p>
+          <p>
+            Это занимает десять секунд. И возвращает то, чего не хватало весь
+            день, — ощущение, что вы снова на своём месте.
+          </p>
+          <p>
+            Имя бренда — не маркетинг. <em>Ма</em> в древних языках — земля,
+            опора, материнская основа. <em>Вита</em> — жизнь, дыхание, движение.
+            МАВИТА — земля, на которой стоит жизнь. Каждая свеча буквально
+            упаковывает это сочетание в форму, аромат и звук.
+          </p>
+        </div>
+      </div>
+
+      <aside class="right sidebar">
+        <h3 class="red">Сводка по сериям</h3>
+        <div class="weather">
+          <div class="row"><span>Горы</span><em>в&nbsp;продаже</em></div>
+          <div class="row"><span>Лес</span><em>в&nbsp;разработке</em></div>
+          <div class="row"><span>Море</span><em>лето&nbsp;2026</em></div>
+          <div class="row"><span>Костёр</span><em>аудио-сцена</em></div>
+        </div>
+
+        <div class="box" style="margin-top:18px;">
+          <span class="stamp" style="border-color: var(--moss); color: var(--moss);">фишка</span>
+          <h4>QR-ритуал</h4>
+          <p>Открытка с сургучной печатью. QR открывает аудио стихии — лес, море, горы. Опыт собирается целиком за десять секунд.</p>
+        </div>
+
+        <h3 style="margin-top:22px;">Прайс одной строкой</h3>
+        <div class="weather">
+          <div class="row"><span>Формовая «Скала»</span><em>800&nbsp;₽</em></div>
+          <div class="row"><span>Галька, пара</span><em>900&nbsp;₽</em></div>
+          <div class="row"><span>Каменная пирамида</span><em>1500&nbsp;₽</em></div>
+          <div class="row"><span>Пирамида&nbsp;×3</span><em>1700&nbsp;₽</em></div>
+          <div class="row"><span>Контейнер квадратный</span><em>1800&nbsp;₽</em></div>
+          <div class="row"><span>«Лава»</span><em>1800&nbsp;₽</em></div>
+          <div class="row"><span>Контейнер круглый</span><em>2000&nbsp;₽</em></div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ============================================================
+         FEATURE — about Victoria
+         ============================================================ -->
+    <div class="section-bar" id="feature">
+      <span class="l">Раздел&nbsp;I</span>
+      <span class="name">Кто&nbsp;стоит&nbsp;за&nbsp;брендом</span>
+      <span class="r">с.&nbsp;2</span>
+    </div>
+
+    <article class="feature">
+      <figure>
+        <img src="../assets/about.jpeg" alt="Виктория, основатель МАВИТА" />
+        <figcaption>Fig. 02 — Виктория, основатель МАВИТА. Студийная съёмка, зима 2026.</figcaption>
+      </figure>
+      <div class="copy">
+        <div class="kicker">Интервью · Виктория</div>
+        <h2>«Я создала свечи, которые дают энергию стихий — даже если вы весь день не выходили из дома.»</h2>
+        <p class="deck">
+          Дочь альпиниста. Любовь к высоте, камню и тишине — оттуда. МАВИТА
+          собралась в три ощущения, без которых она не может представить
+          вечер: вес, аромат и звук природы.
+        </p>
+        <div class="body">
+          <p>
+            Я Виктория, основатель МАВИТА. Я создала свечи, которые не просто
+            пахнут — они дают энергию стихий, даже если вы весь день не
+            выходили из дома. Каждая — маленькое путешествие в природу, где
+            обычно вы себя восстанавливаете.
+          </p>
+          <p>
+            Представьте: вы пришли с работы — пробки, задачи, шум, в теле
+            ничего не осталось. Берёте свечу — она тяжёлая, фактурная,
+            настоящая. Зажигаете. Считываете QR на открытке с сургучной
+            печатью. Включается звук горной реки или шелест листвы. Садитесь
+            в кресло — и наполняетесь.
+          </p>
+          <div class="pullquote">
+            «Это не декор. Это&nbsp;состояние, которое&nbsp;можно зажечь.»
+          </div>
+          <p>
+            Я работаю только с натуральными маслами: пачули, эвкалипт,
+            кипарис, можжевельник, пихта, апельсин, имбирь. Лучшее, что может
+            дать природа — собранное с заботой о вас, кто остаётся внутри
+            бетонных стен, но всё равно тянется к воздуху, камню и воде.
+          </p>
+        </div>
+        <div class="signature">Виктория<small>— автор МАВИТА</small></div>
+      </div>
+    </article>
+
+    <!-- ============================================================
+         NAME MAGIC
+         ============================================================ -->
+    <div class="section-bar" id="name">
+      <span class="l">Раздел&nbsp;II</span>
+      <span class="name">Магия&nbsp;имени</span>
+      <span class="r">с.&nbsp;3</span>
+    </div>
+
+    <section style="padding: 40px 0 30px; border-bottom: 1px solid var(--rule);">
+      <div style="display:grid; grid-template-columns: 1fr 2fr 1fr; gap: 32px; align-items:center;">
+        <div style="text-align:right;">
+          <div style="font-family: var(--f-display); font-size: clamp(70px, 12vw, 160px); line-height:.85;">Ма</div>
+          <div style="font-family: var(--f-headline); font-style: italic; font-size: 20px; color: var(--red);">земля · опора</div>
+          <p style="font-size:14px; color:var(--ink-soft); max-width: 26ch; margin-left:auto;">
+            Корень в древних языках — материнская земля, основа всего живого.
+          </p>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-family: var(--f-display); font-size: clamp(90px, 14vw, 180px); line-height:.85; color: var(--red);">+</div>
+          <p style="font-family: var(--f-headline); font-style: italic; font-size: 19px; color: var(--ink-soft); max-width: 32ch; margin: 20px auto 0;">
+            МАВИТА — земля, на&nbsp;которой стоит&nbsp;жизнь.
+          </p>
+        </div>
+        <div style="text-align:left;">
+          <div style="font-family: var(--f-display); font-size: clamp(70px, 12vw, 160px); line-height:.85;">Вита</div>
+          <div style="font-family: var(--f-headline); font-style: italic; font-size: 20px; color: var(--red);">жизнь · дыхание</div>
+          <p style="font-size:14px; color:var(--ink-soft); max-width: 26ch;">
+            Тепло, движение, аромат — три ощущения, возвращающие жизнь в тело.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         ELEMENTS
+         ============================================================ -->
+    <div class="section-bar" id="elements">
+      <span class="l">Раздел&nbsp;III</span>
+      <span class="name">Три&nbsp;стихии</span>
+      <span class="r">с.&nbsp;4</span>
+    </div>
+
+    <section class="elements">
+      <div class="elem">
+        <div class="num">I · Заземление</div>
+        <h3>Лес</h3>
+        <div class="mood">мох, хвоя, влажная земля</div>
+        <div class="notes">Мох · кедр · папоротник · кора · дождь</div>
+        <p>Состояние безопасности и заземления. Запах мокрой коры, ровный шелест листвы, ощущение мягкой подложки под ногами.</p>
+        <span class="stamp-r">в разработке</span>
+      </div>
+      <div class="elem">
+        <div class="num">II · Отпускание</div>
+        <h3>Море</h3>
+        <div class="mood">соль, озон, минералы</div>
+        <div class="notes">Соль · озон · бриз · песок · водоросли</div>
+        <p>Прохладный солёный воздух, минералы и гул прибоя на границе слышимого. Состояние, когда плечи опускаются.</p>
+        <span class="stamp-r">лето 2026</span>
+      </div>
+      <div class="elem">
+        <div class="num">III · Ясность</div>
+        <h3>Горы</h3>
+        <div class="mood">камень, древесина, лава</div>
+        <div class="notes">Камень · кедр · можжевельник · пихта · лава</div>
+        <p>Холодный воздух на вдохе, древесина и застывшая лава, шум горной реки. С этой серии начинается МАВИТА.</p>
+        <span class="stamp-r red">в продаже</span>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CATALOG
+         ============================================================ -->
+    <div class="section-bar" id="catalog">
+      <span class="l">Раздел&nbsp;IV</span>
+      <span class="name">Каталог&nbsp;серии «Горы»</span>
+      <span class="r">с.&nbsp;5</span>
+    </div>
+
+    <table class="catalog-table">
+      <thead>
+        <tr>
+          <th>№</th>
+          <th>Позиция</th>
+          <th>Коллекция</th>
+          <th>Тип</th>
+          <th class="price">Цена</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="n">01</td><td class="name">Контейнерная квадратная</td><td>Неизведанные тропы свободы</td><td>Контейнерная</td><td class="price">1 800 ₽</td></tr>
+        <tr><td class="n">02</td><td class="name">Контейнерная круглая</td><td>Неизведанные тропы свободы</td><td>Контейнерная</td><td class="price">2 000 ₽</td></tr>
+        <tr><td class="n">03</td><td class="name">«Покой застывшей лавы»</td><td>Могущественный покой</td><td>Контейнерная</td><td class="price">1 800 ₽</td></tr>
+        <tr><td class="n">04</td><td class="name">Каменная пирамида (×2)</td><td>Неизведанные тропы свободы</td><td>Контейнерная, набор</td><td class="price">1 500 ₽</td></tr>
+        <tr><td class="n">05</td><td class="name">Пирамида (×3)</td><td>Могущественный покой</td><td>Формовая</td><td class="price">1 700 ₽</td></tr>
+        <tr><td class="n">06</td><td class="name">Скала</td><td>Могущественный покой</td><td>Формовая</td><td class="price">800 ₽</td></tr>
+        <tr><td class="n">07</td><td class="name">Галька (пара)</td><td>Могущественный покой</td><td>Формовая, пара</td><td class="price">900 ₽</td></tr>
+      </tbody>
+    </table>
+
+    <div class="products">
+      <article class="product">
+        <div class="pic"><div class="fig">Fig. 03</div><img src="../assets/2.jpeg" alt="Квадратная" /></div>
+        <div class="meta">
+          <div class="ser">№01 · Неизведанные тропы свободы</div>
+          <h4>Квадратная.<br/>Контейнерная.</h4>
+          <div class="it">Гипсовый куб с крапчатой фактурой</div>
+          <p>Тяжёлая, фактурная, будто срез лавового камня. Тёплый аромат: кедр, можжевельник, лёгкая дымка.</p>
+          <div class="row"><div class="price">1 800<small> ₽</small></div><a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ %2301">Обсудить →</a></div>
+        </div>
+      </article>
+
+      <article class="product">
+        <div class="pic"><div class="fig">Fig. 04</div><img src="../assets/3.jpeg" alt="Круглая" /></div>
+        <div class="meta">
+          <div class="ser">№02 · Неизведанные тропы свободы</div>
+          <h4>Круглая.<br/>Контейнерная.</h4>
+          <div class="it">Старшая сестра квадратной</div>
+          <p>Тот же камень, чуть шире. Объём горит ровнее и дольше — ритуал получается длиннее.</p>
+          <div class="row"><div class="price">2 000<small> ₽</small></div><a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ %2302">Обсудить →</a></div>
+        </div>
+      </article>
+
+      <article class="product">
+        <div class="pic"><div class="fig">Fig. 05</div><img src="../assets/4.jpeg" alt="Покой застывшей лавы" /></div>
+        <div class="meta">
+          <div class="ser">№03 · Могущественный покой</div>
+          <h4>Покой<br/>застывшей лавы.</h4>
+          <div class="it">Минеральный, чуть дымный</div>
+          <p>Камень, который уже остыл, но всё ещё помнит огонь. Для длинных разговоров с самим собой.</p>
+          <div class="row"><div class="price">1 800<small> ₽</small></div><a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ %2303">Обсудить →</a></div>
+        </div>
+      </article>
+
+      <article class="product">
+        <div class="pic"><div class="fig">Fig. 06</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 4px; aspect-ratio: 8/5; overflow:hidden;">
+            <img src="../assets/5a.jpeg" alt="Каменная пирамида — фронт" style="aspect-ratio:auto; height:100%;" />
+            <img src="../assets/5b.jpeg" alt="Каменная пирамида — детали" style="aspect-ratio:auto; height:100%;" />
+          </div>
+        </div>
+        <div class="meta">
+          <div class="ser">№04 · Неизведанные тропы свободы</div>
+          <h4>Каменная<br/>пирамида ×2.</h4>
+          <div class="it">Как горный тур на тропе</div>
+          <p>Две контейнерные свечи с универсальной крышкой. Самая «архитектурная» позиция серии.</p>
+          <div class="row"><div class="price">1 500<small> ₽</small></div><a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ %2304">Обсудить →</a></div>
+        </div>
+      </article>
+
+      <article class="product">
+        <div class="pic"><div class="fig">Fig. 07</div><img src="../assets/6.jpeg" alt="Пирамида из трёх" /></div>
+        <div class="meta">
+          <div class="ser">№05 · Могущественный покой</div>
+          <h4>Пирамида<br/>из трёх камней.</h4>
+          <div class="it">Cairn / горный тур</div>
+          <p>Формовая. Три гальки, сложенные как знак, что «здесь кто-то был». Горит, проявляя структуру слой за слоем.</p>
+          <div class="row"><div class="price">1 700<small> ₽</small></div><a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ %2305">Обсудить →</a></div>
+        </div>
+      </article>
+
+      <article class="product">
+        <div class="pic"><div class="fig">Fig. 08</div><img src="../assets/7.jpeg" alt="Скала" /></div>
+        <div class="meta">
+          <div class="ser">№06 · Могущественный покой</div>
+          <h4>Скала.</h4>
+          <div class="it">Гранёная вершина на закате</div>
+          <p>Тень укладывает рельеф в одно силуэтное движение. Самая «портретная» свеча серии.</p>
+          <div class="row"><div class="price">800<small> ₽</small></div><a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ %2306">Обсудить →</a></div>
+        </div>
+      </article>
+
+      <article class="product">
+        <div class="pic"><div class="fig">Fig. 09</div><img src="../assets/8.jpeg" alt="Галька, пара" /></div>
+        <div class="meta">
+          <div class="ser">№07 · Могущественный покой</div>
+          <h4>Галька.<br/>Пара.</h4>
+          <div class="it">Окатыши, тёплый дым</div>
+          <p>Два камня — тёплый дым и холодный камень в одной композиции. Удобно дарить в паре с открыткой.</p>
+          <div class="row"><div class="price">900<small> ₽</small></div><a class="cta" href="mailto:mavitasvechi@mail.ru?subject=МАВИТА — заказ %2307">Обсудить →</a></div>
+        </div>
+      </article>
+
+      <article class="product">
+        <div class="pic" style="background: var(--paper-2); display:grid; place-items:center;">
+          <div class="fig">Fig. 10</div>
+          <div style="text-align:center; padding: 36px 18px;">
+            <div style="font-family: var(--f-display); font-size: 64px; line-height: 1;">М</div>
+            <div style="font-family: var(--f-news); font-size: 11px; letter-spacing: .26em; text-transform: uppercase; color: var(--red); margin-top: 12px;">сургучная&nbsp;печать</div>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="ser">К каждой свече</div>
+          <h4>Открытка с&nbsp;печатью.</h4>
+          <div class="it">Бумажный жест, нулевой шум</div>
+          <p>Дизайнерская открытка с сургучной печатью и QR-кодом аудио-стихии. Превращает покупку в подарок без отдельной упаковки.</p>
+          <div class="row"><div class="price"><small>в&nbsp;комплекте</small></div><a class="cta" href="#ritual">подробнее →</a></div>
+        </div>
+      </article>
+    </div>
+
+    <!-- ============================================================
+         QR / RITUAL FOOTER
+         ============================================================ -->
+    <div class="section-bar" id="ritual">
+      <span class="l">Раздел&nbsp;V</span>
+      <span class="name">QR-ритуал</span>
+      <span class="r">с.&nbsp;8</span>
+    </div>
+
+    <section class="sigil">
+      <div class="col-l">
+        <h3>Свеча — это <em style="font-family:var(--f-headline); font-style:italic; color:var(--red);">половина</em> опыта.</h3>
+        <p class="it">К каждой свече прилагается открытка с сургучной печатью. Считываете QR — поверх аромата включается звук стихии. Опыт собирается за десять секунд.</p>
+      </div>
+      <div class="qr">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect width="100" height="100" fill="#f4ead0"/>
+          <g fill="#1a1610">
+            <rect x="6" y="6" width="22" height="22"/><rect x="72" y="6" width="22" height="22"/><rect x="6" y="72" width="22" height="22"/>
+            <rect x="11" y="11" width="12" height="12" fill="#f4ead0"/><rect x="77" y="11" width="12" height="12" fill="#f4ead0"/><rect x="11" y="77" width="12" height="12" fill="#f4ead0"/>
+            <rect x="14" y="14" width="6" height="6"/><rect x="80" y="14" width="6" height="6"/><rect x="14" y="80" width="6" height="6"/>
+            <rect x="34" y="6" width="4" height="4"/><rect x="42" y="6" width="4" height="4"/><rect x="50" y="6" width="4" height="4"/><rect x="58" y="6" width="4" height="4"/><rect x="66" y="6" width="4" height="4"/>
+            <rect x="34" y="14" width="4" height="4"/><rect x="46" y="14" width="4" height="4"/><rect x="54" y="14" width="4" height="4"/><rect x="66" y="14" width="4" height="4"/>
+            <rect x="38" y="22" width="4" height="4"/><rect x="50" y="22" width="4" height="4"/><rect x="62" y="22" width="4" height="4"/>
+            <rect x="6" y="34" width="4" height="4"/><rect x="14" y="34" width="4" height="4"/><rect x="22" y="34" width="4" height="4"/><rect x="34" y="34" width="4" height="4"/><rect x="42" y="34" width="4" height="4"/><rect x="54" y="34" width="4" height="4"/><rect x="66" y="34" width="4" height="4"/><rect x="74" y="34" width="4" height="4"/><rect x="86" y="34" width="4" height="4"/>
+            <rect x="10" y="42" width="4" height="4"/><rect x="22" y="42" width="4" height="4"/><rect x="30" y="42" width="4" height="4"/><rect x="42" y="42" width="4" height="4"/><rect x="50" y="42" width="4" height="4"/><rect x="62" y="42" width="4" height="4"/><rect x="78" y="42" width="4" height="4"/><rect x="86" y="42" width="4" height="4"/>
+            <rect x="6" y="50" width="4" height="4"/><rect x="18" y="50" width="4" height="4"/><rect x="26" y="50" width="4" height="4"/><rect x="38" y="50" width="4" height="4"/><rect x="50" y="50" width="4" height="4"/><rect x="58" y="50" width="4" height="4"/><rect x="70" y="50" width="4" height="4"/><rect x="82" y="50" width="4" height="4"/><rect x="90" y="50" width="4" height="4"/>
+            <rect x="14" y="58" width="4" height="4"/><rect x="26" y="58" width="4" height="4"/><rect x="34" y="58" width="4" height="4"/><rect x="46" y="58" width="4" height="4"/><rect x="58" y="58" width="4" height="4"/><rect x="66" y="58" width="4" height="4"/><rect x="78" y="58" width="4" height="4"/><rect x="86" y="58" width="4" height="4"/>
+            <rect x="6" y="66" width="4" height="4"/><rect x="22" y="66" width="4" height="4"/><rect x="34" y="66" width="4" height="4"/><rect x="42" y="66" width="4" height="4"/><rect x="54" y="66" width="4" height="4"/><rect x="62" y="66" width="4" height="4"/><rect x="74" y="66" width="4" height="4"/><rect x="82" y="66" width="4" height="4"/><rect x="90" y="66" width="4" height="4"/>
+            <rect x="34" y="74" width="4" height="4"/><rect x="46" y="74" width="4" height="4"/><rect x="58" y="74" width="4" height="4"/><rect x="70" y="74" width="4" height="4"/><rect x="86" y="74" width="4" height="4"/>
+            <rect x="38" y="82" width="4" height="4"/><rect x="50" y="82" width="4" height="4"/><rect x="62" y="82" width="4" height="4"/><rect x="74" y="82" width="4" height="4"/><rect x="82" y="82" width="4" height="4"/><rect x="90" y="82" width="4" height="4"/>
+            <rect x="34" y="90" width="4" height="4"/><rect x="42" y="90" width="4" height="4"/><rect x="54" y="90" width="4" height="4"/><rect x="66" y="90" width="4" height="4"/><rect x="78" y="90" width="4" height="4"/><rect x="86" y="90" width="4" height="4"/>
+          </g>
+        </svg>
+      </div>
+      <div class="col-r">
+        <div class="kicker">Дорожки в&nbsp;ритуале</div>
+        <ul style="list-style:none; padding:0; margin:0; font-family: var(--f-headline); font-style: italic; font-size: 20px;">
+          <li style="padding: 6px 0; border-bottom: 1px dotted var(--rule);">Лес после дождя · 12:40</li>
+          <li style="padding: 6px 0; border-bottom: 1px dotted var(--rule);">Горная река · 08:20</li>
+          <li style="padding: 6px 0; border-bottom: 1px dotted var(--rule);">Дыхание моря · 14:10</li>
+          <li style="padding: 6px 0; border-bottom: 1px dotted var(--rule);">Шелест листвы · 09:55</li>
+          <li style="padding: 6px 0;">Тихий костёр · 21:30</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         CLASSIFIEDS
+         ============================================================ -->
+    <div class="section-bar" id="contact">
+      <span class="l">Раздел&nbsp;VI</span>
+      <span class="name">Объявления &amp; контакты</span>
+      <span class="r">с.&nbsp;9</span>
+    </div>
+
+    <div class="classified">
+      <a href="mailto:mavitasvechi@mail.ru">
+        <div class="k">Почта</div>
+        <div class="v">mavitasvechi@mail.ru</div>
+      </a>
+      <a href="https://vk.com/mavitasvechi" target="_blank" rel="noopener">
+        <div class="k">ВКонтакте</div>
+        <div class="v">vk.com/mavitasvechi</div>
+      </a>
+      <a href="tel:+79211899008">
+        <div class="k">Телефон</div>
+        <div class="v">+7 (921) 189-90-08</div>
+      </a>
+      <div>
+        <div class="k">Подписка</div>
+        <div class="v">Следующий выпуск весной</div>
+      </div>
+    </div>
+
+    <div class="colophon">
+      <img class="logo" src="../assets/logo.png" alt="МАВИТА" />
+      <div>МАВИТА Herald · Vol. I · No. 1 · 2026 · Авторские свечи ручной работы<br/>Ма · Земля &nbsp;·&nbsp; Вита · Жизнь</div>
+    </div>
+
+  </div>
+  <script>
+    (async () => {
+      try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+      await new Promise(r => setTimeout(r, 700));
+      window.print();
+    })();
+  </script>
+</body>
+</html>
