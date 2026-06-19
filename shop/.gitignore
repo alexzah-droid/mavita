@@ -25,5 +25,8 @@ yarn-error.log*
 # uploads (фото товаров загружаются в рантайме)
 /public/uploads
 
+# typescript build cache
+tsconfig.tsbuildinfo
+
 # test coverage
 /coverage
