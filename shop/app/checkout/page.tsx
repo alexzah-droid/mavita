@@ -24,7 +24,7 @@ export default function CheckoutPage() {
     setErrors([])
     setSubmitting(true)
     try {
-      const res = await fetch('/api/orders', {
+      const res = await fetch('/api/robokassa/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -41,7 +41,11 @@ export default function CheckoutPage() {
         return
       }
       clear()
-      router.push(`/order/${data.id}`)
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl
+      } else {
+        router.push(`/order/${data.id}`)
+      }
     } catch {
       setErrors(['Сеть недоступна. Попробуйте ещё раз.'])
       setSubmitting(false)
@@ -114,12 +118,8 @@ export default function CheckoutPage() {
                 </label>
 
                 <button type="submit" className="btn-add checkout-submit" disabled={submitting}>
-                  {submitting ? 'Оформляем…' : 'Подтвердить заказ'}
+                  {submitting ? 'Переходим к оплате…' : 'Перейти к оплате'}
                 </button>
-                <p className="checkout-note">
-                  Оплата будет добавлена позже (Робокасса). Сейчас заказ создаётся
-                  со статусом «ожидает оплаты».
-                </p>
               </form>
 
               <aside className="cart-summary checkout-summary">

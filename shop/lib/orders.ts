@@ -128,8 +128,10 @@ async function fetchCatalog(slugs: string[]): Promise<Map<string, CatalogItem>> 
   return map
 }
 
-/** Создать заказ (status=pending) + позиции атомарно. Возвращает id заказа. */
-export async function createOrder(input: OrderInput): Promise<number> {
+/** Создать заказ (status=pending) + позиции атомарно. */
+export async function createOrder(
+  input: OrderInput,
+): Promise<{ id: number; totalKopecks: number }> {
   if (!isDbConfigured()) {
     throw new Error('DATABASE_URL is not set — orders require a database')
   }
@@ -143,7 +145,7 @@ export async function createOrder(input: OrderInput): Promise<number> {
   if (errors.length) throw new OrderValidationError(errors)
   if (!lines.length) throw new OrderValidationError(['Корзина пуста'])
 
-  return withTransaction(async (client) => {
+  const id = await withTransaction(async (client) => {
     const orderRes = await client.query<{ id: number }>(
       `INSERT INTO orders (customer_name, customer_email, customer_phone, total_kopecks, status)
        VALUES ($1, $2, $3, $4, 'pending')
@@ -166,6 +168,21 @@ export async function createOrder(input: OrderInput): Promise<number> {
     }
     return orderId
   })
+
+  return { id, totalKopecks }
+}
+
+/** Пометить заказ оплаченным и сохранить сырые данные от Робокассы. */
+export async function markOrderPaid(
+  orderId: number,
+  robokassaData: Record<string, string>,
+): Promise<void> {
+  if (!isDbConfigured()) return
+  await query(
+    `UPDATE orders SET status = 'paid', robokassa_data = $1
+     WHERE id = $2 AND status = 'pending'`,
+    [JSON.stringify(robokassaData), orderId],
+  )
 }
 
 type OrderRow = {

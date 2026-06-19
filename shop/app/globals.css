@@ -1307,6 +1307,18 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   padding: 6px 14px;
   margin-bottom: 24px;
 }
+.order-badge--success {
+  color: var(--moss);
+  border-color: var(--moss-dim);
+}
+.order-badge--fail {
+  color: #c0614a;
+  border-color: #7a3a2a;
+}
+.order-pay-btn {
+  display: inline-block;
+  margin-bottom: 24px;
+}
 .order-title {
   font-family: var(--f-display);
   font-size: clamp(36px, 6vw, 60px);

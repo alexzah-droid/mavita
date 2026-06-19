@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createOrder, OrderValidationError, type OrderInput } from '@/lib/orders'
+import { buildPaymentUrl, isRobokassaConfigured } from '@/lib/robokassa'
+import { query } from '@/lib/db'
 
-// POST /api/orders — создать заказ (pending). Цены пересчитываются на сервере
-// из каталога БД; клиентские цены игнорируются.
+// POST /api/robokassa/init
+// Создаёт заказ (pending), при наличии конфига Робокассы — возвращает URL оплаты.
 export async function POST(req: Request) {
   let body: Partial<OrderInput>
   try {
@@ -21,13 +23,27 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { id } = await createOrder(input)
-    return NextResponse.json({ id }, { status: 201 })
+    const { id, totalKopecks } = await createOrder(input)
+
+    if (!isRobokassaConfigured()) {
+      return NextResponse.json({ id, paymentUrl: null }, { status: 201 })
+    }
+
+    await query('UPDATE orders SET inv_id = $1 WHERE id = $1', [id])
+
+    const paymentUrl = buildPaymentUrl(
+      id,
+      totalKopecks,
+      input.customerEmail.trim(),
+      `Заказ №${id} — МАВИТА`,
+    )
+
+    return NextResponse.json({ id, paymentUrl }, { status: 201 })
   } catch (err) {
     if (err instanceof OrderValidationError) {
       return NextResponse.json({ errors: err.errors }, { status: 400 })
     }
-    console.error('[orders] create failed:', err)
+    console.error('[robokassa/init] failed:', err)
     return NextResponse.json(
       { error: 'Не удалось оформить заказ. Попробуйте позже.' },
       { status: 500 },
