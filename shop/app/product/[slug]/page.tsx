@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getProductBySlug } from '@/lib/catalog'
 import { formatRubAmount } from '@/lib/price'
-import CartButton from '@/app/cart/CartButton'
 import AddToCartButton from '@/app/cart/AddToCartButton'
+import ShopHeader from '@/app/components/ShopHeader'
 
 // Карточка товара рендерится на запрос — данные берутся из БД в рантайме.
 export const dynamic = 'force-dynamic'
@@ -35,19 +35,7 @@ export default async function ProductPage({
 
   return (
     <>
-      {/* Header */}
-      <header className="site-header scrolled" style={{ position: 'sticky' }}>
-        <div className="header-brand">
-          <Image src="/images/logo.png" alt="МАВИТА" width={38} height={38} className="header-logo" />
-          <span className="header-name">МАВИТА</span>
-        </div>
-        <nav className="header-nav">
-          <Link href="/#catalog">Каталог</Link>
-          <Link href="/#ritual">Ритуал</Link>
-          <Link href="/#about">О бренде</Link>
-          <CartButton />
-        </nav>
-      </header>
+      <ShopHeader />
 
       <div className="product-page">
         <div className="product-page-inner">

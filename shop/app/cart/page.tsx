@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useCart } from '@/app/cart/CartProvider'
 import { formatRub } from '@/lib/price'
+import ShopHeader from '@/app/components/ShopHeader'
 
 export default function CartPage() {
   const { cart, ready, count, totalKopecks, setQty, remove } = useCart()
@@ -11,18 +12,7 @@ export default function CartPage() {
 
   return (
     <>
-      {/* Header */}
-      <header className="site-header scrolled" style={{ position: 'sticky' }}>
-        <div className="header-brand">
-          <Image src="/images/logo.png" alt="МАВИТА" width={38} height={38} className="header-logo" />
-          <span className="header-name">МАВИТА</span>
-        </div>
-        <nav className="header-nav">
-          <Link href="/#catalog">Каталог</Link>
-          <Link href="/#ritual">Ритуал</Link>
-          <Link href="/#about">О бренде</Link>
-        </nav>
-      </header>
+      <ShopHeader showCart={false} />
 
       <div className="cart-page">
         <div className="cart-inner">
@@ -109,11 +99,11 @@ export default function CartPage() {
                   <span>Итого</span>
                   <span>{formatRub(totalKopecks)}</span>
                 </div>
-                <button type="button" className="btn-add cart-checkout" disabled>
+                <Link href="/checkout" className="btn-add cart-checkout">
                   Оформить заказ
-                </button>
+                </Link>
                 <p className="cart-summary-note">
-                  Оформление и оплата — следующий шаг (Робокасса, Ф3).
+                  Оплата (Робокасса) подключается на следующем шаге.
                 </p>
               </aside>
             </div>

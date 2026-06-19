@@ -49,12 +49,14 @@ export default function HomeClient({ products }: { products: Product[] }) {
           <Image src="/images/logo.png" alt="МАВИТА" width={38} height={38} className="header-logo" />
           <span className="header-name">МАВИТА</span>
         </div>
-        <nav className="header-nav">
-          <a href="#catalog">Каталог</a>
-          <a href="#ritual">Ритуал</a>
-          <a href="#about">О бренде</a>
+        <div className="header-actions">
+          <nav className="header-nav">
+            <a href="#catalog">Каталог</a>
+            <a href="#ritual">Ритуал</a>
+            <a href="#about">О бренде</a>
+          </nav>
           <CartButton />
-        </nav>
+        </div>
       </header>
 
       {/* ── Hero ── */}
