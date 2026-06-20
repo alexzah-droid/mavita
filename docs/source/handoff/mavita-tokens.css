@@ -1,0 +1,91 @@
+/* ============================================================
+   MAVITA — Design Tokens
+   Два направления: "Свет" (light/airy) и "Камень" (tactile/stone)
+   Подключите через data-theme="svet" или data-theme="kamen"
+   на <html> или <body>.
+   ============================================================ */
+
+/* ---- Шрифты ---- */
+/* Подключить в <head>:
+   <link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+*/
+
+:root {
+  /* Типографика */
+  --font-body: 'Manrope', system-ui, sans-serif;
+
+  /* Шкала кеглей */
+  --fs-eyebrow: 11px;     /* надзаголовок, UPPERCASE, letter-spacing 3-5px */
+  --fs-body-sm: 13px;
+  --fs-body: 16px;
+  --fs-body-lg: 18px;
+  --fs-h2: clamp(32px, 5vw, 60px);
+  --fs-h1: clamp(44px, 7.5vw, 104px);
+
+  /* Радиусы */
+  --r-sm: 3px;
+  --r-md: 5px;
+  --r-lg: 6px;
+  --r-pill: 999px;
+
+  /* Сетка / ритм */
+  --page-pad: 7vw;
+  --maxw: 1280px;
+  --gap: 28px;
+
+  /* Анимации */
+  --ease: cubic-bezier(.22,.61,.36,1);
+}
+
+/* ============================================================
+   НАПРАВЛЕНИЕ 1 — "СВЕТ"  (светлое, природное, воздушное)
+   Заголовки: Spectral Light/Italic. Акцент: шалфейный.
+   ============================================================ */
+[data-theme="svet"] {
+  --font-display: 'Spectral', Georgia, serif;
+  --display-weight: 300;
+
+  --bg:        #f3ede3;  /* основной фон */
+  --bg-alt:    #ebe3d6;  /* секция-подложка (каталог) */
+  --surface:   #ffffff;
+  --ink:       #2c2620;  /* основной текст / заголовки */
+  --muted:     #6a5f52;  /* вторичный текст */
+  --muted-2:   #544b40;  /* абзацы */
+  --accent:    #7d8a6a;  /* шалфейный — кнопки, акценты */
+  --accent-ink:#6c7959;  /* hover акцента */
+  --clay:      #9a8466;  /* глиняный — надзаголовки, подписи */
+  --line:      #ddd4c6;  /* разделители */
+  --on-accent: #ffffff;
+}
+
+/* ============================================================
+   НАПРАВЛЕНИЕ 2 — "КАМЕНЬ"  (тактильное, фактурное)
+   Заголовки: PT Serif Bold. Акцент: мшистый. Карточки-«плиты».
+   ============================================================ */
+[data-theme="kamen"] {
+  --font-display: 'PT Serif', Georgia, serif;
+  --display-weight: 700;
+
+  --bg:        #cdc4b3;  /* каменный фон (+ noise-текстура, см. ниже) */
+  --bg-alt:    #cdc4b3;
+  --surface:   #e8e1d3;  /* «плита» — карточки, панель товара */
+  --ink:       #2a2520;
+  --muted:     #6a6052;
+  --muted-2:   #574f44;
+  --accent:    #5c6149;  /* мшистый */
+  --accent-ink:#4c5139;
+  --clay:      #5c6149;  /* в этом направлении подписи тоже мшистые */
+  --line:      rgba(42,37,32,.12);
+  --dark:      #2a2520;  /* тёмная brand-секция */
+  --on-dark:   #e8e1d3;
+  --on-dark-muted:#c4bbab;
+  --on-accent: #ffffff;
+  --shadow-card: 0 18px 40px rgba(42,37,32,.16);
+  --shadow-lift: 0 30px 60px rgba(42,37,32,.32);
+}
+
+/* Фоновая «каменная» текстура для направления Камень.
+   Применить к корневому контейнеру: class="mav-noise" */
+.mav-noise {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}

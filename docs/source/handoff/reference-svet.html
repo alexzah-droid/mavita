@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MAVITA — направление «Свет» (эталон)</title>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mavita-tokens.css">
+<link rel="stylesheet" href="mavita-components.css">
+</head>
+<body data-theme="svet">
+
+  <!-- ШАПКА -->
+  <header class="mav-header">
+    <div class="mav-container mav-header__inner">
+      <div class="mav-logo">МАВИТА</div>
+      <nav style="display:flex; gap:24px; font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--muted);">
+        <a href="#catalog" style="color:inherit; text-decoration:none;">Свечи</a>
+        <a href="#about" style="color:inherit; text-decoration:none;">О бренде</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ========== ГЛАВНАЯ ========== -->
+
+  <!-- HERO -->
+  <section class="mav-container" style="padding:96px 7vw 60px; text-align:center;">
+    <div class="mav-eyebrow" style="letter-spacing:5px;">Ароматические свечи · ручная работа</div>
+    <h1 class="mav-h1">Земля <em>и</em> жизнь</h1>
+    <p class="mav-lead" style="max-width:560px; margin:32px auto 40px;">Тишина, которую можно зажечь. Принеси частичку природы домой — даже в центре мегаполиса.</p>
+    <button class="mav-btn mav-btn--outline">Выбрать свечу</button>
+  </section>
+
+  <!-- HERO IMAGE -->
+  <section style="max-width:1480px; margin:0 auto; padding:0 4vw 110px;">
+    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23d8cfbf'/%3E%3Cpath d='M0 380 L150 250 L240 320 L400 180 L400 500 L0 500 Z' fill='%23c2b9a6'/%3E%3Ccircle cx='310' cy='120' r='44' fill='%23cfc6b4'/%3E%3C/svg%3E" alt="Свеча MAVITA" style="width:100%; height:min(64vh,620px); object-fit:cover; border-radius:var(--r-lg); display:block;">
+  </section>
+
+  <!-- STORY -->
+  <section class="mav-container" style="max-width:1040px; padding-bottom:120px;">
+    <div style="display:grid; grid-template-columns:0.7fr 1fr; gap:64px; align-items:start;">
+      <div style="font-family:var(--font-display); font-style:italic; font-size:26px; line-height:1.4; color:var(--accent);">Лес умеет замедлять.<br>В его тишине мы находим ответы.</div>
+      <div>
+        <p class="mav-p" style="margin:0 0 22px;">МАВИТА вырос из личной истории. МА — Земля на языке древних, ВИТА — жизнь. Каждая свеча — ручная работа на натуральных маслах: пихта, кипарис, можжевельник, пачули, эвкалипт.</p>
+        <p class="mav-p" style="margin:0;">Формы камней, гор и гальки — природная фактура, застывшая в воске. Зажечь. Услышать. Выдохнуть. Вернуться.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- КАТАЛОГ -->
+  <section id="catalog" style="background:var(--bg-alt); padding:110px 7vw;">
+    <div style="max-width:1280px; margin:0 auto;">
+      <div style="text-align:center; margin-bottom:64px;">
+        <div class="mav-eyebrow">Серия Горы · 2025</div>
+        <h2 class="mav-h2">Коллекция</h2>
+      </div>
+      <div class="mav-grid-4">
+        <a class="mav-card" href="product.html" style="text-decoration:none; color:inherit;">
+          <img class="mav-card__media" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23d8cfbf'/%3E%3Cpath d='M0 380 L150 250 L240 320 L400 180 L400 500 L0 500 Z' fill='%23c2b9a6'/%3E%3Ccircle cx='310' cy='120' r='44' fill='%23cfc6b4'/%3E%3C/svg%3E" alt="">
+          <div class="mav-card__title">Контейнерная квадратная</div>
+          <div class="mav-card__sub">Неизведанные тропы свободы</div>
+          <div class="mav-card__price">1 800 ₽</div>
+        </a>
+        <a class="mav-card" href="product.html" style="text-decoration:none; color:inherit;">
+          <img class="mav-card__media" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23d8cfbf'/%3E%3Cpath d='M0 380 L150 250 L240 320 L400 180 L400 500 L0 500 Z' fill='%23c2b9a6'/%3E%3Ccircle cx='310' cy='120' r='44' fill='%23cfc6b4'/%3E%3C/svg%3E" alt="">
+          <div class="mav-card__title">Контейнерная круглая</div>
+          <div class="mav-card__sub">Неизведанные тропы свободы</div>
+          <div class="mav-card__price">2 000 ₽</div>
+        </a>
+        <a class="mav-card" href="product.html" style="text-decoration:none; color:inherit;">
+          <img class="mav-card__media" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23d8cfbf'/%3E%3Cpath d='M0 380 L150 250 L240 320 L400 180 L400 500 L0 500 Z' fill='%23c2b9a6'/%3E%3Ccircle cx='310' cy='120' r='44' fill='%23cfc6b4'/%3E%3C/svg%3E" alt="">
+          <div class="mav-card__title">Покой застывшей лавы</div>
+          <div class="mav-card__sub">Могущественный покой</div>
+          <div class="mav-card__price">1 800 ₽</div>
+        </a>
+        <a class="mav-card" href="product.html" style="text-decoration:none; color:inherit;">
+          <img class="mav-card__media" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23d8cfbf'/%3E%3Cpath d='M0 380 L150 250 L240 320 L400 180 L400 500 L0 500 Z' fill='%23c2b9a6'/%3E%3Ccircle cx='310' cy='120' r='44' fill='%23cfc6b4'/%3E%3C/svg%3E" alt="">
+          <div class="mav-card__title">Формовая «Галька»</div>
+          <div class="mav-card__sub">Могущественный покой</div>
+          <div class="mav-card__price">900 ₽</div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ПОДВАЛ -->
+  <footer style="padding:72px 7vw; text-align:center;">
+    <div style="font-family:var(--font-display); font-size:24px; letter-spacing:2px; margin-bottom:14px;">МАВИТА</div>
+    <div style="font-size:14px; color:var(--clay); margin-bottom:26px;">Тишина, которую можно зажечь.</div>
+    <div style="display:flex; justify-content:center; gap:32px; font-size:13px; color:var(--muted); flex-wrap:wrap;">
+      <span>mavitasvechi@mail.ru</span><span>+7 921 189-90-08</span><span>vk.com/mavitasvechi</span>
+    </div>
+  </footer>
+
+  <!-- ============================================================
+       СТРАНИЦА ТОВАРА (эталон разметки — на реальном сайте вынести в product.html)
+       ============================================================ -->
+  <section class="mav-container" style="border-top:1px solid var(--line); padding-top:36px;">
+    <a href="#catalog" style="font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--clay); text-decoration:none;">← Коллекция / Горы</a>
+  </section>
+  <section class="mav-container" style="padding:28px 7vw 110px; display:grid; grid-template-columns:1fr 0.85fr; gap:80px; align-items:start;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23d8cfbf'/%3E%3Cpath d='M0 380 L150 250 L240 320 L400 180 L400 500 L0 500 Z' fill='%23c2b9a6'/%3E%3Ccircle cx='310' cy='120' r='44' fill='%23cfc6b4'/%3E%3C/svg%3E" alt="" style="width:100%; aspect-ratio:3/4; grid-column:1/3; border-radius:var(--r-lg); object-fit:cover;">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23d8cfbf'/%3E%3Cpath d='M0 380 L150 250 L240 320 L400 180 L400 500 L0 500 Z' fill='%23c2b9a6'/%3E%3Ccircle cx='310' cy='120' r='44' fill='%23cfc6b4'/%3E%3C/svg%3E" alt="" style="width:100%; aspect-ratio:1/1; border-radius:var(--r-lg); object-fit:cover;">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='500'%3E%3Crect width='100%25' height='100%25' fill='%23d8cfbf'/%3E%3Cpath d='M0 380 L150 250 L240 320 L400 180 L400 500 L0 500 Z' fill='%23c2b9a6'/%3E%3Ccircle cx='310' cy='120' r='44' fill='%23cfc6b4'/%3E%3C/svg%3E" alt="" style="width:100%; aspect-ratio:1/1; border-radius:var(--r-lg); object-fit:cover;">
+    </div>
+    <div style="position:sticky; top:96px;">
+      <div class="mav-eyebrow">Горы · ручная работа</div>
+      <h1 class="mav-h2" style="margin-bottom:20px;">Покой застывшей лавы</h1>
+      <p class="mav-p" style="margin:0 0 30px;">Холодный воздух, камень, древесина, лава. Высота тишины — ощущение внутренней опоры, как горная порода: надёжная, неспешная, вечная.</p>
+      <div class="mav-chips" style="margin-bottom:34px;">
+        <span class="mav-chip">Кипарис</span>
+        <span class="mav-chip">Можжевельник</span>
+        <span class="mav-chip">Камень</span>
+        <span class="mav-chip">Лава</span>
+      </div>
+      <div style="font-family:var(--font-display); font-size:32px; margin-bottom:24px;">1 800 ₽</div>
+      <button class="mav-btn mav-btn--primary mav-btn--block" style="border-radius:var(--r-pill); margin-bottom:30px;">Добавить в корзину</button>
+      <div>
+        <div class="mav-spec"><span class="mav-spec__k">Воск</span><span>Соевый + кокосовый</span></div>
+        <div class="mav-spec"><span class="mav-spec__k">Время горения</span><span>~40 часов</span></div>
+        <div class="mav-spec"><span class="mav-spec__k">В комплекте</span><span>QR-открытка с сургучом</span></div>
+      </div>
+    </div>
+  </section>
+
+</body>
+</html>
