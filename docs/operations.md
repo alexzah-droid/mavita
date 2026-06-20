@@ -96,6 +96,11 @@ proxy_set_header X-Forwarded-For $remote_addr;
 Не использовать здесь `$proxy_add_x_forwarded_for`: клиент мог прислать свой
 `X-Forwarded-For`. Порт Node/PM2 не должен быть доступен напрямую из интернета.
 
+Также обязателен `proxy_set_header Host $host;` — на нём держится same-origin
+проверка админки (I8). За прокси `next start` строит `request.url` как `http://`,
+поэтому `assertSameOrigin` сверяет хост `Origin` с `Host`, а не полный origin.
+Если `Host` не проброшен — вход в админку падает «Неверный Origin» (см. TD-22).
+
 После реализации Ф4 ежедневно запускать очистку аварийных orphan-файлов (скрипт
 удаляет только UUID-файлы без записи в БД и старше часа):
 

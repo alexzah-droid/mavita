@@ -19,7 +19,7 @@
 | Ф1 | Витрина и каталог | ✅ | Витрина и карточка товара читают данные из БД |
 | Ф2 | Корзина и оформление | ✅ | Корзина + оформление заказа (заказ создаётся в БД) |
 | Ф3 | Оплата Робокасса | ✅ | Подпись, init/result/success/fail; тестовый платёж прошёл |
-| Ф4 | Админ-панель | 🚧 | Управление товарами, фото, заказами |
+| Ф4 | Админ-панель | 🚧 | Товары/фото/витрина/скидки — ✅ на проде; заказы — ⬜ |
 | Ф5 | Деплой на VPS | ✅ | Прод mavita.ru запущен; Робокасса в тестовом режиме |
 
 ---
@@ -54,6 +54,7 @@
   `HomeClient` (скролл/reveal-эффекты остаются на клиенте).
 - `app/product/[slug]/page.tsx` — карточка товара из БД (с фоллбэком на seed).
 - Цены форматируются через `lib/price.ts`, наличие — из `in_stock`.
+- `app/components/ProductGallery.tsx` — галерея нескольких фото в карточке; вывод ароматов и атрибутов товара, фото автора (редизайн 2026-06-20).
 
 ---
 
@@ -112,19 +113,28 @@
 
 Цель: владелец управляет ассортиментом без psql.
 
-**Компонент 1 — авторизация + товары и витрина** 🚧 (спроектирован):
+**Компонент 1 — авторизация + товары и витрина** ✅ (реализован, на проде 2026-06-20):
 спецификация [docs/specs/admin-products.md](docs/specs/admin-products.md). Вводит
 инварианты **I8** (гард админки) и **I9** (серверная эффективная цена заказа).
 
-- ⬜ `lib/auth.ts` + `app/api/auth/login|logout` + `app/admin/login` — вход по паролю через iron-session, `requireAdmin()`-гард, rate-limit (**I8**).
-- ⬜ Миграция `002` — `products.visibility` (`public`/`unlisted`/`hidden`) + поля скидки (`sale_price_kopecks`, `sale_starts_at`, `sale_ends_at`).
-- ⬜ `lib/pricing.ts` — чистый расчёт эффективной цены (скидка по таймеру).
-- ⬜ `lib/catalog.ts` / `lib/orders.ts` — фильтры видимости + snapshot скидочной цены при оформлении (**I9**, security-критично).
-- ⬜ `app/admin` — список товаров, CRUD, drag-and-drop сортировка, управление витриной и скидками.
-- ⬜ `app/api/upload` — загрузка фото, файл + `product_images` атомарно (**I5**).
+- ✅ `lib/auth.ts` + `app/api/auth/login|logout` + `app/admin/login` — вход по паролю через iron-session, `requireAdminPage()`/`requireAdminApi()`-гарды, rate-limit (**I8**).
+- ✅ Миграция `002` — `products.visibility` (`public`/`unlisted`/`hidden`) + поля скидки (`sale_price_kopecks`, `sale_starts_at`, `sale_ends_at`).
+- ✅ `lib/pricing.ts` — чистый расчёт эффективной цены (скидка по таймеру).
+- ✅ `lib/catalog.ts` / `lib/orders.ts` — фильтры видимости + snapshot скидочной цены при оформлении (**I9**, security-критично).
+- ✅ `app/admin` — список товаров, CRUD, drag-and-drop сортировка, управление витриной и скидками.
+- ✅ `app/api/upload` — загрузка фото, файл + `product_images` атомарно (**I5**).
 
-**Компонент 2 — заказы** ⬜:
-- ⬜ `app/admin/orders` — список заказов с фильтром по статусу.
+> **CSRF за прокси (фикс 2026-06-20):** `assertSameOrigin` сверяет хост `Origin` с
+> заголовком `Host`, а не полный origin: `next start` за Nginx строит `request.url`
+> как `http://`, из-за чего вход в админку на проде падал «Неверный Origin». См. TD-22.
+
+**Компонент 2 — заказы** ⬜ (спроектирован):
+спецификация [docs/specs/admin-orders.md](docs/specs/admin-orders.md).
+- ⬜ Checkout: платная доставка в ПВЗ СДЭК, server-side snapshot тарифа и полной суммы (**I10**); перед кодом — Пауза 2 на CDEK-интеграцию.
+- ⬜ `app/admin/orders` — список, ПВЗ/трек, статусы исполнения и карточка заказа.
+- ⬜ `POST /api/admin/orders/[id]/cancel|fulfillment` — отмена `pending` и аудит отгрузки; ручного `paid` нет.
+- ⬜ `app/admin/settings/delivery` — фиксированный тариф СДЭК до ПВЗ.
+- ⬜ Миграция `003` — доставка, `store_settings`, `order_admin_events` и индексы.
 
 **Тесты:** `lib/auth.test.ts` (I8), `lib/pricing.test.ts`, `lib/orders.test.ts` (I9, дополнить), `app/api/upload.test.ts` (I5).
 
@@ -145,7 +155,8 @@
 - ✅ `.env` заполнен: DATABASE_URL, ROBOKASSA_LOGIN/PASSWORD1/PASSWORD2, SESSION_SECRET, ADMIN_PASSWORD.
 - ✅ `docs/operations.md` — создан.
 - ✅ Тестовый платёж через Робокассу (`IsTest=1`) прошёл, `pending → paid` работает (2026-06-20).
-- ⬜ **Перед следующим деплоем кода** применить миграцию `sql/migrations/001_order_token.sql` (добавляет `orders.token`, TD-1) — иначе `createOrder` упадёт на проде.
+- ✅ Миграции `001_order_token.sql` (TD-1) и `002_admin_visibility_discount.sql` (видимость + скидки) применены на проде (2026-06-20).
+- ✅ Деплой админки (Ф4 К1) + редизайн витрины с галереей фото товара (2026-06-20).
 - ⬜ GitHub Actions: `git pull → npm run build → pm2 reload mavita` (автоматизация деплоя).
 - ⬜ Переключение `ROBOKASSA_TEST_MODE=false` — **Пауза 1** (после регистрации Робокассы на боевой режим).
 

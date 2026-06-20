@@ -198,12 +198,14 @@ CREATE TABLE order_items (
 
 ## Админ-панель
 
-Защита: логин + пароль через `iron-session` (зашифрованная cookie, без JWT). Один
-пользователь-администратор, пароль в `.env` (`ADMIN_PASSWORD`), ключ cookie —
-`SESSION_SECRET`. Сравнение — `timingSafeEqual` SHA-256 digest равной длины, вход
-с rate-limit. Страницы `app/admin/(protected)` используют `requireAdminPage()`,
+Защита: вход по паролю (без поля логина) через `iron-session` (зашифрованная cookie,
+без JWT). Один пользователь-администратор, пароль в `.env` (`ADMIN_PASSWORD`), ключ
+cookie — `SESSION_SECRET`. Сравнение — `timingSafeEqual` SHA-256 digest равной длины,
+вход с rate-limit. Страницы `app/admin/(protected)` используют `requireAdminPage()`,
 `/api/admin/**` и `/api/upload` — `requireAdminApi()`; изменяющие запросы проходят
-same-origin проверку (инвариант **I8**).
+same-origin проверку (инвариант **I8**): сверяется **хост** заголовка `Origin` с
+`Host` запроса (не полный origin — за прокси `next start` строит `request.url` как
+`http://`).
 
 Возможности:
 - Список товаров с сортировкой drag-and-drop
@@ -247,8 +249,13 @@ server {
         proxy_pass http://127.0.0.1:3000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;   # доверенный IP для rate-limit логина
+        proxy_set_header X-Forwarded-Proto $scheme;      # https за прокси
     }
 }
+
+> `Host` обязателен: на нём держится same-origin проверка админки (**I8**) — Node за
+> прокси видит `request.url` как `http://`, поэтому сверяется хост `Host`, а не протокол.
 ```
 
 ---
