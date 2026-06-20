@@ -93,32 +93,42 @@ Certbot              — Let's Encrypt SSL
 ```sql
 -- Товары
 CREATE TABLE products (
-    id          SERIAL PRIMARY KEY,
-    slug        TEXT UNIQUE NOT NULL,      -- для URL: /product/vanilnaya-svecha
-    name        TEXT NOT NULL,
-    description TEXT,
-    price       INTEGER NOT NULL,          -- в копейках (избегаем float)
-    in_stock    BOOLEAN DEFAULT true,
-    sort_order  INTEGER DEFAULT 0,
-    -- Ф4 (миграция 002): витрина и скидки
-    visibility         TEXT DEFAULT 'public', -- public | unlisted (по прямой ссылке) | hidden
-    sale_price_kopecks INTEGER,             -- сниженная цена; NULL = скидки нет (I2)
-    sale_starts_at     TIMESTAMPTZ,         -- начало скидки; NULL = сразу
-    sale_ends_at       TIMESTAMPTZ,         -- конец скидки (таймер); NULL = бессрочно
-    created_at  TIMESTAMPTZ DEFAULT now(),
-    updated_at  TIMESTAMPTZ DEFAULT now()
+    id                  SERIAL PRIMARY KEY,
+    slug                TEXT UNIQUE NOT NULL, -- URL: /product/<slug>
+    name                TEXT NOT NULL,
+    series              TEXT,
+    subtitle            TEXT,
+    description         TEXT,
+    price_kopecks       INTEGER NOT NULL CHECK (price_kopecks >= 0), -- I2
+    scent               TEXT[] NOT NULL DEFAULT '{}',
+    in_stock            BOOLEAN NOT NULL DEFAULT true,
+    sort_order          INTEGER NOT NULL DEFAULT 0,
+    visibility          TEXT NOT NULL DEFAULT 'public'
+        CHECK (visibility IN ('public', 'unlisted', 'hidden')),
+    sale_price_kopecks  INTEGER
+        CHECK (sale_price_kopecks IS NULL OR sale_price_kopecks >= 0),
+    sale_starts_at      TIMESTAMPTZ,
+    sale_ends_at        TIMESTAMPTZ,
+    CONSTRAINT products_sale_below_price
+        CHECK (sale_price_kopecks IS NULL OR sale_price_kopecks < price_kopecks),
+    CONSTRAINT products_sale_window
+        CHECK (sale_starts_at IS NULL OR sale_ends_at IS NULL OR sale_ends_at > sale_starts_at),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 -- Эффективная цена считается на лету (lib/pricing.ts), без фоновых задач:
--- по истечении sale_ends_at цена автоматически возвращается к price.
+-- по истечении sale_ends_at цена автоматически возвращается к price_kopecks.
 
 -- Фотографии товара (одна карточка — несколько фото)
 CREATE TABLE product_images (
     id          SERIAL PRIMARY KEY,
-    product_id  INTEGER REFERENCES products(id) ON DELETE CASCADE,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     filename    TEXT NOT NULL,             -- хранится в /public/uploads/products/
-    sort_order  INTEGER DEFAULT 0,
-    is_cover    BOOLEAN DEFAULT false      -- главное фото для витрины
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    is_cover    BOOLEAN NOT NULL DEFAULT false -- главное фото для витрины
 );
+-- Не более одной обложки на товар; application гарантирует ровно одну, если фото есть.
+CREATE UNIQUE INDEX uq_product_cover ON product_images (product_id) WHERE is_cover;
 
 -- Заказы
 CREATE TABLE orders (
@@ -188,7 +198,12 @@ CREATE TABLE order_items (
 
 ## Админ-панель
 
-Защита: логин + пароль через `iron-session` (зашифрованная cookie, без JWT). Один пользователь-администратор, пароль в `.env` (`ADMIN_PASSWORD`), ключ cookie — `SESSION_SECRET`. Сравнение пароля — `timingSafeEqual`, вход с rate-limit. Все `/admin/**` и `/api/admin/**` — за `requireAdmin()` (инвариант **I8**).
+Защита: логин + пароль через `iron-session` (зашифрованная cookie, без JWT). Один
+пользователь-администратор, пароль в `.env` (`ADMIN_PASSWORD`), ключ cookie —
+`SESSION_SECRET`. Сравнение — `timingSafeEqual` SHA-256 digest равной длины, вход
+с rate-limit. Страницы `app/admin/(protected)` используют `requireAdminPage()`,
+`/api/admin/**` и `/api/upload` — `requireAdminApi()`; изменяющие запросы проходят
+same-origin проверку (инвариант **I8**).
 
 Возможности:
 - Список товаров с сортировкой drag-and-drop

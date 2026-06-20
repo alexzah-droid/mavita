@@ -19,6 +19,8 @@
 | I5 | Фото: файл + product_images атомарно | интеграционный | `app/api/upload.test.ts` | не написан (Ф4) |
 | I6 | index.html не в .gitignore, не редактируется | structural | `—` | ручная проверка |
 | I7 | .env не коммитится | structural | `.gitignore` | ручная проверка |
+| I8 | Гард admin/upload, session, CSRF | unit + интеграционный | `lib/auth.test.ts`, `app/api/auth/*.test.ts`, `app/api/admin/**/*.test.ts` | не написан (Ф4) |
+| I9 | Серверная effective price в транзакционном snapshot заказа | unit + интеграционный | `lib/pricing.test.ts`, `lib/orders.test.ts` | не написан (Ф4) |
 
 ## Критические сценарии (e2e, после Ф3)
 
@@ -29,6 +31,8 @@
 | Создать заказ → оплатить → статус `paid` | I3, I4 |
 | Загрузить фото → появляется в vitrine | I5 |
 | Цена в заказе совпадает с ценой в БД (в копейках) | I2 |
+| Hidden товар нельзя открыть/заказать; unlisted доступен только по URL | I8, I9 |
+| Временная скидка переключается на границах окна и фиксируется в заказе | I2, I9 |
 
 ## Инструменты
 

@@ -86,6 +86,23 @@ systemctl reload nginx       # применить без даунтайма
 tail -20 /var/log/nginx/access.log   # последние запросы
 ```
 
+Для login rate-limit Node получает доверенный IP только через Nginx. В `location`,
+который проксирует приложение, обязательно:
+
+```nginx
+proxy_set_header X-Forwarded-For $remote_addr;
+```
+
+Не использовать здесь `$proxy_add_x_forwarded_for`: клиент мог прислать свой
+`X-Forwarded-For`. Порт Node/PM2 не должен быть доступен напрямую из интернета.
+
+После реализации Ф4 ежедневно запускать очистку аварийных orphan-файлов (скрипт
+удаляет только UUID-файлы без записи в БД и старше часа):
+
+```cron
+15 3 * * * cd /var/www/mavita-repo/shop && node scripts/cleanup-product-uploads.mjs
+```
+
 ---
 
 ## Запрещено на production
