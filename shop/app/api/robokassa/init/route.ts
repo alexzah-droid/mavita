@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createOrder, DeliveryUnavailableError, OrderValidationError, PriceChangedError, type OrderInput } from '@/lib/orders'
 import { buildPaymentUrl, isRobokassaConfigured } from '@/lib/robokassa'
-import { query } from '@/lib/db'
 import { CdekValidationError } from '@/lib/cdek'
 
 // POST /api/robokassa/init
@@ -18,7 +17,11 @@ export async function POST(req: Request) {
     customerName: String(body.customerName ?? ''),
     customerEmail: String(body.customerEmail ?? ''),
     customerPhone: String(body.customerPhone ?? ''),
-    delivery: { method: body.delivery?.method === 'cdek_pickup' ? 'cdek_pickup' : 'invalid' as never, pickupPointCode: String(body.delivery?.pickupPointCode ?? ''), expectedDeliveryKopecks: Number(body.delivery?.expectedDeliveryKopecks) },
+    // Доставку принимаем, только если клиент её прислал. Без СДЭК checkout её не
+    // шлёт; createOrder сам решает по DELIVERY_ENABLED, обязательна она или нет.
+    delivery: body.delivery
+      ? { method: body.delivery.method === 'cdek_pickup' ? 'cdek_pickup' : 'invalid' as never, pickupPointCode: String(body.delivery.pickupPointCode ?? ''), expectedDeliveryKopecks: Number(body.delivery.expectedDeliveryKopecks) }
+      : null,
     expectedTotalKopecks: Number(body.expectedTotalKopecks),
     items: Array.isArray(body.items)
       ? body.items.map((i) => ({ slug: String(i?.slug ?? ''), quantity: Number(i?.quantity) }))
@@ -31,8 +34,6 @@ export async function POST(req: Request) {
     if (!isRobokassaConfigured()) {
       return NextResponse.json({ id, token, paymentUrl: null }, { status: 201 })
     }
-
-    await query('UPDATE orders SET inv_id = $1 WHERE id = $1', [id])
 
     const paymentUrl = buildPaymentUrl(
       id,

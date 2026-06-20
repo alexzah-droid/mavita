@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from 'crypto'
+import { createHash, timingSafeEqual } from 'node:crypto'
 
 export function isRobokassaConfigured(): boolean {
   return !!(

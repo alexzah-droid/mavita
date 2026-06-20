@@ -30,3 +30,7 @@ tsconfig.tsbuildinfo
 
 # test coverage
 /coverage
+
+# Playwright artifacts
+/test-results
+/playwright-report

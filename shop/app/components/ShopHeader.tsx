@@ -19,6 +19,7 @@ export default function ShopHeader({ showCart = true }: { showCart?: boolean }) 
           <Link href="/#catalog">Каталог</Link>
           <Link href="/#ritual">Ритуал</Link>
           <Link href="/#about">О бренде</Link>
+          <Link href="/delivery">Доставка</Link>
         </nav>
         {showCart && <CartButton />}
       </div>

@@ -1,5 +1,7 @@
 # МАВИТА-ШОП environments
 
+Дата актуализации: 2026-06-21.
+
 ## Стенды
 
 | Термин | URL | Где живёт | Деплой |
@@ -149,10 +151,12 @@ pm2 show mavita    → script: /usr/bin/npm, args: start, cwd: /var/www/mavita-r
 | `ROBOKASSA_LOGIN` | ✅ `mavita` |
 | `ROBOKASSA_PASSWORD1` | ✅ заполнен |
 | `ROBOKASSA_PASSWORD2` | ✅ заполнен |
-| `ROBOKASSA_TEST_MODE` | `true` (боевой режим — Пауза 1) |
+| `ROBOKASSA_TEST_MODE` | состояние проверять после rollout; переключение на `false` — Пауза 1 |
 | `ADMIN_PASSWORD` | ✅ заполнен |
 | `SESSION_SECRET` | ✅ заполнен |
 | `NEXT_PUBLIC_BASE_URL` | `https://mavita.ru` |
+| `DELIVERY_ENABLED` | `false` для текущего rollout: заказ без ПВЗ/доставки |
+| `CDEK_CLIENT_ID` / `CDEK_CLIENT_SECRET` | не требуются и не заполняются, пока доставка выключена |
 
 ### Деплой (текущий процесс)
 
@@ -182,7 +186,8 @@ ssh mavita "cd /var/www/mavita-repo/shop && npm run build && pm2 reload mavita -
 - Переключение на `ROBOKASSA_TEST_MODE=false` — **Пауза 1**, только с явного подтверждения.
 - Реальные `.env` не коммитятся. `.env.example` — единственный публичный список переменных.
 - Не трогать `/opt/invoice-lifecycle/` при деплое МАВИТА — разные сервисы.
-- Перед миграциями PostgreSQL: `pg_dump` backup базы `mavita`.
+- Перед миграциями PostgreSQL: `pg_dump` backup базы `mavita`. `schema.sql` не
+  заменяет миграцию `003_orders_delivery_and_admin_events.sql` для существующей БД.
 - Любое действие на VPS требует **Паузы 1**.
 
 ---

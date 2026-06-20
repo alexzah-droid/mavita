@@ -54,18 +54,21 @@ Certbot              — Let's Encrypt SSL
 │   ├── product/[slug]/page.tsx   — карточка товара
 │   ├── cart/page.tsx             — корзина
 │   ├── checkout/page.tsx         — оформление заказа
-│   ├── order/[id]/page.tsx       — страница «заказ принят»
+│   ├── order/[token]/page.tsx    — страница заказа по неугадываемому token
 │   │
 │   ├── admin/                    — админ-панель (защищена паролем)
 │   │   ├── page.tsx              — список товаров
 │   │   ├── products/new/         — создать товар
 │   │   ├── products/[id]/edit/   — редактировать товар
-│   │   └── orders/               — список заказов
+│   │   ├── orders/               — список и карточка заказов
+│   │   └── settings/delivery/    — тариф СДЭК до ПВЗ
 │   │
 │   └── api/
-│       ├── products/             — CRUD товаров
+│       ├── products/             — публичный каталог (GET)
+│       ├── admin/                — CRUD товаров, заказы и настройки (admin-only)
 │       ├── upload/               — загрузка фотографий
-│       ├── orders/               — создание заказа
+│       ├── cdek/                 — поиск ПВЗ через серверный OAuth-прокси
+│       ├── checkout/delivery/    — публичный тариф / признак доступности доставки
 │       ├── robokassa/
 │       │   ├── init/             — формирование подписи, редирект в Робокассу
 │       │   ├── result/           — ResultURL (сервер→сервер, подтверждение оплаты)
@@ -77,84 +80,38 @@ Certbot              — Let's Encrypt SSL
 │   ├── db.ts                     — Postgres-клиент (pg / postgres.js)
 │   ├── robokassa.ts              — генерация и проверка MD5-подписи
 │   └── auth.ts                   — сессия для админки (iron-session)
+│   └── orders.ts                 — snapshot заказа, оплаты и delivery
 │
 ├── public/
 │   └── uploads/                  — загружаемые фото товаров
 │       └── products/
 │
 └── sql/
-    └── schema.sql                — DDL для первичного развёртывания
+    ├── schema.sql                — DDL только для свежей БД
+    └── migrations/               — последовательные ALTER-миграции production-БД
 ```
 
 ---
 
 ## База данных
 
-```sql
--- Товары
-CREATE TABLE products (
-    id                  SERIAL PRIMARY KEY,
-    slug                TEXT UNIQUE NOT NULL, -- URL: /product/<slug>
-    name                TEXT NOT NULL,
-    series              TEXT,
-    subtitle            TEXT,
-    description         TEXT,
-    price_kopecks       INTEGER NOT NULL CHECK (price_kopecks >= 0), -- I2
-    scent               TEXT[] NOT NULL DEFAULT '{}',
-    in_stock            BOOLEAN NOT NULL DEFAULT true,
-    sort_order          INTEGER NOT NULL DEFAULT 0,
-    visibility          TEXT NOT NULL DEFAULT 'public'
-        CHECK (visibility IN ('public', 'unlisted', 'hidden')),
-    sale_price_kopecks  INTEGER
-        CHECK (sale_price_kopecks IS NULL OR sale_price_kopecks >= 0),
-    sale_starts_at      TIMESTAMPTZ,
-    sale_ends_at        TIMESTAMPTZ,
-    CONSTRAINT products_sale_below_price
-        CHECK (sale_price_kopecks IS NULL OR sale_price_kopecks < price_kopecks),
-    CONSTRAINT products_sale_window
-        CHECK (sale_starts_at IS NULL OR sale_ends_at IS NULL OR sale_ends_at > sale_starts_at),
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
-);
--- Эффективная цена считается на лету (lib/pricing.ts), без фоновых задач:
--- по истечении sale_ends_at цена автоматически возвращается к price_kopecks.
+Канонический исполнимый DDL — [shop/sql/schema.sql](shop/sql/schema.sql); для
+уже развёрнутой БД применяются только недостающие файлы из
+`shop/sql/migrations/`, а не повторный `schema.sql`.
 
--- Фотографии товара (одна карточка — несколько фото)
-CREATE TABLE product_images (
-    id          SERIAL PRIMARY KEY,
-    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    filename    TEXT NOT NULL,             -- хранится в /public/uploads/products/
-    sort_order  INTEGER NOT NULL DEFAULT 0,
-    is_cover    BOOLEAN NOT NULL DEFAULT false -- главное фото для витрины
-);
--- Не более одной обложки на товар; application гарантирует ровно одну, если фото есть.
-CREATE UNIQUE INDEX uq_product_cover ON product_images (product_id) WHERE is_cover;
+| Сущность | Существенные поля и ограничения |
+| --- | --- |
+| `products` | `price_kopecks INTEGER`, visibility, окно скидки, `updated_at`; эффективная цена считается в `lib/pricing.ts` |
+| `product_images` | несколько фото, единственная обложка на товар через partial unique index |
+| `orders` | неугадываемый `token`, `inv_id`, `items_kopecks + delivery_kopecks = total_kopecks`, payment status и отдельный fulfillment status |
+| `order_items` | snapshot названия, цены и количества позиции |
+| `store_settings` | единственный фиксированный тариф СДЭК; `0` — явная бесплатная доставка |
+| `order_admin_events` | неизменяемый аудит отмены и переходов исполнения |
 
--- Заказы
-CREATE TABLE orders (
-    id              SERIAL PRIMARY KEY,
-    token           TEXT UNIQUE NOT NULL,  -- неугадываемый id для URL /order/<token>
-    inv_id          INTEGER UNIQUE,        -- InvId для Робокассы (= id)
-    customer_name   TEXT NOT NULL,
-    customer_email  TEXT NOT NULL,
-    customer_phone  TEXT,
-    total_kopecks   INTEGER NOT NULL,
-    status          TEXT DEFAULT 'pending',
-    -- статусы: pending | paid | cancelled
-    robokassa_data  JSONB,                 -- сырой ответ от Робокассы
-    created_at      TIMESTAMPTZ DEFAULT now()
-);
-
--- Состав заказа
-CREATE TABLE order_items (
-    id          SERIAL PRIMARY KEY,
-    order_id    INTEGER REFERENCES orders(id) ON DELETE CASCADE,
-    product_id  INTEGER REFERENCES products(id),
-    product_name TEXT NOT NULL,            -- snapshot на момент заказа
-    price_kopecks INTEGER NOT NULL,        -- snapshot цены
-    quantity    INTEGER NOT NULL DEFAULT 1
-);
-```
+`orders.delivery_method`, `delivery_carrier` и поля ПВЗ — нейтральный snapshot.
+При `DELIVERY_ENABLED=false` новый заказ не содержит ПВЗ и имеет
+`delivery_kopecks=0`; это режим текущего rollout. Включённая доставка требует
+подтверждённого ПВЗ и серверной повторной проверки через CDEK API.
 
 ---
 
@@ -163,8 +120,10 @@ CREATE TABLE order_items (
 Единый источник статуса фаз — [ROADMAP.md](ROADMAP.md). Здесь не дублируется,
 чтобы не расходиться. Известный техдолг — [docs/tech-debt.md](docs/tech-debt.md).
 
-> **Ф3:** ResultURL/SuccessURL/FailURL нужно прописать в ЛК Робокассы после деплоя на VPS.
-> В тестовом режиме в `.env` кладутся тестовые Password1/Password2 (см. `.env.example`).
+> ResultURL/SuccessURL/FailURL уже описаны в `docs/environments.md`. Перед
+> реальным платежом проверить на VPS конкретный режим `ROBOKASSA_TEST_MODE` и
+> прохождение ResultURL; не считать значение режима подтверждённым только по
+> этому документу.
 
 ---
 
@@ -182,10 +141,10 @@ CREATE TABLE order_items (
         ↓
 3. Робокасса проводит оплату
         ↓
-4. POST /api/robokassa/result  ← сервер Робокассы → наш сервер
+4. GET или POST /api/robokassa/result  ← сервер Робокассы → наш сервер
    — проверяет подпись: MD5(OutSum:InvId:Password2)
    — сверяет OutSum с total_kopecks заказа (защита от недоплаты)
-   — меняет статус заказа на paid (идемпотентно)
+   — атомарно меняет `pending/awaiting_payment` → `paid/new` (идемпотентно)
    — возвращает "OK{InvId}"
         ↓
 5. GET /api/robokassa/success  ← редирект покупателя на /order/<token>
@@ -213,7 +172,12 @@ same-origin проверку (инвариант **I8**): сверяется **�
 - Управление витриной: `public` (на витрине) / `unlisted` (скрыт, но покупается по прямой ссылке) / `hidden` (снят)
 - Временные скидки с таймером (дата начала/окончания); эффективная цена — на сервере, snapshot в заказ (**I9**)
 - Загрузить несколько фото, выбрать обложку, удалить фото
-- Список заказов с фильтром по статусу
+- Список/карточка заказов, отмена неоплаченного заказа и переходы исполнения с аудитом
+- Настройка фиксированного тарифа доставки
+
+Код СДЭК реализован, однако в текущем rollout отключён `DELIVERY_ENABLED=false`:
+поля ПВЗ не показываются и не обязательны. Включение требует отдельной внешней
+интеграции и CDEK OAuth-учётных данных.
 
 Детальная спецификация первого компонента — [docs/specs/admin-products.md](docs/specs/admin-products.md).
 
@@ -270,7 +234,7 @@ server {
 
 ## Переменные окружения (.env)
 
-Полный список — в `shop/.env.example` (единственный публичный источник, инвариант **I7**). Значения на проде — в [docs/environments.md](docs/environments.md). Ключевые: `DATABASE_URL`, `ROBOKASSA_LOGIN/PASSWORD1/PASSWORD2`, `ROBOKASSA_TEST_MODE`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `NEXT_PUBLIC_BASE_URL`.
+Полный список — в `shop/.env.example` (единственный публичный источник, инвариант **I7**). Значения на проде — в [docs/environments.md](docs/environments.md). Ключевые: `DATABASE_URL`, `ROBOKASSA_LOGIN/PASSWORD1/PASSWORD2`, `ROBOKASSA_TEST_MODE`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `NEXT_PUBLIC_BASE_URL`, `DELIVERY_ENABLED`; CDEK-секреты нужны только после отдельного включения доставки.
 
 ---
 

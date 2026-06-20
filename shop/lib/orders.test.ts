@@ -39,6 +39,12 @@ describe('validateOrderInput', () => {
     expect(validateOrderInput(input({ delivery: { method: 'cdek_pickup', pickupPointCode: '', expectedDeliveryKopecks: 50000 } })).ok).toBe(false)
   })
 
+  it('без доставки (СДЭК отключён) не требует ПВЗ и сумму доставки', () => {
+    expect(validateOrderInput({ customerName: 'Виктория', customerEmail: 'vika@example.com', customerPhone: '+79991234567', expectedTotalKopecks: 410000, items: [{ slug: 'kvadratnaya', quantity: 2 }] }, false).ok).toBe(true)
+    // но при включённой доставке тот же ввод без ПВЗ отвергается
+    expect(validateOrderInput({ customerName: 'Виктория', customerEmail: 'vika@example.com', customerPhone: '+79991234567', expectedTotalKopecks: 410000, items: [{ slug: 'kvadratnaya', quantity: 2 }] }, true).ok).toBe(false)
+  })
+
   it('требует непустую корзину', () => {
     const r = validateOrderInput(input({ items: [] }))
     expect(r.ok).toBe(false)

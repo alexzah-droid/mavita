@@ -12,9 +12,22 @@ export type OrderInput = {
   customerName: string
   customerEmail: string
   customerPhone: string
-  delivery: { method: 'cdek_pickup'; pickupPointCode: string; expectedDeliveryKopecks: number }
+  // СДЭК ещё не подключён: на проде доставка временно отключается флагом, и заказ
+  // оформляется без ПВЗ. Когда заявку СДЭК одобрят — убрать DELIVERY_ENABLED=false
+  // в окружении, и доставка снова станет обязательной без правок кода.
+  delivery?: { method: 'cdek_pickup'; pickupPointCode: string; expectedDeliveryKopecks: number } | null
   expectedTotalKopecks: number
   items: { slug: string; quantity: number }[]
+}
+
+/**
+ * Доставка СДЭК включается только когда DELIVERY_ENABLED ≠ 'false'. По умолчанию
+ * включена (целевое состояние и инварианты тестов); на проде до подключения
+ * виджета СДЭК выставляется DELIVERY_ENABLED=false — тогда заказ оформляется
+ * без ПВЗ: delivery_* = NULL, delivery_kopecks = 0, total = items.
+ */
+export function isDeliveryEnabled(): boolean {
+  return process.env.DELIVERY_ENABLED !== 'false'
 }
 
 export type CatalogItem = {
@@ -73,14 +86,17 @@ function normalizePhone(value: string): string | undefined {
 }
 
 /** Чистая валидация формы заказа (без обращения к БД). */
-export function validateOrderInput(input: OrderInput): ValidationResult {
+export function validateOrderInput(input: OrderInput, deliveryRequired = isDeliveryEnabled()): ValidationResult {
   const errors: string[] = []
   if (!input.customerName?.trim()) errors.push('Укажите ФИО получателя')
   const email = input.customerEmail?.trim() ?? ''
   if (!email || !EMAIL_RE.test(email)) errors.push('Укажите корректный email')
   if (!normalizePhone(input.customerPhone ?? '')) errors.push('Укажите корректный телефон получателя')
-  if (input.delivery?.method !== 'cdek_pickup' || !input.delivery.pickupPointCode?.trim()) errors.push('Выберите пункт выдачи СДЭК')
-  if (!Number.isSafeInteger(input.delivery?.expectedDeliveryKopecks) || input.delivery.expectedDeliveryKopecks < 0 || !Number.isSafeInteger(input.expectedTotalKopecks) || input.expectedTotalKopecks < 0) errors.push('Некорректная сумма заказа')
+  if (deliveryRequired) {
+    if (input.delivery?.method !== 'cdek_pickup' || !input.delivery.pickupPointCode?.trim()) errors.push('Выберите пункт выдачи СДЭК')
+    if (!Number.isSafeInteger(input.delivery?.expectedDeliveryKopecks) || (input.delivery?.expectedDeliveryKopecks ?? -1) < 0) errors.push('Некорректная сумма доставки')
+  }
+  if (!Number.isSafeInteger(input.expectedTotalKopecks) || input.expectedTotalKopecks < 0) errors.push('Некорректная сумма заказа')
   if (!Array.isArray(input.items) || input.items.length === 0) {
     errors.push('Корзина пуста')
   } else {
@@ -187,11 +203,13 @@ export async function createOrder(
     throw new Error('DATABASE_URL is not set — orders require a database')
   }
 
-  const validation = validateOrderInput(input)
+  const deliveryEnabled = isDeliveryEnabled()
+  const validation = validateOrderInput(input, deliveryEnabled)
   if (!validation.ok) throw new OrderValidationError(validation.errors)
 
-  // Snapshot точки берём повторно на сервере: клиентский callback нельзя считать авторитетным.
-  const pickupPoint = await getPickupPoint(input.delivery.pickupPointCode.trim())
+  // Snapshot точки берём повторно на сервере: клиентский callback нельзя считать
+  // авторитетным. Без СДЭК (DELIVERY_ENABLED=false) заказ оформляется без ПВЗ.
+  const pickupPoint = deliveryEnabled ? await getPickupPoint(input.delivery!.pickupPointCode.trim()) : null
 
   const token = randomUUID()
   const result = await withTransaction(async (client) => {
@@ -199,13 +217,17 @@ export async function createOrder(
     const { lines, totalKopecks: itemsKopecks, errors } = buildOrderLines(catalog, input.items, new Date())
     if (errors.length) throw new OrderValidationError(errors)
     if (!lines.length) throw new OrderValidationError(['Корзина пуста'])
-    const settings = await client.query<{ cdek_pickup_delivery_kopecks: number | string }>('SELECT cdek_pickup_delivery_kopecks FROM store_settings WHERE singleton = true FOR SHARE')
-    if (!settings.rows[0]) throw new DeliveryUnavailableError()
-    const deliveryKopecks = Number(settings.rows[0].cdek_pickup_delivery_kopecks); const totalKopecks = itemsKopecks + deliveryKopecks
-    if (input.delivery.expectedDeliveryKopecks !== deliveryKopecks || input.expectedTotalKopecks !== totalKopecks) throw new PriceChangedError({ itemsKopecks, deliveryKopecks, totalKopecks })
+    let deliveryKopecks = 0
+    if (deliveryEnabled) {
+      const settings = await client.query<{ cdek_pickup_delivery_kopecks: number | string }>('SELECT cdek_pickup_delivery_kopecks FROM store_settings WHERE singleton = true FOR SHARE')
+      if (!settings.rows[0]) throw new DeliveryUnavailableError()
+      deliveryKopecks = Number(settings.rows[0].cdek_pickup_delivery_kopecks)
+    }
+    const totalKopecks = itemsKopecks + deliveryKopecks
+    if ((deliveryEnabled && input.delivery!.expectedDeliveryKopecks !== deliveryKopecks) || input.expectedTotalKopecks !== totalKopecks) throw new PriceChangedError({ itemsKopecks, deliveryKopecks, totalKopecks })
     const orderRes = await client.query<{ id: number }>(
       `INSERT INTO orders (token, customer_name, customer_email, customer_phone, total_kopecks, items_kopecks, delivery_kopecks, delivery_method, delivery_carrier, pickup_point_code, pickup_point_city, pickup_point_name, pickup_point_address, fulfillment_status, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'cdek_pickup', 'cdek', $8, $9, $10, $11, 'awaiting_payment', 'pending')
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'awaiting_payment', 'pending')
        RETURNING id`,
       [
         token,
@@ -215,13 +237,18 @@ export async function createOrder(
         totalKopecks,
         itemsKopecks,
         deliveryKopecks,
-        pickupPoint.code,
-        pickupPoint.city,
-        pickupPoint.name,
-        pickupPoint.address,
+        pickupPoint ? 'cdek_pickup' : null,
+        pickupPoint ? 'cdek' : null,
+        pickupPoint?.code ?? null,
+        pickupPoint?.city ?? null,
+        pickupPoint?.name ?? null,
+        pickupPoint?.address ?? null,
       ],
     )
     const orderId = orderRes.rows[0].id
+    // InvId равен id заказа. Присваиваем в той же транзакции, чтобы init никогда
+    // не вернул платёжную ссылку для заказа без идентификатора Робокассы.
+    await client.query('UPDATE orders SET inv_id = $1 WHERE id = $1', [orderId])
 
     for (const line of lines) {
       await client.query(

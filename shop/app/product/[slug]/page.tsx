@@ -6,6 +6,7 @@ import AddToCartButton from '@/app/cart/AddToCartButton'
 import ShopHeader from '@/app/components/ShopHeader'
 import PriceDisplay from '@/app/components/PriceDisplay'
 import ProductGallery from '@/app/components/ProductGallery'
+import SiteFooter from '@/app/components/SiteFooter'
 
 // Карточка товара рендерится на запрос — данные берутся из БД в рантайме.
 export const dynamic = 'force-dynamic'
@@ -119,35 +120,7 @@ export default async function ProductPage({
         </div>
       </div>
 
-      {/* Footer strip */}
-      <footer className="site-footer" style={{ marginTop: 0 }}>
-        <div
-          style={{
-            maxWidth: 1400,
-            margin: '0 auto',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 16,
-            fontFamily: 'var(--f-mono)',
-            fontSize: 10,
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            color: 'var(--paper-mute)',
-          }}
-        >
-          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-            <a href="mailto:mavitasvechi@mail.ru" style={{ color: 'inherit' }}>
-              mavitasvechi@mail.ru
-            </a>
-            <a href="tel:+79211899008" style={{ color: 'inherit' }}>
-              +7 921 189-90-08
-            </a>
-          </div>
-          <span>© 2025 МАВИТА</span>
-        </div>
-      </footer>
+      <SiteFooter />
     </>
   )
 }

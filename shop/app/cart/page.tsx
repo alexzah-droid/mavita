@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useCart } from '@/app/cart/CartProvider'
 import { formatRub } from '@/lib/price'
 import ShopHeader from '@/app/components/ShopHeader'
+import SiteFooter from '@/app/components/SiteFooter'
 
 export default function CartPage() {
   const { cart, ready, count, totalKopecks, setQty, remove } = useCart()
@@ -110,6 +111,7 @@ export default function CartPage() {
           )}
         </div>
       </div>
+      <SiteFooter />
     </>
   )
 }

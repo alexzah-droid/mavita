@@ -2,7 +2,9 @@
 
 Дата: 2026-06-20  
 Фаза: **Ф4**, компонент 2  
-Статус: ⚠️ готова к реализации после Паузы 2 на CDEK-интеграцию (§13)
+Статус: ✅ реализована в репозитории; production rollout требует backup и
+миграцию `003`. СДЭК отключён `DELIVERY_ENABLED=false`, поэтому текущая проверка
+платежей проходит без ПВЗ и CDEK OAuth-учётных данных.
 
 Связанные документы: [architecture.md](../../architecture.md),
 [PROJECT_CORE.md](../../PROJECT_CORE.md) (I2, I3, I4, I8),
@@ -10,6 +12,21 @@
 [docs/specs/admin-products.md](admin-products.md) (авторизация и API-конвенции),
 [виджет СДЭК](https://widget.cdek.ru/) (выбор ПВЗ),
 [FAQ СДЭК](https://mobile.cdek.ru/faq) (данные получателя).
+
+---
+
+## 0. Результат критического ревью (2026-06-20)
+
+Ревью выполнено против текущего кода (`lib/orders.ts`, `lib/auth.ts`,
+`app/api/robokassa/*`, `sql/schema.sql`). Его замечания отражены ниже в
+нормативных разделах: CDEK-виджет выбирает ПВЗ, сервер повторно проверяет код
+через OAuth API CDEK; цифровой поиск ищет и номер заказа, и телефон;
+`markOrderPaid` меняет две оси статуса в одной транзакции; checkout передаёт
+ожидаемые суммы и получает `409 PRICE_CHANGED` при их изменении.
+
+Внешний gate остаётся только для **включения** ПВЗ СДЭК: понадобятся Пауза 2 и
+действующие `CDEK_CLIENT_ID`/`CDEK_CLIENT_SECRET`. Он не блокирует миграцию,
+admin API, UI заказов или оплату без доставки.
 
 ---
 
@@ -34,9 +51,10 @@
 3. Единственное ручное действие — отменить заказ в `pending`; операция требует
    причину и фиксируется в неизменяемом журнале.
 4. При оформлении: обязательные ФИО и телефон получателя, выбор ПВЗ СДЭК,
-   серверный snapshot фиксированной стоимости доставки и включение её в платёж.
+   серверный snapshot фиксированной (в том числе нулевой) стоимости доставки и
+   включение её в платёж.
 5. В админке: единственная настройка тарифа «Доставка СДЭК до ПВЗ», переходы
-   исполнения `new → packing → handed_to_cdek → delivered` и ручная запись
+   исполнения `new → packing → handed_to_carrier → delivered` и ручная запись
    трек-номера после создания отправления в ЛК СДЭК.
 6. Защита UI и API существующей admin-сессией и CSRF-guard.
 
@@ -54,8 +72,9 @@
 - экспорт заказов и отчёты.
 
 Первый релиз обслуживает только **доставку в ПВЗ СДЭК по РФ**. Самовывоза нет.
-Тариф один, задаётся владельцем в админке и должен быть ненулевым. Это не расчёт
-СДЭК: цена одинакова для любого доступного ПВЗ и показывается покупателю до
+Тариф один, задаётся владельцем в админке и может быть нулевым (бесплатная
+доставка для покупателя). Это не расчёт СДЭК: цена одинакова для любого
+доступного ПВЗ и показывается покупателю до
 перехода к оплате.
 
 ---
@@ -77,8 +96,8 @@
 | --- | --- | --- | --- |
 | `awaiting_payment` | Ожидает оплаты | создание заказа | `new` или `cancelled` автоматически вместе с оплатой/отменой |
 | `new` | Оплачен, ожидает сборки | ResultURL Робокассы | `packing` |
-| `packing` | Собирается | администратор | `handed_to_cdek` |
-| `handed_to_cdek` | Передан СДЭК | администратор, только с трек-номером | `delivered` |
+| `packing` | Собирается | администратор | `handed_to_carrier` |
+| `handed_to_carrier` | Передан перевозчику | администратор, только с трек-номером | `delivered` |
 | `delivered` | Выдан получателю | администратор после проверки в ЛК СДЭК | нет |
 | `cancelled` | Отменён до оплаты | admin API | нет |
 
@@ -106,8 +125,9 @@
   `fulfillment_status` из `awaiting_payment` в `cancelled`. После оплаты отмены
   и возвраты — отдельный финансовый процесс вне этой фазы.
 - Переходы исполнения записываются в audit и не меняют платёжный статус. Для
-  `handed_to_cdek` обязателен трек-номер, полученный владельцем после ручного
-  создания накладной в ЛК СДЭК.
+  `handed_to_carrier` обязателен трек-номер, полученный владельцем после ручного
+  создания накладной в ЛК СДЭК. Название статуса нейтрально для следующих
+  перевозчиков.
 
 Это реализация I4: смена статуса происходит только через выделенный API и
 серверный data-слой, не через ручной SQL. Для ручной смены обязательно создаётся
@@ -124,22 +144,25 @@
 
 ### 4.1. Настройка тарифа
 
-Одна строка `store_settings` хранит единственный актуальный тариф:
+Одна строка `store_settings` хранит единственный актуальный тариф СДЭК до ПВЗ.
+`0` означает бесплатную доставку для покупателя; её фактическую стоимость
+магазин покрывает сам. Настройка существует всегда до включения checkout.
 
 ```sql
 CREATE TABLE IF NOT EXISTS store_settings (
     singleton                       BOOLEAN PRIMARY KEY DEFAULT true
                                     CONSTRAINT store_settings_singleton_check CHECK (singleton),
     cdek_pickup_delivery_kopecks    INTEGER NOT NULL
-                                    CONSTRAINT store_settings_cdek_delivery_positive CHECK (cdek_pickup_delivery_kopecks > 0),
+                                    CONSTRAINT store_settings_cdek_delivery_nonnegative CHECK (cdek_pickup_delivery_kopecks >= 0),
     updated_at                      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_by_login_at             BIGINT NOT NULL
+    updated_by_actor_login_at       BIGINT NOT NULL
 );
 ```
 
 До первой настройки строки в таблице нет: checkout отвечает `503` с нейтральным
-сообщением «Оформление временно недоступно», а не создаёт заказ с нулевой
-доставкой. `PATCH` настройки делает upsert и записывает время/сессию последнего
+сообщением «Оформление временно недоступно». Нулевой тариф создаётся только
+явным `PATCH` как решение о бесплатной доставке, а не как fallback. `PATCH`
+настройки делает upsert и записывает время/сессию последнего
 изменения. Для нового заказа тариф читается `FOR SHARE` в той же транзакции, что
 и товарный каталог, и сохраняется в самом заказе.
 
@@ -151,12 +174,13 @@ CREATE TABLE IF NOT EXISTS store_settings (
 items_kopecks              INTEGER NOT NULL CHECK (items_kopecks >= 0),
 delivery_kopecks           INTEGER NOT NULL CHECK (delivery_kopecks >= 0),
 delivery_method            TEXT,
-cdek_pickup_point_code     TEXT,
-cdek_pickup_point_city     TEXT,
-cdek_pickup_point_name     TEXT,
-cdek_pickup_point_address  TEXT,
+delivery_carrier           TEXT,
+pickup_point_code          TEXT,
+pickup_point_city          TEXT,
+pickup_point_name          TEXT,
+pickup_point_address       TEXT,
 fulfillment_status         TEXT NOT NULL,
-cdek_tracking_number       TEXT
+tracking_number            TEXT
 ```
 
 Обязательные named-ограничения:
@@ -166,27 +190,36 @@ CONSTRAINT orders_total_components_check
   CHECK (total_kopecks = items_kopecks + delivery_kopecks),
 CONSTRAINT orders_delivery_method_check
   CHECK (
-    (delivery_method IS NULL AND delivery_kopecks = 0)
-    OR delivery_method = 'cdek_pickup'
+    (delivery_method IS NULL AND delivery_carrier IS NULL AND delivery_kopecks = 0)
+    OR (delivery_method = 'cdek_pickup' AND delivery_carrier = 'cdek')
   ),
-CONSTRAINT orders_cdek_point_snapshot_check
+CONSTRAINT orders_pickup_point_snapshot_check
   CHECK (
     delivery_method IS NULL OR (
       delivery_method = 'cdek_pickup'
-      AND delivery_kopecks > 0
-      AND char_length(btrim(cdek_pickup_point_code)) > 0
-      AND char_length(btrim(cdek_pickup_point_city)) > 0
-      AND char_length(btrim(cdek_pickup_point_name)) > 0
-      AND char_length(btrim(cdek_pickup_point_address)) > 0
+      AND delivery_kopecks >= 0
+      AND pickup_point_code IS NOT NULL AND char_length(btrim(pickup_point_code)) > 0
+      AND pickup_point_city IS NOT NULL AND char_length(btrim(pickup_point_city)) > 0
+      AND pickup_point_name IS NOT NULL AND char_length(btrim(pickup_point_name)) > 0
+      AND pickup_point_address IS NOT NULL AND char_length(btrim(pickup_point_address)) > 0
     )
   ),
 CONSTRAINT orders_fulfillment_status_check
-  CHECK (fulfillment_status IN ('awaiting_payment', 'new', 'packing', 'handed_to_cdek', 'delivered', 'cancelled')),
+  CHECK (fulfillment_status IN ('awaiting_payment', 'new', 'packing', 'handed_to_carrier', 'delivered', 'cancelled')),
 CONSTRAINT orders_payment_fulfillment_check
   CHECK (
     (status = 'pending' AND fulfillment_status = 'awaiting_payment')
-    OR (status = 'paid' AND fulfillment_status IN ('new', 'packing', 'handed_to_cdek', 'delivered'))
+    OR (status = 'paid' AND fulfillment_status IN ('new', 'packing', 'handed_to_carrier', 'delivered'))
     OR (status = 'cancelled' AND fulfillment_status = 'cancelled')
+  ),
+CONSTRAINT orders_tracking_number_check
+  CHECK (
+    (fulfillment_status IN ('handed_to_carrier', 'delivered')
+     AND tracking_number IS NOT NULL
+     AND char_length(btrim(tracking_number)) BETWEEN 5 AND 64)
+    OR
+    (fulfillment_status NOT IN ('handed_to_carrier', 'delivered')
+     AND tracking_number IS NULL)
   )
 ```
 
@@ -195,16 +228,26 @@ CONSTRAINT orders_payment_fulfillment_check
 Существующие колонки не переводятся в `NOT NULL`, чтобы не ломать старые данные.
 Email остаётся обязательным контактом покупателя.
 
-ПВЗ хранится и как стабильный код, и как читабельный snapshot города, названия и
-адреса. Код нужен для создания отправления, а текст остаётся понятен, если СДЭК
-переименует точку или временно сделает её недоступной. Свободного поля «ПВЗ
-СДЭК» нет.
+`delivery_method IS NULL` допускается только ради legacy-строк: SQL-ограничение
+не может отличить старую строку от ручного будущего INSERT без отдельной версии
+схемы. Поэтому единственный публичный путь создания (`createOrder`) требует
+delivery snapshot, а интеграционный тест явно проверяет, что новый заказ без
+него не создаётся. Админ API не имеет маршрута создания заказа.
+
+ПВЗ хранится в нейтральных полях: `delivery_carrier='cdek'` и
+`delivery_method='cdek_pickup'` в первом релизе; следующий перевозчик добавит
+свой carrier и method без переименования snapshot-колонок. Код, город, название
+и адрес — неизменяемый читаемый snapshot. Код нужен для создания отправления, а
+текст остаётся понятен, если перевозчик переименует точку или временно сделает
+её недоступной. Свободного поля «ПВЗ СДЭК» нет.
 
 В самой миграции поля `items_kopecks`, `delivery_kopecks` и
 `fulfillment_status` сначала добавляются nullable. Затем legacy-строки получают
 `items_kopecks=total_kopecks`, `delivery_kopecks=0`, а статус исполнения —
 `awaiting_payment`/`new`/`cancelled` по текущему платёжному статусу. Только после
-backfill для этих полей ставится `NOT NULL` и добавляются CHECK. Так migration
+backfill для этих полей ставится `NOT NULL` и добавляются CHECK. Для legacy
+заказов поля delivery остаются `NULL`, а `delivery_kopecks=0`; это единственное
+разрешённое исключение из доставки. Так migration
 работает на уже заполненной production-БД.
 
 ### 4.3. Журнал действий и индексы
@@ -223,7 +266,7 @@ CREATE TABLE IF NOT EXISTS order_admin_events (
     created_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT order_admin_events_shape_check CHECK (
       (event_type = 'cancelled'
-       AND char_length(btrim(reason)) BETWEEN 5 AND 500
+       AND reason IS NOT NULL AND char_length(btrim(reason)) BETWEEN 5 AND 500
        AND from_fulfillment_status = 'awaiting_payment'
        AND to_fulfillment_status = 'cancelled'
        AND tracking_number IS NULL)
@@ -231,7 +274,14 @@ CREATE TABLE IF NOT EXISTS order_admin_events (
       (event_type = 'fulfillment_transition'
        AND reason IS NULL
        AND from_fulfillment_status IS NOT NULL
-       AND to_fulfillment_status IS NOT NULL)
+       AND to_fulfillment_status IS NOT NULL
+       AND (
+         (from_fulfillment_status = 'new' AND to_fulfillment_status = 'packing' AND tracking_number IS NULL)
+         OR (from_fulfillment_status = 'packing' AND to_fulfillment_status = 'handed_to_carrier'
+             AND tracking_number IS NOT NULL AND char_length(btrim(tracking_number)) BETWEEN 5 AND 64)
+         OR (from_fulfillment_status = 'handed_to_carrier' AND to_fulfillment_status = 'delivered'
+             AND tracking_number IS NULL)
+       ))
     )
 );
 
@@ -246,7 +296,8 @@ IF NOT EXISTS`, backfill и защищённый `DO $$` для named-constraint
 быть идемпотентной и иметь структурный тест, аналогичный
 `002_admin_visibility_discount.test.ts`.
 
-`actor_login_at` — значение `AdminSession.loginAt`; в проекте один администратор,
+`actor_login_at` и `updated_by_actor_login_at` — значение `AdminSession.loginAt`;
+в проекте один администратор,
 поэтому этого достаточно, чтобы связать действие с конкретной сессией без новой
 таблицы пользователей. Поля журнала не редактируются и не удаляются API.
 
@@ -260,11 +311,12 @@ IF NOT EXISTS`, backfill и защищённый `DO $$` для named-constraint
   отмены/переходов исполнения; не импортирует Next.js или БД.
 - `lib/admin-orders-db.ts` — DTO, SQL-запросы списка/деталей и транзакционная
   `cancelAdminOrder`/`transitionFulfillment`.
-- `lib/store-settings.ts` — чтение и валидация платного тарифа СДЭК; цена
-  всегда в копейках.
-- `lib/cdek.ts` — узкая серверная обёртка выбранного официального механизма
-  СДЭК: подтверждает, что код ПВЗ существует и доступен, и нормализует snapshot
-  `{ code, city, name, address }`. В ней не создаются накладные.
+- `lib/store-settings.ts` — чтение и валидация тарифа СДЭК; цена всегда в
+  копейках, `0` — явная бесплатная доставка.
+- `lib/cdek.ts` — серверная OAuth-обёртка API CDEK. Виджет выбирает точку на
+  клиенте через `/api/cdek`, а `createOrder` повторно запрашивает API по коду,
+  подтверждает доступность и нормализует snapshot `{ code, city, name, address }`.
+  В ней не создаются накладные.
 
 Никакой код списка не использует публичный `getOrderByToken`: тот метод
 специально ограничен неугадываемым URL покупателя. Админка обращается к заказу
@@ -272,13 +324,16 @@ IF NOT EXISTS`, backfill и защищённый `DO $$` для named-constraint
 
 ### 5.1. Оформление и snapshot
 
-`OrderInput` расширяется объектом `delivery`; цена доставки из запроса **никогда
-не принимается**:
+`OrderInput` расширяется объектом `delivery` и ожидаемой полной суммой. Значения
+`expected*` не являются ценой от клиента: это обязательные неотрицательные
+целые копейки, нужные только для обнаружения изменившегося тарифа или цены
+товаров перед созданием заказа.
 
 ```ts
 type DeliveryInput = {
   method: 'cdek_pickup'
   pickupPointCode: string
+  expectedDeliveryKopecks: number
 }
 
 type OrderInput = {
@@ -286,6 +341,7 @@ type OrderInput = {
   customerEmail: string
   customerPhone: string     // обязательный телефон получателя
   delivery: DeliveryInput
+  expectedTotalKopecks: number
   items: { slug: string; quantity: number }[]
 }
 ```
@@ -293,13 +349,22 @@ type OrderInput = {
 Перед созданием заказа сервер валидирует код ПВЗ через `lib/cdek.ts`. В одной
 транзакции он блокирует выбранные товары и строку `store_settings`, получает
 `itemsKopecks`, берёт установленный `deliveryKopecks`, складывает их в
-`totalKopecks` и сохраняет все delivery-поля. В Робокассу и её подпись уходит
-полный `totalKopecks` — клиент не может уменьшить доставку или заменить ПВЗ.
+`totalKopecks` и сохраняет все delivery-поля. Если `expectedDeliveryKopecks`
+или `expectedTotalKopecks` не совпали с расчётом, транзакция не создаёт заказ и
+init отвечает `409 PRICE_CHANGED` с `{ itemsKopecks, deliveryKopecks,
+totalKopecks }`. Повторная отправка с этими значениями — явное подтверждение
+покупателя. В Робокассу и её подпись уходит полный `totalKopecks` — клиент не
+может уменьшить доставку или заменить ПВЗ.
 
 Если настройки нет, ПВЗ недоступен или СДЭК временно недоступен, заказ не
 создаётся: соответственно `503 DELIVERY_UNAVAILABLE` или `400
-DELIVERY_VALIDATION_ERROR`. Никаких fallback на бесплатную доставку и
-произвольный текст ПВЗ нет.
+DELIVERY_VALIDATION_ERROR`. Никакого неявного fallback на бесплатную доставку и
+произвольного текста ПВЗ нет.
+
+`markOrderPaid` также использует `withTransaction`: читает заказ с блокировкой,
+проверяет сумму и атомарно делает `pending/awaiting_payment → paid/new` вместе с
+`robokassa_data`. Это обязательная часть миграции `003`: одиночный `UPDATE
+status='paid'` нарушит `orders_payment_fulfillment_check`.
 
 ### 5.2. DTO
 
@@ -307,7 +372,7 @@ DELIVERY_VALIDATION_ERROR`. Никаких fallback на бесплатную д
 
 ```ts
 type OrderStatus = 'pending' | 'paid' | 'cancelled'
-type FulfillmentStatus = 'awaiting_payment' | 'new' | 'packing' | 'handed_to_cdek' | 'delivered' | 'cancelled'
+type FulfillmentStatus = 'awaiting_payment' | 'new' | 'packing' | 'handed_to_carrier' | 'delivered' | 'cancelled'
 
 type AdminOrderListItem = {
   id: number
@@ -343,9 +408,10 @@ type AdminOrderDetail = Omit<AdminOrderListItem, 'customerPhoneMasked'> & {
   invId: number | null
   itemsKopecks: number
   deliveryKopecks: number
+  deliveryCarrier: 'cdek' | null
   deliveryMethod: 'cdek_pickup' | null
-  cdekPickupPoint: null | { code: string; city: string; name: string; address: string }
-  cdekTrackingNumber: string | null
+  pickupPoint: null | { code: string; city: string; name: string; address: string }
+  trackingNumber: string | null
   items: AdminOrderItem[]
   adminEvents: AdminOrderEvent[]
 }
@@ -391,16 +457,16 @@ id DESC`. Отсутствующий заказ — `undefined`/`404`.
 
 `transitionFulfillment(id, nextStatus, trackingNumber, actorLoginAt)` в одной
 транзакции блокирует заказ `FOR UPDATE`, проверяет статус оплаты и разрешённый
-переход, обновляет `fulfillment_status` (и трек для `handed_to_cdek`), затем
+переход, обновляет `fulfillment_status` (и трек для `handed_to_carrier`), затем
 пишет `fulfillment_transition` в `order_admin_events`.
 
 Доступны только:
 
 ```text
-paid/new → packing → handed_to_cdek → delivered
+status='paid', fulfillment_status='new' → packing → handed_to_carrier → delivered
 ```
 
-`handed_to_cdek` требует непустой трек-номер длиной 5–64 символа; в других
+`handed_to_carrier` требует непустой трек-номер длиной 5–64 символа; в других
 переходах `trackingNumber` отсутствует. Нельзя менять исполнение `pending` или
 `cancelled` заказа, перепрыгивать шаги или менять `delivered` назад. Ошибка
 перехода — `409 FULFILLMENT_TRANSITION_INVALID` без частичного изменения.
@@ -426,7 +492,8 @@ paid/new → packing → handed_to_cdek → delivered
 | `POST /api/admin/orders/[id]/cancel` | отменить `pending`-заказ |
 | `POST /api/admin/orders/[id]/fulfillment` | зафиксировать следующий шаг исполнения |
 | `GET /api/admin/settings/delivery` | прочитать тариф СДЭК до ПВЗ |
-| `PATCH /api/admin/settings/delivery` | задать единый платный тариф СДЭК до ПВЗ |
+| `PATCH /api/admin/settings/delivery` | задать единый тариф СДЭК до ПВЗ, включая бесплатный |
+| `GET /api/checkout/delivery` | публично получить текущий тариф для отображения и подтверждения checkout |
 
 ### 6.1. `GET /api/admin/orders`
 
@@ -437,15 +504,15 @@ paid/new → packing → handed_to_cdek → delivered
 | `status` | `all` (default), `pending`, `paid`, `cancelled` |
 | `dateFrom` | опционально, `YYYY-MM-DD` в часовом поясе `Europe/Moscow` |
 | `dateTo` | опционально, `YYYY-MM-DD`, не раньше `dateFrom` |
-| `q` | опционально, 2–100 символов; номер заказа либо подстрока имени/email/телефона |
+| `q` | опционально: 1–100 цифр для номера/телефона либо 2–100 символов для имени/email |
 | `limit` | 30 (default), целое 1–100 |
 | `cursor` | опциональный валидный курсор из предыдущего ответа |
 
 `dateFrom` включает начало московского дня, `dateTo` включает весь московский
-день; SQL использует полуоткрытый интервал `[from, to + 1 day)`. Поиск номера
-сначала распознаёт строку из цифр как точный `id`; иначе выполняет параметризованный
-case-insensitive поиск по `customer_name`, `customer_email` и нормализованным
-цифрам телефона. В первом релизе объём заказов мал, поэтому отдельный full-text
+день; SQL использует полуоткрытый интервал `[from, to + 1 day)`. Цифровой запрос
+ищет `id = q OR` нормализованный телефон содержит `q`; текстовый выполняет
+параметризованный case-insensitive поиск по `customer_name` и `customer_email`.
+В первом релизе объём заказов мал, поэтому отдельный full-text
 или trigram-индекс не вводится.
 
 Успешный ответ:
@@ -487,7 +554,7 @@ UNAUTHORIZED`.
 
 ```ts
 { status: 'packing' }
-{ status: 'handed_to_cdek', trackingNumber: string }
+{ status: 'handed_to_carrier', trackingNumber: string }
 { status: 'delivered' }
 ```
 
@@ -498,11 +565,17 @@ UNAUTHORIZED`.
 ### 6.5. Настройка тарифа
 
 `GET /api/admin/settings/delivery` возвращает
-`{ cdekPickupDeliveryKopecks, updatedAt }` либо `404 SETTINGS_NOT_CONFIGURED`.
+`{ cdekPickupDeliveryKopecks, updatedAt, updatedByActorLoginAt }` либо
+`404 SETTINGS_NOT_CONFIGURED`.
 `PATCH` принимает ровно `{ cdekPickupDeliveryKopecks: number }`, только целое
-число копеек `> 0`, и возвращает сохранённую настройку. Он требует admin-сессию
+число копеек `>= 0`, и возвращает сохранённую настройку. Он требует admin-сессию
 и same-origin. Установка влияет лишь на последующие заказы: delivery snapshot
 существующих заказов неизменяем.
+
+`GET /api/checkout/delivery` не требует admin-сессии и возвращает
+`{ cdekPickupDeliveryKopecks }` с `Cache-Control: no-store`; если тариф не
+настроен — `503 DELIVERY_UNAVAILABLE`. Checkout использует его для показа
+доставки и посылает эту величину как `expectedDeliveryKopecks` при init.
 
 ---
 
@@ -531,17 +604,20 @@ UNAUTHORIZED`.
    доставкой».
 
 До готовности виджета и загрузки тарифа кнопка оплаты disabled. Ошибка выбора
-или проверки ПВЗ не очищает корзину. При ответе API об изменившейся настройке
-цены checkout обновляет серверную сумму и просит покупателя подтвердить её
-повторным нажатием, а не отправляет на Робокассу старое значение.
+или проверки ПВЗ не очищает корзину. При `409 PRICE_CHANGED` checkout заменяет
+показанные `Товары`, `Доставка` и `К оплате` значениями из ответа, не создаёт
+заказ и просит повторно нажать кнопку. Повторный init несёт новые
+`expectedDeliveryKopecks` и `expectedTotalKopecks`; только он может открыть
+Робокассу.
 
 ### 7.3. Настройки `/admin/settings/delivery`
 
-Экран содержит одно поле «Стоимость доставки СДЭК до ПВЗ, ₽». Он показывает
-когда и какой сессией тариф менялся последним, сохраняет значение в копейках и
-просит явное подтверждение: «Новая цена применяется только к будущим заказам».
-Нулевую/отрицательную цену и текстовые рубли форма не принимает. Пока настройка
-не создана, на экране виден блокирующий статус «Оформление отключено».
+Экран содержит одно поле «Стоимость доставки СДЭК до ПВЗ, ₽» и переключатель
+«Бесплатная доставка» (сохраняет `0` копеек). Он показывает, когда и какой
+сессией тариф менялся последним, сохраняет значение в копейках и просит явное
+подтверждение: «Новая цена применяется только к будущим заказам». Отрицательную
+цену и текстовые рубли форма не принимает. Пока настройка не создана, на экране
+виден блокирующий статус «Оформление отключено».
 
 ### 7.4. Список `/admin/orders`
 
@@ -615,11 +691,13 @@ UNAUTHORIZED`.
 ## 9. Критерии приёмки
 
 - [ ] Без настройки тарифа checkout не создаёт заказ и не открывает Робокассу;
-  после настройки он показывает ненулевую стоимость доставки.
+  после явной настройки он показывает стоимость доставки, включая `0` для
+  бесплатной доставки.
 - [ ] Заказ нельзя оформить без ФИО, телефона и подтверждённого ПВЗ. Сервер
   отвергает подменённый/недоступный код ПВЗ и любую клиентскую цену доставки.
 - [ ] В Робокассу уходит `itemsKopecks + deliveryKopecks`; тариф и ПВЗ
-  сохраняются в заказе и не меняются задним числом.
+  сохраняются в заказе и не меняются задним числом. При изменении цены до init
+  сервер не создаёт заказ и возвращает `409 PRICE_CHANGED` с новой суммой.
 - [ ] Неавторизованный admin-запрос не читает БД; API отвечает `401`, страницы
   редиректят на `/admin/login`.
 - [ ] Список keyset-пагинируется без дублей; карточка показывает snapshot
@@ -627,7 +705,7 @@ UNAUTHORIZED`.
 - [ ] ResultURL переводит только `pending/awaiting_payment → paid/new` после
   проверки подписи и полной суммы; ручного `paid` нет.
 - [ ] `pending` отменяется только с причиной и атомарным аудитом. Исполнение
-  оплаченного заказа проходит только `new → packing → handed_to_cdek →
+  оплаченного заказа проходит только `new → packing → handed_to_carrier →
   delivered`; передача без трек-номера отклоняется.
 - [ ] PII не попадают в URL, клиентские ошибки и логи; API имеют `private,
   no-store`. Checkout, список и карточка доступны на мобильном.
@@ -636,8 +714,10 @@ UNAUTHORIZED`.
 
 ## 10. Тесты
 
-**Unit:** валидаторы тарифа/ПВЗ/телефона и переходов, snapshot полной суммы,
-мок `lib/cdek.ts`, поздняя оплата отменённого заказа и `paid → new`.
+**Unit:** валидаторы тарифа (включая `0`)/ПВЗ/телефона и переходов, snapshot
+полной суммы, `PRICE_CHANGED`, мок `lib/cdek.ts`, маскирование `null` и
+ненормализованного legacy-телефона, поздняя оплата отменённого заказа и
+`paid → new`.
 
 **Интеграционные:** миграция `003` (идемпотентность и legacy-backfill),
 `createOrder` и init с тарифом/ПВЗ, ResultURL с полной суммой, admin API
@@ -651,19 +731,16 @@ Readiness-гейт: `npm run typecheck && npm test && npm run build` из `shop/
 
 ---
 
-## 11. Чек-лист реализации и документация
+## 11. Rollout и документация
 
-1. Пройти Пауза 2 на официальную интеграцию выбора/проверки ПВЗ СДЭК (§13),
-   зафиксировать версию, домены и секреты в `.env.example`.
-2. Создать миграцию `003_orders_delivery_and_admin_events.sql`, обновить
-   `schema.sql`, добавить legacy-backfill и тест.
-3. Реализовать настройки, серверную обёртку СДЭК, расширение
-   `createOrder`/ResultURL и полный финансовый snapshot.
-4. Реализовать checkout, admin API, настройки тарифа, статусы исполнения,
-   список/карточку и все тесты §10.
-5. После реализации обновить `architecture.md`, `TESTING_PLAN.md`,
-   `docs/operations.md`, публичные условия доставки/политику, `ROADMAP.md` и
-   `docs/tech-debt.md`.
+1. Перед rollout сделать `pg_dump`, применить миграцию
+   `003_orders_delivery_and_admin_events.sql` и проверить её результат.
+2. Оставить `DELIVERY_ENABLED=false`; проверить создание заказа и ResultURL без
+   ПВЗ/доставки.
+3. Отдельно пройти Пауза 2 перед включением СДЭК, добавить OAuth-ключи и задать
+   тариф через admin UI.
+4. После подтверждённого rollout отметить production-статус в `ROADMAP.md`,
+   `docs/environments.md` и этом документе.
 
 Любая операция на production и применение миграции требуют Паузы 1. Rollback
 кода не удаляет delivery/audit-данные: они остаются целой историей заказов.
@@ -672,10 +749,12 @@ Readiness-гейт: `npm run typecheck && npm test && npm run build` из `shop/
 
 ## 12. Зафиксированные продуктовые решения
 
-1. Первый релиз: только платная доставка в ПВЗ СДЭК по РФ; самовывоза, курьера
-   и других перевозчиков нет.
-2. Цена — единый фиксированный тариф из админки, не ручная доплата и не расчёт
-   СДЭК. Она оплачивается до создания заказа и становится snapshot.
+1. Первый релиз: только доставка в ПВЗ СДЭК по РФ; самовывоза, курьера и других
+   перевозчиков нет. Snapshot-структура нейтральна к перевозчику для следующих
+   фаз.
+2. Цена — единый фиксированный тариф из админки, включая явный `0` для
+   бесплатной доставки, не ручная доплата и не расчёт СДЭК. Она оплачивается до
+   создания заказа и становится snapshot.
 3. ПВЗ выбирается из официальных данных; код плюс город/название/адрес хранятся
    в заказе. Свободный текст точки не допускается.
 4. Накладная создаётся вручную в ЛК СДЭК; владелец заносит трек. Автоматический

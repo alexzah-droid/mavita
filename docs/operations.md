@@ -1,6 +1,6 @@
 # МАВИТА-ШОП operations runbook
 
-Дата создания: 2026-06-20. URL, ключи и запреты — в `docs/environments.md`.
+Дата актуализации: 2026-06-21. URL, ключи и запреты — в `docs/environments.md`.
 
 ---
 
@@ -12,7 +12,10 @@ rsync -avz \
   --exclude='.env' --exclude='node_modules' --exclude='.next' --exclude='public/uploads' \
   shop/ mavita:/var/www/mavita-repo/shop/
 
-# 2) пересобрать и перезапустить
+# 2) если изменились package.json или package-lock.json — установить точные зависимости
+ssh mavita "cd /var/www/mavita-repo/shop && npm ci"
+
+# 3) пересобрать и перезапустить
 ssh mavita "cd /var/www/mavita-repo/shop && npm run build && pm2 reload mavita --update-env"
 ```
 
@@ -45,13 +48,30 @@ ssh mavita "psql -U mavita -d mavita -h localhost < /root/mavita_<timestamp>.sql
 
 ---
 
-## Применить схему или seed
+## Схема, миграции и seed
 
 ```bash
-# Идемпотентно (IF NOT EXISTS)
+# Только свежая пустая БД: базовая схема и исходный каталог.
 ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/schema.sql"
 ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/seed.sql"
+
+# Существующая production-БД: сначала backup, затем применить КАЖДУЮ ещё не
+# применённую миграцию. schema.sql не заменяет ALTER-миграции.
+ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/003_orders_delivery_and_admin_events.sql"
 ```
+
+Перед миграцией `003` обязательно сделать `pg_dump` из раздела выше. После неё
+проверить `\d orders`, `\d store_settings`, `\d order_admin_events` и только затем
+перезапускать приложение. Не запускать seed на действующей БД без отдельной
+необходимости: он предназначен для первоначального наполнения.
+
+## Текущий rollout: заказы без СДЭК
+
+В релизе Ф4-К2 код доставки уже присутствует, но до отдельного решения по СДЭК
+на VPS должна быть строка `DELIVERY_ENABLED=false`. При этом checkout создаёт
+заказ без ПВЗ, `delivery_kopecks=0`, а проверять можно обычный платёжный флоу.
+Не добавлять `CDEK_CLIENT_ID`/`CDEK_CLIENT_SECRET` и не включать доставку в рамках
+этого rollout: это отдельная внешняя интеграция (Пауза 2).
 
 ---
 
@@ -101,7 +121,7 @@ proxy_set_header X-Forwarded-For $remote_addr;
 поэтому `assertSameOrigin` сверяет хост `Origin` с `Host`, а не полный origin.
 Если `Host` не проброшен — вход в админку падает «Неверный Origin» (см. TD-22).
 
-После реализации Ф4 ежедневно запускать очистку аварийных orphan-файлов (скрипт
+После деплоя Ф4 ежедневно запускать очистку аварийных orphan-файлов (скрипт
 удаляет только UUID-файлы без записи в БД и старше часа):
 
 ```cron

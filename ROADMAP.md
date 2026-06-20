@@ -1,6 +1,6 @@
 # ROADMAP — МАВИТА-ШОП
 
-Дата: 2026-06-20
+Дата актуализации: 2026-06-21
 
 План развития интернет-магазина свечей МАВИТА. Фазы совпадают с нумерацией в
 [PROJECT_CORE.md](PROJECT_CORE.md) (§6). Этот документ — «что и в каком порядке»;
@@ -19,8 +19,8 @@
 | Ф1 | Витрина и каталог | ✅ | Витрина и карточка товара читают данные из БД |
 | Ф2 | Корзина и оформление | ✅ | Корзина + оформление заказа (заказ создаётся в БД) |
 | Ф3 | Оплата Робокасса | ✅ | Подпись, init/result/success/fail; тестовый платёж прошёл |
-| Ф4 | Админ-панель | 🚧 | Товары/фото/витрина/скидки — ✅ на проде; заказы — ⬜ |
-| Ф5 | Деплой на VPS | ✅ | Прод mavita.ru запущен; Робокасса в тестовом режиме |
+| Ф4 | Админ-панель | 🚧 | К1 на проде; К2 реализован в репозитории, ожидает production rollout |
+| Ф5 | Деплой на VPS | 🚧 | Прод запущен; текущий релиз ожидает backup, миграцию `003` и проверку |
 
 ---
 
@@ -34,8 +34,9 @@
 - `shop/sql/seed.sql` — наполнение каталога (4 свечи серии «Горы») в копейках.
 - `shop/lib/db.ts` — пул соединений `pg`, singleton, читает `DATABASE_URL`.
 - `shop/lib/price.ts` — конвертация и форматирование копеек (рубли ⇄ копейки, `formatRub`).
-- `shop/lib/products.ts` — типы + seed-данные + async-функции выборки из БД
-  с graceful-фоллбэком на seed, если БД недоступна (для локальной разработки и CI-сборки).
+- `shop/lib/products.ts` — типы и seed-данные; серверный `lib/catalog.ts` использует
+  seed только при отсутствии `DATABASE_URL`. При настроенной, но недоступной БД
+  возвращается нейтральный `503`, а не seed-каталог.
 - `shop/app/api/products/route.ts` — `GET /api/products`, отдаёт каталог из БД.
 - `shop/.env.example` — единственный публичный список переменных.
 - Vitest как раннер (юнит + интеграция).
@@ -73,8 +74,9 @@
 - `lib/orders.ts` — валидация (чистая), сборка позиций из каталога (snapshot названия/цены,
   цена берётся из БД, не от клиента → защита от подмены), `createOrder`/`getOrder`.
 - `lib/db.ts` — `withTransaction`: заказ + `order_items` создаются атомарно.
-- `app/api/orders/route.ts` — `POST`, пересчёт сумм на сервере, заказ `pending`.
-- `app/order/[id]/page.tsx` — «заказ принят» (читает заказ из БД).
+- `app/api/robokassa/init/route.ts` — `POST`, пересчёт сумм на сервере, создание
+  заказа `pending` и URL оплаты.
+- `app/order/[token]/page.tsx` — страница заказа по неугадываемому token.
 - `app/components/ShopHeader.tsx` — общая шапка внутренних страниц (корзина видна на мобильных).
 
 **Тесты:** `lib/cart.test.ts` (корзина), `lib/orders.test.ts` (валидация формы,
@@ -128,15 +130,22 @@
 > заголовком `Host`, а не полный origin: `next start` за Nginx строит `request.url`
 > как `http://`, из-за чего вход в админку на проде падал «Неверный Origin». См. TD-22.
 
-**Компонент 2 — заказы** ⬜ (спроектирован):
+**Компонент 2 — заказы** 🚧 (реализован в репозитории, rollout не подтверждён):
 спецификация [docs/specs/admin-orders.md](docs/specs/admin-orders.md).
-- ⬜ Checkout: платная доставка в ПВЗ СДЭК, server-side snapshot тарифа и полной суммы (**I10**); перед кодом — Пауза 2 на CDEK-интеграцию.
-- ⬜ `app/admin/orders` — список, ПВЗ/трек, статусы исполнения и карточка заказа.
-- ⬜ `POST /api/admin/orders/[id]/cancel|fulfillment` — отмена `pending` и аудит отгрузки; ручного `paid` нет.
-- ⬜ `app/admin/settings/delivery` — фиксированный тариф СДЭК до ПВЗ.
-- ⬜ Миграция `003` — доставка, `store_settings`, `order_admin_events` и индексы.
+- ✅ Checkout: server-side snapshot товаров и, при включённой доставке, тарифа и
+  полной суммы (**I10**). Сейчас `DELIVERY_ENABLED=false`: заказ оформляется без
+  ПВЗ и с `delivery_kopecks=0`. Спека включения СДЭК: [docs/specs/cdek-pvz.md](docs/specs/cdek-pvz.md).
+- ✅ Публичная страница **«Доставка»** (`app/delivery`) — описывает схему доставки для покупателя: доставка в ПВЗ СДЭК, текущая стоимость (фикс/бесплатно из `store_settings`), сроки, оплата на сайте (предоплата), что покупатель СДЭКу отдельно не платит. Ссылки в шапке, футере и на checkout. Контент — из «денежного потока» в [docs/specs/cdek-pvz.md](docs/specs/cdek-pvz.md).
+- ✅ `app/admin/orders` — список, ПВЗ/трек, статусы исполнения и карточка заказа.
+- ✅ `POST /api/admin/orders/[id]/cancel|fulfillment` — отмена `pending` и аудит отгрузки; ручного `paid` нет.
+- ✅ `app/admin/settings/delivery` — фиксированный тариф СДЭК до ПВЗ.
+- ✅ Миграция `003` — доставка, `store_settings`, `order_admin_events` и индексы.
 
-**Тесты:** `lib/auth.test.ts` (I8), `lib/pricing.test.ts`, `lib/orders.test.ts` (I9, дополнить), `app/api/upload.test.ts` (I5).
+**Перед production rollout К2:** backup PostgreSQL → применить миграцию `003` →
+сохранить `DELIVERY_ENABLED=false` → проверить создание и ResultURL реального
+платежа. Включение СДЭК — последующий отдельный gate (Пауза 2 + OAuth-ключи).
+
+**Тесты:** `lib/auth.test.ts` (I8), `lib/pricing.test.ts`, `lib/orders.test.ts` (I9), `app/api/upload/route.test.ts` + `app/api/admin/products/[id]/images/route.test.ts` (I5, cover-инвариант TD-23, распознавание WebP TD-24).
 
 ---
 
@@ -147,7 +156,7 @@
 **Прод VPS** (`45.130.147.108`, `mavita.ru`, см. [docs/environments.md](docs/environments.md)):
 - ✅ Выделенный VPS: Ubuntu 22.04, 1 vCPU, 1 GB RAM + 2 GB swap, 10 GB NVMe.
 - ✅ Провижининг: Node.js 20, PostgreSQL 16, Nginx, PM2, Certbot, UFW.
-- ✅ БД `mavita`, пользователь `mavita`, все 4 таблицы из `sql/schema.sql` — применены.
+- ✅ БД `mavita`, пользователь `mavita`, исходная схема и миграции `001`/`002` применены.
 - ✅ Nginx vhost для `mavita.ru` и `www.mavita.ru` → proxy `:3000`.
 - ✅ Домен `mavita.ru` куплен (2026-06-20), DNS пропагирован.
 - ✅ SSL через Certbot выпущен: истекает 2026-09-17, автопродление активно.
@@ -157,6 +166,8 @@
 - ✅ Тестовый платёж через Робокассу (`IsTest=1`) прошёл, `pending → paid` работает (2026-06-20).
 - ✅ Миграции `001_order_token.sql` (TD-1) и `002_admin_visibility_discount.sql` (видимость + скидки) применены на проде (2026-06-20).
 - ✅ Деплой админки (Ф4 К1) + редизайн витрины с галереей фото товара (2026-06-20).
+- ⬜ Для текущего релиза: backup + миграция `003_orders_delivery_and_admin_events.sql`;
+  не отмечать как применённую, пока это не подтверждено на VPS.
 - ⬜ GitHub Actions: `git pull → npm run build → pm2 reload mavita` (автоматизация деплоя).
 - ⬜ Переключение `ROBOKASSA_TEST_MODE=false` — **Пауза 1** (после регистрации Робокассы на боевой режим).
 
@@ -169,7 +180,8 @@
 ## Критический путь до первой продажи
 
 ```
-Ф0 ✅ → Ф1 ✅ → Ф2 ✅ → Ф3 ✅ → Ф5 ✅ → переключить ROBOKASSA_TEST_MODE=false (Пауза 1)
+Ф0 ✅ → Ф1 ✅ → Ф2 ✅ → Ф3 ✅ → backup + миграция 003 → deploy + ResultURL check
+→ реальный режим Робокассы (Пауза 1)
 ```
 
 Полноценная админка (Ф4) не на критическом пути: до неё товары наполняются через

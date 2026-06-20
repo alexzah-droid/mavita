@@ -18,12 +18,12 @@ sequenceDiagram
     participant OR as /order/[token]<br/>(RSC)
 
     U->>CH: Заполняет форму, нажимает «Оплатить»
-    CH->>RI: POST {customerName, customerEmail,<br/>customerPhone?, items:[{slug,qty}]}
+    CH->>RI: POST {customerName, customerEmail,<br/>customerPhone, expectedTotalKopecks, items}
 
-    RI->>DB: SELECT slug,name,price_kopecks,in_stock<br/>FROM products WHERE slug = ANY($1)
-    DB-->>RI: каталог (цены с сервера, не клиентские)
+    RI->>DB: SELECT товары FOR SHARE + settings FOR SHARE
+    DB-->>RI: серверный snapshot цен и, при включённой доставке, тарифа
 
-    RI->>DB: INSERT INTO orders (…, status='pending')<br/>RETURNING id
+    RI->>DB: INSERT INTO orders (items, delivery, total,<br/>status='pending', fulfillment='awaiting_payment')
     DB-->>RI: order.id
 
     RI->>DB: INSERT INTO order_items (…) × N позиций
@@ -39,10 +39,10 @@ sequenceDiagram
     Note over RK: Покупатель вводит данные карты
 
     alt Оплата успешна
-        RK->>RR: POST OutSum, InvId, SignatureValue,<br/>+ прочие поля (form-data)
+        RK->>RR: GET или POST OutSum, InvId, SignatureValue,<br/>+ прочие поля
         RR->>RR: verifyResultSignature:<br/>MD5(OutSum:InvId:Password2) == SignatureValue
         RR->>RR: сверка OutSum с total_kopecks заказа (защита от недоплаты)
-        RR->>DB: UPDATE orders SET status='paid',<br/>robokassa_data=$1 WHERE id=$2 AND status='pending'
+        RR->>DB: UPDATE orders SET status='paid', fulfillment='new',<br/>robokassa_data=$1 WHERE id=$2 AND pending/awaiting_payment
         RR-->>RK: 200 «OK{InvId}» (text/plain)
 
         RK->>SU: GET ?InvId=…&OutSum=…&SignatureValue=…
@@ -66,19 +66,19 @@ sequenceDiagram
 
 | # | Кто → Кто | Метод / тип | Входные данные | Выходные данные | Примечание |
 |---|---|---|---|---|---|
-| 1 | Покупатель → `/checkout` | UI-событие | Форма: имя, email, телефон?, корзина из localStorage | — | Корзина читается из `CartProvider` (localStorage) |
-| 2 | `/checkout` → `/api/robokassa/init` | `POST JSON` | `{customerName, customerEmail, customerPhone?, items:[{slug, qty}]}` | — | Цены клиента игнорируются — slug служит только ключом |
-| 3 | `/api/robokassa/init` → PostgreSQL | SQL SELECT | `slug[]` из запроса | `slug, name, price_kopecks, in_stock` | Авторитетный каталог — защита от подмены цены на клиенте |
-| 4 | `/api/robokassa/init` → PostgreSQL | SQL INSERT | `customerName, email, phone, totalKopecks, status='pending'` | `order.id` | Заказ создаётся до редиректа в платёжку |
+| 1 | Покупатель → `/checkout` | UI-событие | Форма: ФИО, email, телефон, корзина из localStorage | — | Корзина читается из `CartProvider` (localStorage) |
+| 2 | `/checkout` → `/api/robokassa/init` | `POST JSON` | `{customerName, customerEmail, customerPhone, expectedTotalKopecks, items}`; при включённом СДЭК ещё ПВЗ и expected delivery | — | Клиентские суммы — только optimistic-ожидание; сервер их сверяет |
+| 3 | `/api/robokassa/init` → PostgreSQL | транзакция | `slug[]`, при включённой доставке — тариф | заблокированный snapshot | Авторитетный каталог и тариф; цена клиента игнорируется |
+| 4 | `/api/robokassa/init` → PostgreSQL | SQL INSERT | customer, items/delivery/total, `pending/awaiting_payment` | `order.id` | Заказ создаётся до редиректа в платёжку |
 | 5 | `/api/robokassa/init` → PostgreSQL | SQL INSERT × N | `order_id, product_id, product_name, price_kopecks, quantity` | — | Snapshot цены и названия на момент покупки |
 | 6 | `/api/robokassa/init` → PostgreSQL | SQL UPDATE | `inv_id = order.id` | — | У Робокассы `InvId` = `order.id`; поле заполняется сразу |
 | 7 | `/api/robokassa/init` внутри | MD5 | `MerchantLogin:OutSum:InvId:Password1` | `SignatureValue` | `Password1` — секрет только на сервере, никогда клиенту |
 | 8 | `/api/robokassa/init` → `/checkout` | `201 JSON` | — | `{id, paymentUrl}` | `paymentUrl = null` если Робокасса не сконфигурирована — тогда редирект сразу на `/order/{token}` |
 | 9 | `/checkout` | JS | — | — | `cart.clear()` из контекста чистит localStorage |
 | 10 | Покупатель → Робокасса | Browser redirect | `paymentUrl` (GET с параметрами + подписью) | — | `window.location.href` — полный переход, не fetch |
-| 11 | Робокасса → `/api/robokassa/result` | `POST form-data` | `OutSum, InvId, SignatureValue` + дополнительные поля | — | **Сервер → сервер**, браузер покупателя не участвует |
+| 11 | Робокасса → `/api/robokassa/result` | GET или POST | `OutSum, InvId, SignatureValue` + дополнительные поля | — | **Сервер → сервер**, браузер покупателя не участвует |
 | 12 | `/api/robokassa/result` внутри | MD5 verify | `OutSum:InvId:Password2` | `bool` | `Password2` ≠ `Password1` — разные секреты для разных сторон |
-| 13 | `/api/robokassa/result` → PostgreSQL | SQL UPDATE | `status='paid', robokassa_data=JSON, id, status='pending'` | — | `WHERE status='pending'` — идемпотентность: повторный колбэк не навредит |
+| 13 | `/api/robokassa/result` → PostgreSQL | транзакционный UPDATE | `paid/new`, `robokassa_data`, id | — | Переход из `pending/awaiting_payment` идемпотентен и не смешивает оплату с отгрузкой |
 | 14 | `/api/robokassa/result` → Робокасса | `200 text/plain` | — | `«OK{InvId}»` | Робокасса ждёт именно эту строку; иначе будет повторять колбэк |
 | 15 | Робокасса → `/api/robokassa/success` | `GET` | `InvId, OutSum, SignatureValue` | — | Параллельно с #11, но уже для браузера покупателя |
 | 16 | `/api/robokassa/success` → браузер | `302 redirect` | — | `/order/{token}?paid=1` | `?paid=1` — только UX-флаг, не источник правды о статусе |
@@ -123,7 +123,7 @@ graph TD
     end
 
     subgraph Lib["Lib (серверная бизнес-логика)"]
-        LO["orders.ts<br/>validateOrderInput<br/>buildOrderLines<br/>createOrder · markOrderPaid<br/>getOrder"]
+        LO["orders.ts<br/>snapshot товаров/доставки<br/>createOrder · markOrderPaid<br/>getOrder"]
         LR["robokassa.ts<br/>buildPaymentUrl<br/>verifyResultSignature<br/>kopecksToOutSum"]
         LP["products.ts<br/>getProducts · getProduct"]
         LC[catalog.ts]
@@ -133,7 +133,7 @@ graph TD
 
     subgraph DB_Layer["PostgreSQL 16"]
         T1[("products<br/>product_images")]
-        T2[("orders<br/>order_items")]
+        T2[("orders · order_items<br/>store_settings · order_admin_events")]
     end
 
     subgraph Robokassa["Робокасса"]
@@ -178,8 +178,8 @@ graph TD
 |---|---|---|
 | **Browser / Client** | `CartProvider`, `CartButton`, `AddToCartButton`, `ShopHeader` | Состояние корзины в localStorage, UI |
 | **Pages (RSC)** | `page.tsx` × 5 | Server-side рендер, получение данных через `lib/` |
-| **API Routes** | `/api/products`, `/api/robokassa/*` | HTTP-граница, валидация ввода, роутинг |
-| **Lib** | `orders.ts`, `robokassa.ts`, `products.ts`, `price.ts` | Бизнес-логика, без HTTP-зависимостей, покрыта юнит-тестами |
+| **API Routes** | `/api/products`, `/api/robokassa/*`, `/api/checkout/delivery`, `/api/cdek` | HTTP-граница, валидация ввода, роутинг |
+| **Lib** | `orders.ts`, `robokassa.ts`, `catalog.ts`, `products.ts`, `price.ts`, `store-settings.ts` | Бизнес-логика, без HTTP-зависимостей, покрыта тестами |
 | **DB** | `db.ts` → PostgreSQL | Персистентность; цены только в копейках (`INTEGER`) |
 
 Пошаговый флоу оплаты — в sequence-диаграмме и таблице выше.
@@ -202,5 +202,8 @@ graph TD
 Инварианты контура: **I8** (гард + same-origin по хосту за прокси, см. `docs/decisions.md`),
 **I9** (серверная эффективная цена в snapshot заказа), **I5** (атомарная загрузка фото).
 
-Компонент 2 (заказы, доставка СДЭК, **I10**) — спроектирован, не реализован:
+Компонент 2 (заказы, delivery snapshot, **I10**) реализован в репозитории:
+`/admin/orders`, `/admin/settings/delivery`, admin API и миграция `003`.
+Текущий rollout держит `DELIVERY_ENABLED=false`, поэтому платёжный флоу проверяется
+без ПВЗ. Включение СДЭК и OAuth-ключей — отдельный следующий этап:
 [docs/specs/admin-orders.md](docs/specs/admin-orders.md).

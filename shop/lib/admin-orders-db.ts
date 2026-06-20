@@ -14,7 +14,15 @@ export async function listAdminOrders(filters: AdminOrderFilters): Promise<{ ord
   if (filters.status !== 'all') where.push(`o.status = ${add(filters.status)}`)
   if (filters.dateFrom) where.push(`o.created_at >= ${add(msDay(filters.dateFrom))}`)
   if (filters.dateTo) { const after = new Date(`${filters.dateTo}T00:00:00+03:00`); after.setUTCDate(after.getUTCDate() + 1); where.push(`o.created_at < ${add(after.toISOString())}`) }
-  if (filters.q) { if (/^\d+$/.test(filters.q)) where.push(`(o.id = ${add(Number(filters.q))} OR regexp_replace(COALESCE(o.customer_phone, ''), '\\D', '', 'g') LIKE ${add(`%${filters.q}%`)})`); else where.push(`(o.customer_name ILIKE ${add(`%${filters.q}%`)} OR o.customer_email ILIKE ${add(`%${filters.q}%`)})`) }
+  if (filters.q) {
+    if (/^\d+$/.test(filters.q)) {
+      const phone = add(`%${filters.q}%`)
+      // orders.id — INTEGER. Длинный номер телефона не должен быть приведён к
+      // переполняющему integer до передачи в PostgreSQL.
+      const numericId = Number(filters.q)
+      where.push(Number.isSafeInteger(numericId) && numericId <= 2_147_483_647 ? `(o.id = ${add(numericId)} OR regexp_replace(COALESCE(o.customer_phone, ''), '\\D', '', 'g') LIKE ${phone})` : `regexp_replace(COALESCE(o.customer_phone, ''), '\\D', '', 'g') LIKE ${phone}`)
+    } else where.push(`(o.customer_name ILIKE ${add(`%${filters.q}%`)} OR o.customer_email ILIKE ${add(`%${filters.q}%`)})`)
+  }
   if (filters.cursor) where.push(`(o.created_at, o.id) < (${add(filters.cursor.createdAt)}, ${add(filters.cursor.id)})`)
   const rows = await query<Row>(`SELECT o.id, o.customer_name, o.customer_email, o.customer_phone, o.total_kopecks, o.status, o.fulfillment_status, COALESCE(SUM(oi.quantity), 0) AS item_count, o.created_at FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id ${where.length ? `WHERE ${where.join(' AND ')}` : ''} GROUP BY o.id ORDER BY o.created_at DESC, o.id DESC LIMIT ${add(filters.limit + 1)}`, params)
   const hasMore = rows.length > filters.limit; const page = rows.slice(0, filters.limit); const tail = page.at(-1)

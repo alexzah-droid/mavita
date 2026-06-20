@@ -4,6 +4,7 @@ import { getOrderByToken } from '@/lib/orders'
 import { buildPaymentUrl, isRobokassaConfigured } from '@/lib/robokassa'
 import { formatRub } from '@/lib/price'
 import ShopHeader from '@/app/components/ShopHeader'
+import SiteFooter from '@/app/components/SiteFooter'
 
 export const dynamic = 'force-dynamic'
 
@@ -114,6 +115,7 @@ export default async function OrderPage({
           </Link>
         </div>
       </div>
+      <SiteFooter />
     </>
   )
 }

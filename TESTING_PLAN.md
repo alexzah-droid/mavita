@@ -1,12 +1,15 @@
 # TESTING_PLAN — МАВИТА-ШОП
 
-Дата: 2026-06-19
+Дата актуализации: 2026-06-21
 
 Трассировка тестов по инвариантам. Каждый инвариант из `PROJECT_CORE.md` должен получить тест до перехода в следующую фазу.
 
 ## Статус
 
-> Ф0–Ф3 покрыты: 53 теста зелёные (`npm test`). I5 — в Ф4.
+> 128 тестов в 27 файлах зелёные (`npm test`, 2026-06-21). Покрыты Ф0–Ф3 и
+> оба компонента Ф4; `npm run typecheck` также проходит.
+> I5/I8/I9/I10 покрыты unit/mock-интеграционными тестами. Прогон с реальной
+> PostgreSQL/ФС, CDEK и Робокассой остаётся отдельной проверкой стенда.
 
 ## Инварианты → тесты
 
@@ -15,13 +18,13 @@
 | I1 | Подпись только на сервере, Password в .env | unit | `lib/robokassa.test.ts` | ✅ написан |
 | I2 | Цены в копейках (INTEGER) | unit + schema | `sql/schema.sql` + `lib/price.test.ts` | ✅ написан |
 | I3 | result URL проверяет подпись перед обновлением | интеграционный | `app/api/robokassa/result.test.ts` | ✅ написан |
-| I4 | Статус меняется только через API (+ сверка суммы и audit ручной отмены) | интеграционный | `app/api/robokassa/result.test.ts`, `lib/admin-orders-db.test.ts`, `app/api/admin/orders/**/*.test.ts` | Робокасса ✅; admin-cancel — по `docs/specs/admin-orders.md` |
-| I5 | Фото: файл + product_images атомарно | интеграционный | `app/api/upload.test.ts` | guards покрыты; нужен прогон с тестовой PostgreSQL/ФС |
+| I4 | Статус меняется только через API (+ сверка суммы и audit ручной отмены) | unit + mock-интеграционный | `app/api/robokassa/result.test.ts`, `lib/admin-orders-db.test.ts`, `app/api/admin/orders/**/*.test.ts` | ✅ покрыто; PostgreSQL-гард и гонка cancel/result требуют live-прогона |
+| I5 | Фото: файл + product_images атомарно | unit + интеграционный | `app/api/upload/route.test.ts`, `app/api/admin/products/[id]/images/route.test.ts`, `lib/upload-image.ts` (через upload-тест) | guards + распознавание формата (JPEG/PNG/WebP VP8/VP8L/VP8X) + cover-инвариант (TD-23) покрыты юнитами; нужен прогон с тестовой PostgreSQL/ФС |
 | I6 | index.html не в .gitignore, не редактируется | structural | `—` | ручная проверка |
 | I7 | .env не коммитится | structural | `.gitignore` | ручная проверка |
 | I8 | Гард admin/upload, session, CSRF | unit + интеграционный | `lib/auth.test.ts`, `app/api/auth/*.test.ts`, `app/api/admin/**/*.test.ts` | unit покрыт; требуется интеграционный прогон с БД |
 | I9 | Серверная effective price в транзакционном snapshot заказа | unit + интеграционный | `lib/pricing.test.ts`, `lib/orders.test.ts` | unit покрыт; требуется интеграционный тест блокировок в PostgreSQL |
-| I10 | Доставка серверно рассчитана и входит в snapshot полной суммы; исполнение не подменяет оплату | unit + интеграционный | `lib/store-settings.test.ts`, `lib/orders.test.ts`, `app/api/robokassa/init.test.ts`, `lib/admin-orders-db.test.ts` | по `docs/specs/admin-orders.md` |
+| I10 | Доставка серверно рассчитана и входит в snapshot полной суммы; исполнение не подменяет оплату | unit + mock-интеграционный | `lib/orders.test.ts`, `lib/admin-orders.test.ts`, `lib/admin-orders-db.test.ts`, `app/api/robokassa/init.test.ts`, `app/api/admin/settings/delivery/route.test.ts`, `sql/migrations/003_orders_delivery_and_admin_events.test.ts` | ✅ покрыто в репозитории; live PostgreSQL/CDEK-прогон открыт |
 
 ## Критические сценарии (e2e, после Ф3)
 
@@ -39,4 +42,7 @@
 
 ## Инструменты
 
-Vitest (unit + integration) — выбран в Ф0, `npm test` = `vitest run`. E2e (Playwright) — кандидат, не заведён.
+Vitest (unit + mock-интеграционные) — `npm test` = `vitest run`. Playwright
+подключён: `npm run test:e2e`, сценарий `e2e/checkout-price-changed.spec.ts`.
+Он поднимает локальный Next.js и мокает внешние API; полный путь оплаты на
+production в него не входит.
