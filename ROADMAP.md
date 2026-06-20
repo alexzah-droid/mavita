@@ -18,9 +18,9 @@
 | Ф0 | Проектный фундамент | ✅ | БД, data-слой, API товаров, тесты, `.env.example` |
 | Ф1 | Витрина и каталог | ✅ | Витрина и карточка товара читают данные из БД |
 | Ф2 | Корзина и оформление | ✅ | Корзина + оформление заказа (заказ создаётся в БД) |
-| Ф3 | Оплата Робокасса | ⬜ | Подпись, init/result/success/fail |
+| Ф3 | Оплата Робокасса | ✅ | Подпись, init/result/success/fail; тестовый платёж прошёл |
 | Ф4 | Админ-панель | ⬜ | Управление товарами, фото, заказами |
-| Ф5 | Деплой на VPS | 🚧 | Тестовый стенд (в работе); production (далее) |
+| Ф5 | Деплой на VPS | ✅ | Прод mavita.ru запущен; Робокасса в тестовом режиме |
 
 ---
 
@@ -83,18 +83,28 @@
 
 ---
 
-## Ф3 — Оплата Робокасса ⬜
+## Ф3 — Оплата Робокасса ✅
 
 Цель: заказ можно оплатить.
 
-- ⬜ `lib/robokassa.ts` — MD5-подпись только на сервере (**I1**), Password1/Password2 из `.env`.
-- ⬜ `app/api/robokassa/init` — pending-заказ, подпись, редирект в Робокассу.
-- ⬜ `app/api/robokassa/result` — проверка `MD5(Password2)` до смены статуса (**I3**, **I4**), ответ `OK{InvId}`.
-- ⬜ `app/api/robokassa/success` / `fail` — редиректы покупателя.
+- ✅ `lib/robokassa.ts` — MD5-подпись только на сервере (**I1**), Password1/Password2 из `.env`.
+- ✅ `app/api/robokassa/init` — создаёт `pending`-заказ, считает подпись, возвращает URL оплаты.
+- ✅ `app/api/robokassa/result` — принимает POST **и** GET (Робокасса в тест-режиме шлёт GET); проверяет `MD5(Password2)` (**I3**), ставит `paid`, отвечает `OK{InvId}`.
+- ✅ `app/api/robokassa/success` / `fail` — редиректы покупателя на `/order/[token]`.
 
-**Тесты:** `lib/robokassa.test.ts` (I1), `app/api/robokassa/result.test.ts` (I3, I4).
+**Проверено 2026-06-20:** тестовый платёж через форму Робокассы (`IsTest=1`), статус заказа сменился `pending → paid`, `robokassa_data` записан в БД.
 
-> Блокеры: регистрация в Робокассе ждёт домена; `ROBOKASSA_TEST_MODE=true` до явной Паузы 1.
+**Хардненинг по ревью 2026-06-20** (детали — [docs/tech-debt.md](docs/tech-debt.md)):
+- TD-1: заказ адресуется неугадываемым `token` (был IDOR по серийному `/order/<id>`). Требует миграции на проде — см. Ф5.
+- TD-2: баннер «оплачено» — по `status` в БД, не по `?paid`.
+- TD-4: `result` сверяет `OutSum` с суммой заказа (защита от недоплаты).
+- TD-3: добавлены тесты подписи и result (I1/I3/I4).
+- TD-8: удалён дубль-маршрут `POST /api/orders`.
+
+**Особенности реализации:**
+- В тестовом режиме Робокасса шлёт GET с `OutSum=1800` (без `.00`). Handler принимает оба метода.
+- `ROBOKASSA_TEST_MODE=true` на проде до явного переключения (Пауза 1).
+- В ЛК Робокассы настроен POST для всех трёх URL (Result / Success / Fail).
 
 ---
 
@@ -111,35 +121,35 @@
 
 ---
 
-## Ф5 — Деплой на VPS 🚧
+## Ф5 — Деплой на VPS ✅
 
 Цель: магазин доступен снаружи на `mavita.ru`.
 
 **Прод VPS** (`45.130.147.108`, `mavita.ru`, см. [docs/environments.md](docs/environments.md)):
 - ✅ Выделенный VPS: Ubuntu 22.04, 1 vCPU, 1 GB RAM + 2 GB swap, 10 GB NVMe.
 - ✅ Провижининг: Node.js 20, PostgreSQL 16, Nginx, PM2, Certbot, UFW.
-- ✅ БД `mavita` и пользователь `mavita` созданы.
-- ✅ `/var/www/mavita/` с `.env` (DATABASE_URL, SESSION_SECRET, ADMIN_PASSWORD).
-- ✅ nginx vhost для `mavita.ru` и `www.mavita.ru` → proxy `:3000`.
-- ✅ Домен `mavita.ru` куплен (2026-06-20).
-- 🚧 DNS A-записи прописаны, ждём propagation.
-- ⬜ SSL через certbot (после propagation DNS).
-- ⬜ Первый деплой кода: `git clone`, `npm ci && npm run build`, `pm2 start`.
-- ⬜ Применить `sql/schema.sql` + `sql/seed.sql`.
-- ⬜ `docs/operations.md` — runbook деплоя/отката (создать при первом деплое).
-- ⬜ GitHub Actions: `git pull → npm ci → npm run build → pm2 reload mavita`.
-- ⬜ Переключение `ROBOKASSA_TEST_MODE=false` — **Пауза 1** (после регистрации в Робокассе).
+- ✅ БД `mavita`, пользователь `mavita`, все 4 таблицы из `sql/schema.sql` — применены.
+- ✅ Nginx vhost для `mavita.ru` и `www.mavita.ru` → proxy `:3000`.
+- ✅ Домен `mavita.ru` куплен (2026-06-20), DNS пропагирован.
+- ✅ SSL через Certbot выпущен: истекает 2026-09-17, автопродление активно.
+- ✅ Код задеплоен (2026-06-20): репозиторий в `/var/www/mavita-repo/`, PM2 запускает из `/var/www/mavita-repo/shop/`.
+- ✅ `.env` заполнен: DATABASE_URL, ROBOKASSA_LOGIN/PASSWORD1/PASSWORD2, SESSION_SECRET, ADMIN_PASSWORD.
+- ✅ `docs/operations.md` — создан.
+- ✅ Тестовый платёж через Робокассу (`IsTest=1`) прошёл, `pending → paid` работает (2026-06-20).
+- ⬜ **Перед следующим деплоем кода** применить миграцию `sql/migrations/001_order_token.sql` (добавляет `orders.token`, TD-1) — иначе `createOrder` упадёт на проде.
+- ⬜ GitHub Actions: `git pull → npm run build → pm2 reload mavita` (автоматизация деплоя).
+- ⬜ Переключение `ROBOKASSA_TEST_MODE=false` — **Пауза 1** (после регистрации Робокассы на боевой режим).
 
 **Тестовый стенд** (`147.45.72.20`, `invoice-vps`):
 - Используется при необходимости; вход `ssh invoice-vps`.
-- МАВИТА на порту 3002, соседи invoice-lifecycle на 3000/3001.
+- МАВИТА в Docker на порту **4000** (`http://147.45.72.20:4000/`); соседи invoice-lifecycle на 3000/3001.
 
 ---
 
 ## Критический путь до первой продажи
 
 ```
-Ф0 ✅ → Ф1 ✅ → Ф2 (корзина ✅ → оформление) → Ф3 (Робокасса) → Ф5 (деплой)
+Ф0 ✅ → Ф1 ✅ → Ф2 ✅ → Ф3 ✅ → Ф5 ✅ → переключить ROBOKASSA_TEST_MODE=false (Пауза 1)
 ```
 
 Полноценная админка (Ф4) не на критическом пути: до неё товары наполняются через

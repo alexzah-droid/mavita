@@ -6,17 +6,17 @@
 
 ## Статус
 
-> Фаза 0 не начата. Тесты не написаны. Этот файл — план.
+> Ф0–Ф3 покрыты: 53 теста зелёные (`npm test`). I5 — в Ф4.
 
 ## Инварианты → тесты
 
 | ID | Инвариант | Тип теста | Файл | Статус |
 | --- | --- | --- | --- | --- |
-| I1 | Подпись только на сервере, Password в .env | unit | `lib/robokassa.test.ts` | не написан |
-| I2 | Цены в копейках (INTEGER) | unit + schema | `sql/schema.sql` + `lib/price.test.ts` | не написан |
-| I3 | result URL проверяет подпись перед обновлением | интеграционный | `app/api/robokassa/result.test.ts` | не написан |
-| I4 | Статус меняется только через API | интеграционный | `app/api/robokassa/result.test.ts` | не написан |
-| I5 | Фото: файл + product_images атомарно | интеграционный | `app/api/upload.test.ts` | не написан |
+| I1 | Подпись только на сервере, Password в .env | unit | `lib/robokassa.test.ts` | ✅ написан |
+| I2 | Цены в копейках (INTEGER) | unit + schema | `sql/schema.sql` + `lib/price.test.ts` | ✅ написан |
+| I3 | result URL проверяет подпись перед обновлением | интеграционный | `app/api/robokassa/result.test.ts` | ✅ написан |
+| I4 | Статус меняется только через API (+ сверка суммы) | интеграционный | `app/api/robokassa/result.test.ts` | ✅ написан |
+| I5 | Фото: файл + product_images атомарно | интеграционный | `app/api/upload.test.ts` | не написан (Ф4) |
 | I6 | index.html не в .gitignore, не редактируется | structural | `—` | ручная проверка |
 | I7 | .env не коммитится | structural | `.gitignore` | ручная проверка |
 

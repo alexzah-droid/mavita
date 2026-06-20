@@ -44,7 +44,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_product_cover
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS orders (
     id             SERIAL PRIMARY KEY,
-    inv_id         INTEGER UNIQUE,               -- InvId для Робокассы
+    token          TEXT UNIQUE NOT NULL,         -- неугадываемый идентификатор для URL /order/<token>
+    inv_id         INTEGER UNIQUE,               -- InvId для Робокассы (= id)
     customer_name  TEXT NOT NULL,
     customer_email TEXT NOT NULL,
     customer_phone TEXT,

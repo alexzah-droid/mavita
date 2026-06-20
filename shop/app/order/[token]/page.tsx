@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getOrder } from '@/lib/orders'
+import { getOrderByToken } from '@/lib/orders'
 import { buildPaymentUrl, isRobokassaConfigured } from '@/lib/robokassa'
 import { formatRub } from '@/lib/price'
 import ShopHeader from '@/app/components/ShopHeader'
@@ -17,18 +17,19 @@ export default async function OrderPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ token: string }>
   searchParams: Promise<{ paid?: string; failed?: string }>
 }) {
-  const [{ id }, sp] = await Promise.all([params, searchParams])
-  const numericId = Number(id)
-  if (!Number.isInteger(numericId)) notFound()
+  const [{ token }, sp] = await Promise.all([params, searchParams])
 
-  const order = await getOrder(numericId)
+  const order = await getOrderByToken(token)
   if (!order) notFound()
 
-  const justPaid = sp.paid === '1'
-  const justFailed = sp.failed === '1'
+  // Источник правды о статусе — БД (проставляется в /api/robokassa/result после
+  // проверки подписи). ?paid / ?failed — лишь подсказка, откуда вернулся покупатель,
+  // и НЕ может выдать неоплаченный заказ за оплаченный.
+  const isPaid = order.status === 'paid'
+  const justFailed = !isPaid && sp.failed === '1'
 
   let paymentUrl: string | null = null
   if (order.status === 'pending' && isRobokassaConfigured()) {
@@ -46,14 +47,14 @@ export default async function OrderPage({
 
       <div className="order-page">
         <div className="order-inner">
-          {justPaid ? (
+          {isPaid ? (
             <>
               <div className="order-badge order-badge--success">Оплата прошла</div>
               <h1 className="order-title">Спасибо за покупку!</h1>
               <p className="order-lede">
                 Заказ <strong>№{order.id}</strong> оплачен.
                 <br />
-                Подтверждение отправлено на <strong>{order.customerEmail}</strong>.
+                Мы свяжемся с вами по <strong>{order.customerEmail}</strong>.
               </p>
             </>
           ) : justFailed ? (
@@ -74,7 +75,7 @@ export default async function OrderPage({
                 Заказ <strong>№{order.id}</strong> создан. Статус:{' '}
                 <strong>{STATUS_LABEL[order.status] ?? order.status}</strong>.
                 <br />
-                Подтверждение отправлено на <strong>{order.customerEmail}</strong>.
+                Контактный email: <strong>{order.customerEmail}</strong>.
               </p>
             </>
           )}

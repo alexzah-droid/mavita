@@ -116,7 +116,8 @@ CREATE TABLE product_images (
 -- Заказы
 CREATE TABLE orders (
     id              SERIAL PRIMARY KEY,
-    inv_id          INTEGER UNIQUE,        -- InvId для Робокассы
+    token           TEXT UNIQUE NOT NULL,  -- неугадываемый id для URL /order/<token>
+    inv_id          INTEGER UNIQUE,        -- InvId для Робокассы (= id)
     customer_name   TEXT NOT NULL,
     customer_email  TEXT NOT NULL,
     customer_phone  TEXT,
@@ -142,17 +143,11 @@ CREATE TABLE order_items (
 
 ## Статус реализации
 
-| Фаза | Описание | Статус |
-|---|---|---|
-| Ф0 | Инфраструктура (Next.js, PostgreSQL, Nginx, PM2, GitHub Actions) | ✅ Готово |
-| Ф1 | Витрина: каталог, карточка товара | ✅ Готово |
-| Ф2 | Корзина + оформление заказа (pending) + мобильная шапка | ✅ Готово |
-| Ф3 | Оплата через Робокассу (тестовый режим) | ✅ Код готов, ждёт БД + end-to-end теста |
-| Ф4 | Админ-панель (iron-session, CRUD товаров, загрузка фото) | ⬜ Не начато |
-| Ф5 | GitHub Actions CI/CD + деплой на VPS | ✅ Настроено |
+Единый источник статуса фаз — [ROADMAP.md](ROADMAP.md). Здесь не дублируется,
+чтобы не расходиться. Известный техдолг — [docs/tech-debt.md](docs/tech-debt.md).
 
-> **Ф3:** реквизиты Робокассы (`ROBOKASSA_LOGIN=mavita`, тестовые пароли) прописаны в `.env`.
-> ResultURL/SuccessURL/FailURL нужно прописать в ЛК Робокассы после деплоя на VPS.
+> **Ф3:** ResultURL/SuccessURL/FailURL нужно прописать в ЛК Робокассы после деплоя на VPS.
+> В тестовом режиме в `.env` кладутся тестовые Password1/Password2 (см. `.env.example`).
 
 ---
 
@@ -172,11 +167,12 @@ CREATE TABLE order_items (
         ↓
 4. POST /api/robokassa/result  ← сервер Робокассы → наш сервер
    — проверяет подпись: MD5(OutSum:InvId:Password2)
-   — меняет статус заказа на paid
+   — сверяет OutSum с total_kopecks заказа (защита от недоплаты)
+   — меняет статус заказа на paid (идемпотентно)
    — возвращает "OK{InvId}"
         ↓
-5. GET /api/robokassa/success  ← редирект покупателя
-   — показывает страницу «Заказ оплачен»
+5. GET /api/robokassa/success  ← редирект покупателя на /order/<token>
+   — статус «оплачено» берётся из БД, не из query-параметра
 ```
 
 Подпись **всегда считается на сервере**. Password1 и Password2 — только в переменных окружения, никогда в коде.

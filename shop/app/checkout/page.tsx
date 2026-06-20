@@ -44,7 +44,7 @@ export default function CheckoutPage() {
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl
       } else {
-        router.push(`/order/${data.id}`)
+        router.push(`/order/${data.token}`)
       }
     } catch {
       setErrors(['Сеть недоступна. Попробуйте ещё раз.'])

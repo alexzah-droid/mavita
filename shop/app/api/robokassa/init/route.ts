@@ -23,10 +23,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { id, totalKopecks } = await createOrder(input)
+    const { id, token, totalKopecks } = await createOrder(input)
 
     if (!isRobokassaConfigured()) {
-      return NextResponse.json({ id, paymentUrl: null }, { status: 201 })
+      return NextResponse.json({ id, token, paymentUrl: null }, { status: 201 })
     }
 
     await query('UPDATE orders SET inv_id = $1 WHERE id = $1', [id])
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       `Заказ №${id} — МАВИТА`,
     )
 
-    return NextResponse.json({ id, paymentUrl }, { status: 201 })
+    return NextResponse.json({ id, token, paymentUrl }, { status: 201 })
   } catch (err) {
     if (err instanceof OrderValidationError) {
       return NextResponse.json({ errors: err.errors }, { status: 400 })

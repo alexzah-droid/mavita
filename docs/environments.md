@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | **локальный** | `http://localhost:3000` | машина разработчика | `npm run dev` |
 | **тестовый** | `http://147.45.72.20:4000` (работает) | VPS `147.45.72.20` | Docker, rsync + rebuild |
-| **production** | `https://mavita.ru` | выделенный VPS `45.130.147.108` | только после Паузы 1 |
+| **production** | `https://mavita.ru` | выделенный VPS `45.130.147.108` | rsync → `npm run build` → `pm2 reload mavita` |
 
 ---
 
@@ -109,40 +109,70 @@ Vhost `/etc/nginx/sites-enabled/mavita` — заглушка под `mavita.alex
 | PM2 | 7.0.1 | `systemctl enable pm2-root` включён |
 | PostgreSQL | 16.14 | PGDG-репозиторий, autostart |
 | Nginx | 1.18.0 | reverse proxy → `127.0.0.1:3000` |
-| Certbot | 1.21.0 | SSL выпустить после настройки DNS |
+| Certbot | 1.21.0 | SSL выпущен: `mavita.ru` + `www.mavita.ru`, истекает 2026-09-17 |
 | UFW | active | разрешены OpenSSH + Nginx Full (22/80/443) |
 | Timezone | Europe/Moscow | |
 
-### Размещение
+### Размещение (фактическое, после первого деплоя 2026-06-20)
 
 ```
-/var/www/mavita/                          — код Next.js
-/var/www/mavita/public/uploads/           — фото товаров (Nginx отдаёт напрямую)
-/var/www/mavita/.env                       — секреты, chmod 600 (НЕ в git)
-/etc/nginx/sites-available/mavita.ru       — vhost (symlink в sites-enabled)
+/var/www/mavita-repo/                     — git-клон репозитория (полный)
+/var/www/mavita-repo/shop/                — каталог Next.js-приложения (cwd PM2)
+/var/www/mavita-repo/shop/.env            — секреты, chmod 600 (НЕ в git)
+/var/www/mavita-repo/shop/public/uploads/ — фото товаров (Nginx отдаёт напрямую)
+/etc/nginx/sites-available/mavita.ru      — vhost (symlink в sites-enabled)
 ```
 
-**Порт приложения: `3000`** (на этом VPS он свободен, в отличие от тестового).
+> ⚠️ `/var/www/mavita/` также существует на сервере — это артефакт первоначального
+> провижининга (там свой `.env`). PM2 его **не использует**. Рабочий каталог — только
+> `/var/www/mavita-repo/shop/`.
 
-### БД (создана)
+**Порт приложения: `3000`**.
 
-- База `mavita`, владелец — роль `mavita`.
-- `DATABASE_URL` прописан в `/var/www/mavita/.env`.
-- Схема ещё **не применена** — при первом деплое: `psql ... -f sql/schema.sql`.
+### PM2
 
-### .env на сервере
+```
+pm2 show mavita    → script: /usr/bin/npm, args: start, cwd: /var/www/mavita-repo/shop
+```
 
-Создан `/var/www/mavita/.env` (chmod 600) с заполненными `DATABASE_URL`,
-`SESSION_SECRET`, `ADMIN_PASSWORD`, `NEXT_PUBLIC_BASE_URL=https://mavita.ru`.
-`ROBOKASSA_*` — пустые, `ROBOKASSA_TEST_MODE=true` (регистрация Робокассы ждёт домена).
-Сами значения секретов в git не хранятся.
+### БД
 
-### Осталось сделать (вне настройки сервера)
+- База `mavita`, владелец `mavita`, 4 таблицы из `sql/schema.sql` — ✅ применены (2026-06-20).
+- `DATABASE_URL` прописан в `.env`.
+- Seed-данные загружены через psql вручную.
 
-1. **DNS**: у регистратора mavita.ru добавить `A @ → 45.130.147.108` и `A www → 45.130.147.108`.
-2. После propagation DNS: `certbot --nginx -d mavita.ru -d www.mavita.ru` (HTTP→HTTPS редирект).
-3. Первый деплой кода из `shop/` → `/var/www/mavita/`, `npm ci && npm run build`, `pm2 start`.
-4. Применить `sql/schema.sql`.
+### .env на сервере (`/var/www/mavita-repo/shop/.env`)
+
+| Переменная | Статус |
+| --- | --- |
+| `DATABASE_URL` | ✅ заполнен |
+| `ROBOKASSA_LOGIN` | ✅ `mavita` |
+| `ROBOKASSA_PASSWORD1` | ✅ заполнен |
+| `ROBOKASSA_PASSWORD2` | ✅ заполнен |
+| `ROBOKASSA_TEST_MODE` | `true` (боевой режим — Пауза 1) |
+| `ADMIN_PASSWORD` | ✅ заполнен |
+| `SESSION_SECRET` | ✅ заполнен |
+| `NEXT_PUBLIC_BASE_URL` | `https://mavita.ru` |
+
+### Деплой (текущий процесс)
+
+```bash
+# локально
+rsync -avz --exclude='.env' --exclude='node_modules' --exclude='.next' --exclude='public/uploads' \
+  shop/ mavita:/var/www/mavita-repo/shop/
+
+# на VPS
+ssh mavita "cd /var/www/mavita-repo/shop && npm run build && pm2 reload mavita --update-env"
+```
+
+### Настройки Робокассы в ЛК (прописаны 2026-06-20)
+
+| URL | Значение |
+| --- | --- |
+| ResultURL | `https://mavita.ru/api/robokassa/result` |
+| SuccessURL | `https://mavita.ru/api/robokassa/success` |
+| FailURL | `https://mavita.ru/api/robokassa/fail` |
+| Метод отправки | POST для всех трёх URL |
 
 ---
 
@@ -159,6 +189,5 @@ Vhost `/etc/nginx/sites-enabled/mavita` — заглушка под `mavita.alex
 
 ## Где смотреть дальше
 
-- `docs/operations.md` — runbook деплоя (создать при первом деплое)
-- `docs/project-bootstrap/templates/operations.template.md` — шаблон
-- `.env.example` — список переменных (создать из шаблона при Ф0)
+- `docs/operations.md` — runbook деплоя и отката
+- `.env.example` — список переменных (без значений)

@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `index.html` — бандлированный файл (~6 MB), сгенерирован кастомным бандлером. Все ассеты встроены как base64 в `<script type="__bundler/manifest">` и `<script type="__bundler/template">`. Runtime-загрузчик разворачивает их через `DecompressionStream` и blob URL.
 
 **Можно редактировать напрямую:**
-- `Мавита - четыре направления (один файл).html` — многостраничная HTML-презентация четырёх направлений бизнеса. Использует Google Fonts (Cormorant Garamond + Manrope) с CDN.
+- `archive/Мавита - четыре направления (один файл).html` — многостраничная HTML-презентация четырёх направлений бизнеса. Использует Google Fonts (Cormorant Garamond + Manrope) с CDN.
 
 Просмотр:
 ```bash
@@ -117,4 +117,4 @@ NEXT_PUBLIC_BASE_URL
 
 `.nojekyll` — сайт публикуется через GitHub Pages (КП-материалы).
 
-Магазин деплоится на VPS `45.130.147.108` (Ubuntu 22.04, `mavita.ru`) через GitHub Actions: `git pull` → `npm run build` → `pm2 reload mavita`. Nginx — reverse proxy на порт 3000, SSL через Certbot.
+Магазин деплоится на VPS `45.130.147.108` (Ubuntu 22.04, `mavita.ru`). Код живёт в `/var/www/mavita-repo/shop/` (PM2 cwd). Деплой: rsync `shop/` → VPS → `npm run build` → `pm2 reload mavita --update-env`. Nginx — reverse proxy на порт 3000, SSL через Certbot. GitHub Actions — в плане.

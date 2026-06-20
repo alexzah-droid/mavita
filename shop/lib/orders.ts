@@ -2,6 +2,7 @@
 // Цена и название берутся из КАТАЛОГА (БД), а не от клиента — это snapshot на момент
 // покупки и защита от подмены цены на клиенте. Суммы в копейках (I2).
 
+import { randomUUID } from 'node:crypto'
 import { isDbConfigured, query, withTransaction } from '@/lib/db'
 
 export type OrderInput = {
@@ -128,10 +129,10 @@ async function fetchCatalog(slugs: string[]): Promise<Map<string, CatalogItem>> 
   return map
 }
 
-/** Создать заказ (status=pending) + позиции атомарно. */
+/** Создать заказ (status=pending) + позиции атомарно. token — неугадываемый id для URL. */
 export async function createOrder(
   input: OrderInput,
-): Promise<{ id: number; totalKopecks: number }> {
+): Promise<{ id: number; token: string; totalKopecks: number }> {
   if (!isDbConfigured()) {
     throw new Error('DATABASE_URL is not set — orders require a database')
   }
@@ -145,12 +146,15 @@ export async function createOrder(
   if (errors.length) throw new OrderValidationError(errors)
   if (!lines.length) throw new OrderValidationError(['Корзина пуста'])
 
+  const token = randomUUID()
+
   const id = await withTransaction(async (client) => {
     const orderRes = await client.query<{ id: number }>(
-      `INSERT INTO orders (customer_name, customer_email, customer_phone, total_kopecks, status)
-       VALUES ($1, $2, $3, $4, 'pending')
+      `INSERT INTO orders (token, customer_name, customer_email, customer_phone, total_kopecks, status)
+       VALUES ($1, $2, $3, $4, $5, 'pending')
        RETURNING id`,
       [
+        token,
         input.customerName.trim(),
         input.customerEmail.trim(),
         input.customerPhone?.trim() || null,
@@ -169,20 +173,53 @@ export async function createOrder(
     return orderId
   })
 
-  return { id, totalKopecks }
+  return { id, token, totalKopecks }
 }
 
-/** Пометить заказ оплаченным и сохранить сырые данные от Робокассы. */
+export type MarkPaidResult =
+  | 'paid' // переведён pending → paid
+  | 'already_paid' // уже был оплачен (идемпотентный повтор колбэка)
+  | 'not_found' // заказа с таким InvId нет
+  | 'amount_mismatch' // сумма от Робокассы не совпала с заказом
+
+/**
+ * Пометить заказ оплаченным. Меняет статус только если заказ pending И сумма
+ * (в копейках) совпадает с total_kopecks заказа — защита от недоплаты/рассинхрона.
+ * Идемпотентно: повторный колбэк по уже оплаченному заказу — 'already_paid'.
+ */
 export async function markOrderPaid(
-  orderId: number,
+  invId: number,
+  paidKopecks: number,
   robokassaData: Record<string, string>,
-): Promise<void> {
-  if (!isDbConfigured()) return
+): Promise<MarkPaidResult> {
+  if (!isDbConfigured()) return 'not_found'
+
+  const rows = await query<{ status: string; total_kopecks: number | string }>(
+    `SELECT status, total_kopecks FROM orders WHERE id = $1`,
+    [invId],
+  )
+  if (!rows.length) return 'not_found'
+
+  const order = rows[0]
+  if (order.status === 'paid') return 'already_paid'
+  if (Number(order.total_kopecks) !== paidKopecks) return 'amount_mismatch'
+
   await query(
     `UPDATE orders SET status = 'paid', robokassa_data = $1
      WHERE id = $2 AND status = 'pending'`,
-    [JSON.stringify(robokassaData), orderId],
+    [JSON.stringify(robokassaData), invId],
   )
+  return 'paid'
+}
+
+/** token заказа по InvId (= id) — для редиректов success/fail на /order/<token>. */
+export async function getOrderTokenByInvId(invId: number): Promise<string | undefined> {
+  if (!isDbConfigured() || !Number.isInteger(invId)) return undefined
+  const rows = await query<{ token: string }>(
+    `SELECT token FROM orders WHERE id = $1`,
+    [invId],
+  )
+  return rows[0]?.token
 }
 
 type OrderRow = {
@@ -200,19 +237,23 @@ type OrderItemRow = {
   quantity: number
 }
 
-/** Получить заказ с позициями по id. undefined, если не найден или БД недоступна. */
-export async function getOrder(id: number): Promise<Order | undefined> {
-  if (!isDbConfigured() || !Number.isInteger(id)) return undefined
+/**
+ * Получить заказ с позициями по неугадываемому token (не по серийному id) —
+ * иначе чужие заказы и PII перебирались бы по /order/1, /order/2…
+ * undefined, если не найден или БД недоступна.
+ */
+export async function getOrderByToken(token: string): Promise<Order | undefined> {
+  if (!isDbConfigured() || !token) return undefined
   const orders = await query<OrderRow>(
     `SELECT id, customer_name, customer_email, customer_phone, total_kopecks, status, created_at
-     FROM orders WHERE id = $1`,
-    [id],
+     FROM orders WHERE token = $1`,
+    [token],
   )
   if (!orders.length) return undefined
   const o = orders[0]
   const items = await query<OrderItemRow>(
     `SELECT product_name, price_kopecks, quantity FROM order_items WHERE order_id = $1 ORDER BY id`,
-    [id],
+    [o.id],
   )
   return {
     id: o.id,
