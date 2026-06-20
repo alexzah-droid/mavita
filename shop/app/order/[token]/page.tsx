@@ -36,6 +36,11 @@ export default async function OrderPage({
     paymentUrl = buildPaymentUrl(
       order.id,
       order.totalKopecks,
+      order.items.map((it) => ({
+        name: it.productName,
+        priceKopecks: it.priceKopecks,
+        quantity: it.quantity,
+      })),
       order.customerEmail,
       `Заказ №${order.id} — МАВИТА`,
     )

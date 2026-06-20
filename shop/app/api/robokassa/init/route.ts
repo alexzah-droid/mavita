@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { id, token, totalKopecks } = await createOrder(input)
+    const { id, token, totalKopecks, lines } = await createOrder(input)
 
     if (!isRobokassaConfigured()) {
       return NextResponse.json({ id, token, paymentUrl: null }, { status: 201 })
@@ -34,6 +34,7 @@ export async function POST(req: Request) {
     const paymentUrl = buildPaymentUrl(
       id,
       totalKopecks,
+      lines.map((l) => ({ name: l.productName, priceKopecks: l.priceKopecks, quantity: l.quantity })),
       input.customerEmail.trim(),
       `Заказ №${id} — МАВИТА`,
     )

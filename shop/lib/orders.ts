@@ -140,7 +140,7 @@ async function fetchCatalog(slugs: string[]): Promise<Map<string, CatalogItem>> 
 /** Создать заказ (status=pending) + позиции атомарно. token — неугадываемый id для URL. */
 export async function createOrder(
   input: OrderInput,
-): Promise<{ id: number; token: string; totalKopecks: number }> {
+): Promise<{ id: number; token: string; totalKopecks: number; lines: OrderLine[] }> {
   if (!isDbConfigured()) {
     throw new Error('DATABASE_URL is not set — orders require a database')
   }
@@ -181,7 +181,7 @@ export async function createOrder(
     return orderId
   })
 
-  return { id, token, totalKopecks }
+  return { id, token, totalKopecks, lines }
 }
 
 export type MarkPaidResult =
