@@ -1,0 +1,7 @@
+import { NextResponse } from 'next/server'
+import { assertSameOrigin, requireAdminApi } from '@/lib/auth'
+import { getDeliverySettings, saveDeliverySettings, validateDeliveryKopecks } from '@/lib/store-settings'
+function authOk(value: Awaited<ReturnType<typeof requireAdminApi>>): value is { isAdmin: true; loginAt: number } { return !(value instanceof NextResponse) }
+const noStore = { 'Cache-Control': 'private, no-store' }
+export async function GET() { const auth = await requireAdminApi(); if (!authOk(auth)) return auth; const settings = await getDeliverySettings(); return settings ? NextResponse.json(settings, { headers: noStore }) : NextResponse.json({ error: { code: 'SETTINGS_NOT_CONFIGURED', messages: ['Тариф доставки ещё не настроен'] } }, { status: 404, headers: noStore }) }
+export async function PATCH(request: Request) { const auth = await requireAdminApi(); if (!authOk(auth)) return auth; const csrf = assertSameOrigin(request); if (csrf) return csrf; const body = await request.json().catch(() => null); const value = body && typeof body === 'object' && Object.keys(body).length === 1 ? validateDeliveryKopecks((body as { cdekPickupDeliveryKopecks?: unknown }).cdekPickupDeliveryKopecks) : undefined; if (value === undefined) return NextResponse.json({ error: { code: 'VALIDATION_ERROR', messages: ['Стоимость доставки должна быть целым неотрицательным числом копеек'] } }, { status: 400, headers: noStore }); return NextResponse.json(await saveDeliverySettings(value, auth.loginAt), { headers: noStore }) }

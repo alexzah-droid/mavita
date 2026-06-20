@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 vi.mock('@/lib/db', () => ({
   isDbConfigured: () => true,
   query: vi.fn(),
+  withTransaction: async (fn: (client: { query: <T>(text: string, params?: unknown[]) => Promise<{ rows: T[] }> }) => Promise<unknown>) => fn({ query: async <T>(text: string, params?: unknown[]) => ({ rows: await q(text, params) as T[] }) }),
 }))
 
 import { markOrderPaid } from '@/lib/orders'
@@ -46,19 +47,9 @@ describe('markOrderPaid', () => {
     expect(q).toHaveBeenCalledTimes(1)
   })
 
-  // TD-18: строку увели между SELECT и UPDATE (гонка колбэков) — UPDATE 0 строк,
-  // перечитываем статус и возвращаем честный результат вместо ложного 'paid'.
-  it('гонка: pending на SELECT, но UPDATE 0 строк и стало paid → already_paid', async () => {
+  it('неконсистентный pending без awaiting_payment не подтверждается', async () => {
     q.mockResolvedValueOnce([{ status: 'pending', total_kopecks: 180000 }]) // SELECT
     q.mockResolvedValueOnce([]) // UPDATE … RETURNING — 0 строк
-    q.mockResolvedValueOnce([{ status: 'paid' }]) // перечитали статус
-    expect(await markOrderPaid(5, 180000, RAW)).toBe('already_paid')
-  })
-
-  it('гонка: UPDATE 0 строк и заказ оказался cancelled → cancelled', async () => {
-    q.mockResolvedValueOnce([{ status: 'pending', total_kopecks: 180000 }])
-    q.mockResolvedValueOnce([])
-    q.mockResolvedValueOnce([{ status: 'cancelled' }])
-    expect(await markOrderPaid(5, 180000, RAW)).toBe('cancelled')
+    expect(await markOrderPaid(5, 180000, RAW)).toBe('not_found')
   })
 })

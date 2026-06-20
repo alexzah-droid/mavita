@@ -11,6 +11,8 @@ function input(over: Partial<OrderInput> = {}): OrderInput {
     customerName: 'Виктория',
     customerEmail: 'vika@example.com',
     customerPhone: '+79991234567',
+    delivery: { method: 'cdek_pickup', pickupPointCode: 'MSK1', expectedDeliveryKopecks: 50000 },
+    expectedTotalKopecks: 410000,
     items: [{ slug: 'kvadratnaya', quantity: 2 }],
     ...over,
   }
@@ -24,7 +26,7 @@ describe('validateOrderInput', () => {
   it('требует имя', () => {
     const r = validateOrderInput(input({ customerName: '  ' }))
     expect(r.ok).toBe(false)
-    expect(r.errors.some((e) => e.includes('имя'))).toBe(true)
+    expect(r.errors.some((e) => e.includes('ФИО'))).toBe(true)
   })
 
   it('требует корректный email', () => {
@@ -32,8 +34,9 @@ describe('validateOrderInput', () => {
     expect(validateOrderInput(input({ customerEmail: 'a@b.ru' })).ok).toBe(true)
   })
 
-  it('телефон необязателен', () => {
-    expect(validateOrderInput(input({ customerPhone: undefined })).ok).toBe(true)
+  it('требует телефон получателя и выбранный ПВЗ', () => {
+    expect(validateOrderInput(input({ customerPhone: '' })).ok).toBe(false)
+    expect(validateOrderInput(input({ delivery: { method: 'cdek_pickup', pickupPointCode: '', expectedDeliveryKopecks: 50000 } })).ok).toBe(false)
   })
 
   it('требует непустую корзину', () => {

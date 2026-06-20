@@ -1,0 +1,3 @@
+import { NextResponse } from 'next/server'
+import { CdekValidationError, listPickupPoints } from '@/lib/cdek'
+export async function GET(request: Request) { try { return NextResponse.json({ pickupPoints: await listPickupPoints(new URL(request.url).searchParams.get('city') ?? undefined) }, { headers: { 'Cache-Control': 'no-store' } }) } catch (error) { const message = error instanceof CdekValidationError ? error.message : 'Доставка временно недоступна'; return NextResponse.json({ error: { code: 'DELIVERY_UNAVAILABLE', messages: [message] } }, { status: 503, headers: { 'Cache-Control': 'no-store' } }) } }

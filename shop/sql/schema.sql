@@ -66,13 +66,51 @@ CREATE TABLE IF NOT EXISTS orders (
     customer_email TEXT NOT NULL,
     customer_phone TEXT,
     total_kopecks  INTEGER NOT NULL CHECK (total_kopecks >= 0),  -- I2
+    items_kopecks  INTEGER NOT NULL CHECK (items_kopecks >= 0),
+    delivery_kopecks INTEGER NOT NULL CHECK (delivery_kopecks >= 0),
+    delivery_method TEXT,
+    delivery_carrier TEXT,
+    pickup_point_code TEXT,
+    pickup_point_city TEXT,
+    pickup_point_name TEXT,
+    pickup_point_address TEXT,
+    fulfillment_status TEXT NOT NULL DEFAULT 'awaiting_payment',
+    tracking_number TEXT,
     status         TEXT NOT NULL DEFAULT 'pending'
         CHECK (status IN ('pending', 'paid', 'cancelled')),
     robokassa_data JSONB,                         -- сырой ответ Робокассы
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT orders_total_components_check CHECK (total_kopecks = items_kopecks + delivery_kopecks),
+    CONSTRAINT orders_delivery_method_check CHECK ((delivery_method IS NULL AND delivery_carrier IS NULL AND delivery_kopecks = 0) OR (delivery_method = 'cdek_pickup' AND delivery_carrier = 'cdek')),
+    CONSTRAINT orders_pickup_point_snapshot_check CHECK (delivery_method IS NULL OR (delivery_method = 'cdek_pickup' AND pickup_point_code IS NOT NULL AND char_length(btrim(pickup_point_code)) > 0 AND pickup_point_city IS NOT NULL AND char_length(btrim(pickup_point_city)) > 0 AND pickup_point_name IS NOT NULL AND char_length(btrim(pickup_point_name)) > 0 AND pickup_point_address IS NOT NULL AND char_length(btrim(pickup_point_address)) > 0)),
+    CONSTRAINT orders_fulfillment_status_check CHECK (fulfillment_status IN ('awaiting_payment', 'new', 'packing', 'handed_to_carrier', 'delivered', 'cancelled')),
+    CONSTRAINT orders_payment_fulfillment_check CHECK ((status = 'pending' AND fulfillment_status = 'awaiting_payment') OR (status = 'paid' AND fulfillment_status IN ('new', 'packing', 'handed_to_carrier', 'delivered')) OR (status = 'cancelled' AND fulfillment_status = 'cancelled')),
+    CONSTRAINT orders_tracking_number_check CHECK ((fulfillment_status IN ('handed_to_carrier', 'delivered') AND tracking_number IS NOT NULL AND char_length(btrim(tracking_number)) BETWEEN 5 AND 64) OR (fulfillment_status NOT IN ('handed_to_carrier', 'delivered') AND tracking_number IS NULL))
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_created_id_desc ON orders (created_at DESC, id DESC);
+
+CREATE TABLE IF NOT EXISTS store_settings (
+    singleton BOOLEAN PRIMARY KEY DEFAULT true CONSTRAINT store_settings_singleton_check CHECK (singleton),
+    cdek_pickup_delivery_kopecks INTEGER NOT NULL CONSTRAINT store_settings_cdek_delivery_nonnegative CHECK (cdek_pickup_delivery_kopecks >= 0),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by_actor_login_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS order_admin_events (
+    id BIGSERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+    event_type TEXT NOT NULL CONSTRAINT order_admin_events_type_check CHECK (event_type IN ('cancelled', 'fulfillment_transition')),
+    reason TEXT,
+    from_fulfillment_status TEXT,
+    to_fulfillment_status TEXT,
+    tracking_number TEXT,
+    actor_login_at BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT order_admin_events_shape_check CHECK ((event_type = 'cancelled' AND reason IS NOT NULL AND char_length(btrim(reason)) BETWEEN 5 AND 500 AND from_fulfillment_status = 'awaiting_payment' AND to_fulfillment_status = 'cancelled' AND tracking_number IS NULL) OR (event_type = 'fulfillment_transition' AND reason IS NULL AND ((from_fulfillment_status = 'new' AND to_fulfillment_status = 'packing' AND tracking_number IS NULL) OR (from_fulfillment_status = 'packing' AND to_fulfillment_status = 'handed_to_carrier' AND tracking_number IS NOT NULL AND char_length(btrim(tracking_number)) BETWEEN 5 AND 64) OR (from_fulfillment_status = 'handed_to_carrier' AND to_fulfillment_status = 'delivered' AND tracking_number IS NULL))))
+);
+CREATE INDEX IF NOT EXISTS idx_order_admin_events_order_created ON order_admin_events (order_id, created_at DESC, id DESC);
 
 -- ─────────────────────────────────────────────────────────────
 -- Состав заказа — snapshot названия и цены на момент покупки

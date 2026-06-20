@@ -1,0 +1,6 @@
+import { NextResponse } from 'next/server'
+import { assertSameOrigin, requireAdminApi } from '@/lib/auth'
+import { parseCancelBody, parseOrderId } from '@/lib/admin-orders'
+import { cancelAdminOrder } from '@/lib/admin-orders-db'
+function ok(value: Awaited<ReturnType<typeof requireAdminApi>>): value is { isAdmin: true; loginAt: number } { return !(value instanceof NextResponse) }
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) { const auth = await requireAdminApi(); if (!ok(auth)) return auth; const csrf = assertSameOrigin(request); if (csrf) return csrf; const id = parseOrderId((await params).id); const parsed = parseCancelBody(await request.json().catch(() => null)); if (!id || !parsed.value) return NextResponse.json({ error: { code: 'VALIDATION_ERROR', messages: id ? parsed.errors : ['Некорректный номер заказа'] } }, { status: 400 }); const result = await cancelAdminOrder(id, parsed.value.reason, auth.loginAt); if (typeof result !== 'string') return NextResponse.json(result, { headers: { 'Cache-Control': 'private, no-store' } }); return NextResponse.json({ error: { code: result === 'not_found' ? 'NOT_FOUND' : 'ORDER_NOT_PENDING', messages: [result === 'not_found' ? 'Заказ не найден' : 'Можно отменить только неоплаченный заказ'] } }, { status: result === 'not_found' ? 404 : 409 }) }

@@ -6,11 +6,14 @@ import { randomUUID } from 'node:crypto'
 import { isDbConfigured, query, withTransaction } from '@/lib/db'
 import { effectivePrice } from '@/lib/pricing'
 import type { Visibility } from '@/lib/products'
+import { getPickupPoint } from '@/lib/cdek'
 
 export type OrderInput = {
   customerName: string
   customerEmail: string
-  customerPhone?: string
+  customerPhone: string
+  delivery: { method: 'cdek_pickup'; pickupPointCode: string; expectedDeliveryKopecks: number }
+  expectedTotalKopecks: number
   items: { slug: string; quantity: number }[]
 }
 
@@ -59,13 +62,25 @@ export class OrderValidationError extends Error {
     this.errors = errors
   }
 }
+export class PriceChangedError extends Error {
+  constructor(public amounts: { itemsKopecks: number; deliveryKopecks: number; totalKopecks: number }) { super('PRICE_CHANGED'); this.name = 'PriceChangedError' }
+}
+export class DeliveryUnavailableError extends Error { constructor() { super('Оформление временно недоступно'); this.name = 'DeliveryUnavailableError' } }
+
+function normalizePhone(value: string): string | undefined {
+  const digits = value.replace(/\D/g, ''); if (digits.length !== 11 || !/^[78]/.test(digits)) return undefined
+  return `+7${digits.slice(1)}`
+}
 
 /** Чистая валидация формы заказа (без обращения к БД). */
 export function validateOrderInput(input: OrderInput): ValidationResult {
   const errors: string[] = []
-  if (!input.customerName?.trim()) errors.push('Укажите имя')
+  if (!input.customerName?.trim()) errors.push('Укажите ФИО получателя')
   const email = input.customerEmail?.trim() ?? ''
   if (!email || !EMAIL_RE.test(email)) errors.push('Укажите корректный email')
+  if (!normalizePhone(input.customerPhone ?? '')) errors.push('Укажите корректный телефон получателя')
+  if (input.delivery?.method !== 'cdek_pickup' || !input.delivery.pickupPointCode?.trim()) errors.push('Выберите пункт выдачи СДЭК')
+  if (!Number.isSafeInteger(input.delivery?.expectedDeliveryKopecks) || input.delivery.expectedDeliveryKopecks < 0 || !Number.isSafeInteger(input.expectedTotalKopecks) || input.expectedTotalKopecks < 0) errors.push('Некорректная сумма заказа')
   if (!Array.isArray(input.items) || input.items.length === 0) {
     errors.push('Корзина пуста')
   } else {
@@ -167,7 +182,7 @@ async function fetchCatalog(client: { query: <T>(text: string, params?: unknown[
 /** Создать заказ (status=pending) + позиции атомарно. token — неугадываемый id для URL. */
 export async function createOrder(
   input: OrderInput,
-): Promise<{ id: number; token: string; totalKopecks: number; lines: OrderLine[] }> {
+): Promise<{ id: number; token: string; totalKopecks: number; itemsKopecks: number; deliveryKopecks: number; lines: OrderLine[] }> {
   if (!isDbConfigured()) {
     throw new Error('DATABASE_URL is not set — orders require a database')
   }
@@ -175,22 +190,35 @@ export async function createOrder(
   const validation = validateOrderInput(input)
   if (!validation.ok) throw new OrderValidationError(validation.errors)
 
+  // Snapshot точки берём повторно на сервере: клиентский callback нельзя считать авторитетным.
+  const pickupPoint = await getPickupPoint(input.delivery.pickupPointCode.trim())
+
   const token = randomUUID()
   const result = await withTransaction(async (client) => {
     const catalog = await fetchCatalog(client, input.items.map((i) => i.slug))
-    const { lines, totalKopecks, errors } = buildOrderLines(catalog, input.items, new Date())
+    const { lines, totalKopecks: itemsKopecks, errors } = buildOrderLines(catalog, input.items, new Date())
     if (errors.length) throw new OrderValidationError(errors)
     if (!lines.length) throw new OrderValidationError(['Корзина пуста'])
+    const settings = await client.query<{ cdek_pickup_delivery_kopecks: number | string }>('SELECT cdek_pickup_delivery_kopecks FROM store_settings WHERE singleton = true FOR SHARE')
+    if (!settings.rows[0]) throw new DeliveryUnavailableError()
+    const deliveryKopecks = Number(settings.rows[0].cdek_pickup_delivery_kopecks); const totalKopecks = itemsKopecks + deliveryKopecks
+    if (input.delivery.expectedDeliveryKopecks !== deliveryKopecks || input.expectedTotalKopecks !== totalKopecks) throw new PriceChangedError({ itemsKopecks, deliveryKopecks, totalKopecks })
     const orderRes = await client.query<{ id: number }>(
-      `INSERT INTO orders (token, customer_name, customer_email, customer_phone, total_kopecks, status)
-       VALUES ($1, $2, $3, $4, $5, 'pending')
+      `INSERT INTO orders (token, customer_name, customer_email, customer_phone, total_kopecks, items_kopecks, delivery_kopecks, delivery_method, delivery_carrier, pickup_point_code, pickup_point_city, pickup_point_name, pickup_point_address, fulfillment_status, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'cdek_pickup', 'cdek', $8, $9, $10, $11, 'awaiting_payment', 'pending')
        RETURNING id`,
       [
         token,
         input.customerName.trim(),
         input.customerEmail.trim(),
-        input.customerPhone?.trim() || null,
+        normalizePhone(input.customerPhone)!,
         totalKopecks,
+        itemsKopecks,
+        deliveryKopecks,
+        pickupPoint.code,
+        pickupPoint.city,
+        pickupPoint.name,
+        pickupPoint.address,
       ],
     )
     const orderId = orderRes.rows[0].id
@@ -202,7 +230,7 @@ export async function createOrder(
         [orderId, line.productId, line.productName, line.priceKopecks, line.quantity],
       )
     }
-    return { id: orderId, totalKopecks, lines }
+    return { id: orderId, totalKopecks, itemsKopecks, deliveryKopecks, lines }
   })
 
   return { ...result, token }
@@ -232,34 +260,13 @@ export async function markOrderPaid(
 ): Promise<MarkPaidResult> {
   if (!isDbConfigured()) return 'not_found'
 
-  const rows = await query<{ status: string; total_kopecks: number | string }>(
-    `SELECT status, total_kopecks FROM orders WHERE id = $1`,
-    [invId],
-  )
-  if (!rows.length) return 'not_found'
-
-  const order = rows[0]
-  if (order.status === 'paid') return 'already_paid'
-  if (order.status === 'cancelled') return 'cancelled'
-  if (Number(order.total_kopecks) !== paidKopecks) return 'amount_mismatch'
-
-  const updated = await query<{ id: number }>(
-    `UPDATE orders SET status = 'paid', robokassa_data = $1
-     WHERE id = $2 AND status = 'pending'
-     RETURNING id`,
-    [JSON.stringify(robokassaData), invId],
-  )
-  if (updated.length) return 'paid'
-
-  // Строку увели из-под нас между SELECT и UPDATE (гонка колбэков или отмена) —
-  // перечитываем фактический статус, чтобы вернуть честный результат.
-  const after = await query<{ status: string }>(
-    `SELECT status FROM orders WHERE id = $1`,
-    [invId],
-  )
-  if (after[0]?.status === 'paid') return 'already_paid'
-  if (after[0]?.status === 'cancelled') return 'cancelled'
-  return 'not_found'
+  return withTransaction(async (client) => {
+    const selected = await client.query<{ status: string; fulfillment_status: string; total_kopecks: number | string }>('SELECT status, fulfillment_status, total_kopecks FROM orders WHERE id = $1 FOR UPDATE', [invId])
+    const order = selected.rows[0]; if (!order) return 'not_found'
+    if (order.status === 'paid') return 'already_paid'; if (order.status === 'cancelled') return 'cancelled'; if (Number(order.total_kopecks) !== paidKopecks) return 'amount_mismatch'
+    const updated = await client.query<{ id: number }>(`UPDATE orders SET status = 'paid', fulfillment_status = 'new', robokassa_data = $1 WHERE id = $2 AND status = 'pending' AND fulfillment_status = 'awaiting_payment' RETURNING id`, [JSON.stringify(robokassaData), invId])
+    return updated.rows.length ? 'paid' : 'not_found'
+  })
 }
 
 /** token заказа по InvId (= id) — для редиректов success/fail на /order/<token>. */
