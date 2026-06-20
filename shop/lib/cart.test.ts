@@ -23,6 +23,8 @@ function product(over: Partial<Product> = {}): Product {
     description: '',
     scent: [],
     inStock: true,
+    visibility: 'public',
+    sale: null,
     ...over,
   }
 }

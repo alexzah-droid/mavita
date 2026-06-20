@@ -3,9 +3,9 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getProductBySlug } from '@/lib/catalog'
-import { formatRubAmount } from '@/lib/price'
 import AddToCartButton from '@/app/cart/AddToCartButton'
 import ShopHeader from '@/app/components/ShopHeader'
+import PriceDisplay from '@/app/components/PriceDisplay'
 
 // Карточка товара рендерится на запрос — данные берутся из БД в рантайме.
 export const dynamic = 'force-dynamic'
@@ -62,8 +62,7 @@ export default async function ProductPage({
             <div className="product-detail-subtitle">«{product.subtitle}»</div>
 
             <div className="product-detail-price">
-              {formatRubAmount(product.priceKopecks)}
-              <span> ₽</span>
+              <PriceDisplay product={{ priceKopecks: product.priceKopecks, salePriceKopecks: product.sale?.priceKopecks ?? null, saleStartsAt: product.sale?.startsAt ?? null, saleEndsAt: product.sale?.endsAt ?? null }} />
             </div>
 
             <div className="product-detail-sep" />

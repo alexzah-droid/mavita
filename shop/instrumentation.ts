@@ -5,4 +5,6 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
   const { assertPaymentConfigSafe } = await import('./lib/robokassa')
   assertPaymentConfigSafe()
+  const { assertAuthConfig } = await import('./lib/auth')
+  assertAuthConfig()
 }

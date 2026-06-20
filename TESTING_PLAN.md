@@ -16,11 +16,11 @@
 | I2 | Цены в копейках (INTEGER) | unit + schema | `sql/schema.sql` + `lib/price.test.ts` | ✅ написан |
 | I3 | result URL проверяет подпись перед обновлением | интеграционный | `app/api/robokassa/result.test.ts` | ✅ написан |
 | I4 | Статус меняется только через API (+ сверка суммы) | интеграционный | `app/api/robokassa/result.test.ts` | ✅ написан |
-| I5 | Фото: файл + product_images атомарно | интеграционный | `app/api/upload.test.ts` | не написан (Ф4) |
+| I5 | Фото: файл + product_images атомарно | интеграционный | `app/api/upload.test.ts` | guards покрыты; нужен прогон с тестовой PostgreSQL/ФС |
 | I6 | index.html не в .gitignore, не редактируется | structural | `—` | ручная проверка |
 | I7 | .env не коммитится | structural | `.gitignore` | ручная проверка |
-| I8 | Гард admin/upload, session, CSRF | unit + интеграционный | `lib/auth.test.ts`, `app/api/auth/*.test.ts`, `app/api/admin/**/*.test.ts` | не написан (Ф4) |
-| I9 | Серверная effective price в транзакционном snapshot заказа | unit + интеграционный | `lib/pricing.test.ts`, `lib/orders.test.ts` | не написан (Ф4) |
+| I8 | Гард admin/upload, session, CSRF | unit + интеграционный | `lib/auth.test.ts`, `app/api/auth/*.test.ts`, `app/api/admin/**/*.test.ts` | unit покрыт; требуется интеграционный прогон с БД |
+| I9 | Серверная effective price в транзакционном snapshot заказа | unit + интеграционный | `lib/pricing.test.ts`, `lib/orders.test.ts` | unit покрыт; требуется интеграционный тест блокировок в PostgreSQL |
 
 ## Критические сценарии (e2e, после Ф3)
 

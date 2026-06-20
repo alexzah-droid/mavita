@@ -3,10 +3,11 @@
 import { useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { formatRubAmount } from '@/lib/price'
 import type { Product } from '@/lib/products'
 import CartButton from '@/app/cart/CartButton'
 import AddToCartButton from '@/app/cart/AddToCartButton'
+import PriceDisplay from '@/app/components/PriceDisplay'
+import ThemeSwitcher from '@/app/components/ThemeSwitcher'
 
 export default function HomeClient({ products }: { products: Product[] }) {
   const headerRef = useRef<HTMLElement>(null)
@@ -183,8 +184,7 @@ export default function HomeClient({ products }: { products: Product[] }) {
                   <div className="product-card-name">{product.name}</div>
                   <div className="product-card-footer">
                     <div className="product-card-price">
-                      {formatRubAmount(product.priceKopecks)}
-                      <span> ₽</span>
+                      <PriceDisplay product={{ priceKopecks: product.priceKopecks, salePriceKopecks: product.sale?.priceKopecks ?? null, saleStartsAt: product.sale?.startsAt ?? null, saleEndsAt: product.sale?.endsAt ?? null }} />
                     </div>
                     <AddToCartButton
                       product={product}
@@ -318,6 +318,8 @@ export default function HomeClient({ products }: { products: Product[] }) {
           <span>МА — Земля · ВИТА — Жизнь</span>
         </div>
       </footer>
+
+      <ThemeSwitcher />
     </>
   )
 }

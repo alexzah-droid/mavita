@@ -16,12 +16,28 @@ CREATE TABLE IF NOT EXISTS products (
     price_kopecks INTEGER NOT NULL CHECK (price_kopecks >= 0),  -- I2: копейки, не float
     scent         TEXT[] NOT NULL DEFAULT '{}',  -- ароматы (теги)
     in_stock      BOOLEAN NOT NULL DEFAULT true,
+    visibility    TEXT NOT NULL DEFAULT 'public' CONSTRAINT products_visibility_check CHECK (visibility IN ('public', 'unlisted', 'hidden')),
+    sale_price_kopecks INTEGER CONSTRAINT products_sale_price_nonnegative CHECK (sale_price_kopecks IS NULL OR sale_price_kopecks >= 0),
+    sale_starts_at TIMESTAMPTZ,
+    sale_ends_at   TIMESTAMPTZ,
     sort_order    INTEGER NOT NULL DEFAULT 0,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT products_sale_below_price CHECK (sale_price_kopecks IS NULL OR sale_price_kopecks < price_kopecks),
+    CONSTRAINT products_sale_window CHECK (sale_starts_at IS NULL OR sale_ends_at IS NULL OR sale_ends_at > sale_starts_at)
 );
 
 CREATE INDEX IF NOT EXISTS idx_products_sort ON products (sort_order, id);
+CREATE INDEX IF NOT EXISTS idx_products_public_sort ON products (sort_order, id) WHERE visibility = 'public';
+
+CREATE OR REPLACE FUNCTION products_set_updated_at()
+RETURNS TRIGGER AS $$ BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END; $$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS trg_products_set_updated_at ON products;
+CREATE TRIGGER trg_products_set_updated_at BEFORE UPDATE ON products
+FOR EACH ROW EXECUTE FUNCTION products_set_updated_at();
 
 -- ─────────────────────────────────────────────────────────────
 -- Фотографии товара (одна карточка — несколько фото)

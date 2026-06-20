@@ -3,6 +3,7 @@
 // новый объект корзины (иммутабельно).
 
 import type { Product } from '@/lib/products'
+import { effectivePrice } from '@/lib/pricing'
 
 export type CartLine = {
   slug: string
@@ -44,7 +45,13 @@ export function addItem(cart: Cart, product: Product, qty = 1): Cart {
   const line: CartLine = {
     slug: product.slug,
     name: product.name,
-    priceKopecks: product.priceKopecks,
+    // Только UX-snapshot корзины: сервер всё равно пересчитает цену при заказе.
+    priceKopecks: effectivePrice({
+      priceKopecks: product.priceKopecks,
+      salePriceKopecks: product.sale?.priceKopecks ?? null,
+      saleStartsAt: product.sale?.startsAt ?? null,
+      saleEndsAt: product.sale?.endsAt ?? null,
+    }, new Date()).kopecks,
     image: product.image,
     quantity: add,
   }

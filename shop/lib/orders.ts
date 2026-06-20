@@ -4,6 +4,8 @@
 
 import { randomUUID } from 'node:crypto'
 import { isDbConfigured, query, withTransaction } from '@/lib/db'
+import { effectivePrice } from '@/lib/pricing'
+import type { Visibility } from '@/lib/products'
 
 export type OrderInput = {
   customerName: string
@@ -13,13 +15,19 @@ export type OrderInput = {
 }
 
 export type CatalogItem = {
+  id: number
   slug: string
   name: string
   priceKopecks: number
   inStock: boolean
+  visibility: Visibility
+  salePriceKopecks: number | null
+  saleStartsAt: string | null
+  saleEndsAt: string | null
 }
 
 export type OrderLine = {
+  productId: number
   slug: string
   productName: string
   priceKopecks: number
@@ -81,6 +89,7 @@ export function validateOrderInput(input: OrderInput): ValidationResult {
 export function buildOrderLines(
   catalog: Map<string, CatalogItem>,
   items: { slug: string; quantity: number }[],
+  now = new Date(),
 ): { lines: OrderLine[]; totalKopecks: number; errors: string[] } {
   const errors: string[] = []
   // Дубли одного slug схлопываются в одну позицию (TD-10): иначе в заказе было бы
@@ -96,14 +105,20 @@ export function buildOrderLines(
       errors.push(`«${product.name}» нет в наличии`)
       continue
     }
+    if (product.visibility === 'hidden') {
+      errors.push(`«${product.name}» недоступен`)
+      continue
+    }
+    const price = effectivePrice(product, now).kopecks
     const existing = byslug.get(product.slug)
     if (existing) {
       existing.quantity += it.quantity
     } else {
       byslug.set(product.slug, {
+        productId: product.id,
         slug: product.slug,
         productName: product.name,
-        priceKopecks: product.priceKopecks,
+        priceKopecks: price,
         quantity: it.quantity,
       })
     }
@@ -114,24 +129,36 @@ export function buildOrderLines(
 }
 
 type CatalogRow = {
+  id: number
   slug: string
   name: string
   price_kopecks: number | string
   in_stock: boolean
+  visibility: Visibility
+  sale_price_kopecks: number | string | null
+  sale_starts_at: Date | string | null
+  sale_ends_at: Date | string | null
 }
 
-async function fetchCatalog(slugs: string[]): Promise<Map<string, CatalogItem>> {
-  const rows = await query<CatalogRow>(
-    `SELECT slug, name, price_kopecks, in_stock FROM products WHERE slug = ANY($1)`,
+function toIso(value: Date | string | null): string | null { return value ? new Date(value).toISOString() : null }
+async function fetchCatalog(client: { query: <T>(text: string, params?: unknown[]) => Promise<{ rows: T[] }> }, slugs: string[]): Promise<Map<string, CatalogItem>> {
+  const result = await client.query<CatalogRow>(
+    `SELECT id, slug, name, price_kopecks, in_stock, visibility, sale_price_kopecks, sale_starts_at, sale_ends_at
+     FROM products WHERE slug = ANY($1) FOR SHARE`,
     [slugs],
   )
   const map = new Map<string, CatalogItem>()
-  for (const r of rows) {
+  for (const r of result.rows) {
     map.set(r.slug, {
+      id: r.id,
       slug: r.slug,
       name: r.name,
       priceKopecks: Number(r.price_kopecks),
       inStock: r.in_stock,
+      visibility: r.visibility,
+      salePriceKopecks: r.sale_price_kopecks == null ? null : Number(r.sale_price_kopecks),
+      saleStartsAt: toIso(r.sale_starts_at),
+      saleEndsAt: toIso(r.sale_ends_at),
     })
   }
   return map
@@ -148,15 +175,12 @@ export async function createOrder(
   const validation = validateOrderInput(input)
   if (!validation.ok) throw new OrderValidationError(validation.errors)
 
-  const slugs = input.items.map((i) => i.slug)
-  const catalog = await fetchCatalog(slugs)
-  const { lines, totalKopecks, errors } = buildOrderLines(catalog, input.items)
-  if (errors.length) throw new OrderValidationError(errors)
-  if (!lines.length) throw new OrderValidationError(['Корзина пуста'])
-
   const token = randomUUID()
-
-  const id = await withTransaction(async (client) => {
+  const result = await withTransaction(async (client) => {
+    const catalog = await fetchCatalog(client, input.items.map((i) => i.slug))
+    const { lines, totalKopecks, errors } = buildOrderLines(catalog, input.items, new Date())
+    if (errors.length) throw new OrderValidationError(errors)
+    if (!lines.length) throw new OrderValidationError(['Корзина пуста'])
     const orderRes = await client.query<{ id: number }>(
       `INSERT INTO orders (token, customer_name, customer_email, customer_phone, total_kopecks, status)
        VALUES ($1, $2, $3, $4, $5, 'pending')
@@ -174,14 +198,14 @@ export async function createOrder(
     for (const line of lines) {
       await client.query(
         `INSERT INTO order_items (order_id, product_id, product_name, price_kopecks, quantity)
-         VALUES ($1, (SELECT id FROM products WHERE slug = $2), $3, $4, $5)`,
-        [orderId, line.slug, line.productName, line.priceKopecks, line.quantity],
+         VALUES ($1, $2, $3, $4, $5)`,
+        [orderId, line.productId, line.productName, line.priceKopecks, line.quantity],
       )
     }
-    return orderId
+    return { id: orderId, totalKopecks, lines }
   })
 
-  return { id, token, totalKopecks, lines }
+  return { ...result, token }
 }
 
 export type MarkPaidResult =

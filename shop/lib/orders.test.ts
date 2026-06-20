@@ -52,9 +52,9 @@ describe('validateOrderInput', () => {
 
 describe('buildOrderLines', () => {
   const catalog = new Map<string, CatalogItem>([
-    ['a', { slug: 'a', name: 'Свеча A', priceKopecks: 180000, inStock: true }],
-    ['b', { slug: 'b', name: 'Свеча B', priceKopecks: 90000, inStock: true }],
-    ['off', { slug: 'off', name: 'Снята', priceKopecks: 50000, inStock: false }],
+    ['a', { id: 1, slug: 'a', name: 'Свеча A', priceKopecks: 180000, inStock: true, visibility: 'public', salePriceKopecks: null, saleStartsAt: null, saleEndsAt: null }],
+    ['b', { id: 2, slug: 'b', name: 'Свеча B', priceKopecks: 90000, inStock: true, visibility: 'public', salePriceKopecks: null, saleStartsAt: null, saleEndsAt: null }],
+    ['off', { id: 3, slug: 'off', name: 'Снята', priceKopecks: 50000, inStock: false, visibility: 'public', salePriceKopecks: null, saleStartsAt: null, saleEndsAt: null }],
   ])
 
   it('собирает позиции со snapshot названия и цены из каталога', () => {
@@ -84,6 +84,15 @@ describe('buildOrderLines', () => {
     const { lines, errors } = buildOrderLines(catalog, [{ slug: 'off', quantity: 1 }])
     expect(lines).toHaveLength(0)
     expect(errors.some((e) => e.includes('нет в наличии'))).toBe(true)
+  })
+
+  it('отвергает hidden и фиксирует активную скидочную цену', () => {
+    const hidden = new Map(catalog)
+    hidden.set('hidden', { id: 4, slug: 'hidden', name: 'Скрыта', priceKopecks: 10000, inStock: true, visibility: 'hidden', salePriceKopecks: null, saleStartsAt: null, saleEndsAt: null })
+    expect(buildOrderLines(hidden, [{ slug: 'hidden', quantity: 1 }]).errors[0]).toContain('недоступен')
+    const discounted = new Map(catalog)
+    discounted.set('sale', { id: 5, slug: 'sale', name: 'Скидка', priceKopecks: 10000, inStock: true, visibility: 'public', salePriceKopecks: 7500, saleStartsAt: null, saleEndsAt: null })
+    expect(buildOrderLines(discounted, [{ slug: 'sale', quantity: 1 }], new Date('2026-06-20')).lines[0].priceKopecks).toBe(7500)
   })
 
   it('схлопывает дубли одного slug в одну позицию (TD-10)', () => {

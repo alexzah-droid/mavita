@@ -18,6 +18,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Manrope:wght@300;400;500&display=swap"
           rel="stylesheet"
         />
+        {/* Применяем сохранённую тему до отрисовки, чтобы не было вспышки. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('mavita-theme');if(t==='svet'||t==='kamen'||t==='dark-green'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`,
+          }}
+        />
       </head>
       <body>
         <CartProvider>{children}</CartProvider>
