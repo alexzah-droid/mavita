@@ -27,7 +27,7 @@
 
 - **API 2.0** — методы списка ПВЗ (`/v2/deliverypoints`) и расчёта (`/v2/calculator`),
   авторизация по OAuth (`client_id` / `client_secret`).
-- **Стоимость:** виджет, API и документация — бесплатно. Платится только сама доставка по договору.
+- **Стоимость:** API и документация доступны по условиям СДЭК; платится сама доставка по договору.
 
 В текущей реализации карты/виджета нет: покупатель вводит город, получает список
 ПВЗ через `/api/cdek` и выбирает пункт из списка. Это снимает необходимость в
@@ -75,7 +75,7 @@
 
 ```
 checkout (клиент)
-   │  виджет СДЭК (servicePath: '/api/cdek')
+   │  поиск города → список ПВЗ (`/api/cdek`)
    ▼
 /api/cdek (наш прокси) ──OAuth токен──► api.cdek.ru/v2
    │  (client_secret только на сервере)
@@ -111,7 +111,8 @@ DELIVERY_ENABLED=false
 ### 3. `shop/app/api/cdek/route.ts`
 - Публичный поиск ПВЗ по городу: получает token и проксирует `/v2/deliverypoints`.
 - `client_secret` не уходит в браузер.
-- При отсутствии конфига — 503 с понятным сообщением (виджет не показываем).
+- При отсутствии конфига — 503 с понятным сообщением; checkout показывает
+  delivery-недоступность, если delivery включена.
 
 ### 4. БД — миграция `003_orders_delivery_and_admin_events.sql`
 
@@ -175,6 +176,4 @@ DELIVERY_ENABLED=false
 
 ## Источники
 
-- Виджет ПВЗ: https://widget.cdek.ru/
-- Репозиторий виджета: https://github.com/cdek-it/widget (wiki — установка/настройка)
 - API — список ПВЗ: https://confluence.cdek.ru/display/documentation/List+of+Pickup+Points

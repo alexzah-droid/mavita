@@ -204,7 +204,7 @@ server {
 
     # Загруженные фото — Nginx отдаёт сам, без Node
     location /uploads/ {
-        alias /var/www/mavita/public/uploads/;
+        alias /var/www/mavita-repo/shop/public/uploads/;
         expires 30d;
     }
 
@@ -234,7 +234,7 @@ server {
 
 ## Переменные окружения (.env)
 
-Полный список — в `shop/.env.example` (единственный публичный источник, инвариант **I7**). Значения на проде — в [docs/environments.md](docs/environments.md). Ключевые: `DATABASE_URL`, `ROBOKASSA_LOGIN/PASSWORD1/PASSWORD2`, `ROBOKASSA_TEST_MODE`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `NEXT_PUBLIC_BASE_URL`, `DELIVERY_ENABLED`; CDEK-секреты нужны только после отдельного включения доставки.
+Полный список — в `shop/.env.example` (единственный публичный источник, инвариант **I7**). Значения на проде — в [docs/environments.md](docs/environments.md). Ключевые: `DATABASE_URL`, `ROBOKASSA_LOGIN/PASSWORD1/PASSWORD2`, `ROBOKASSA_TEST_MODE`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `NEXT_PUBLIC_BASE_URL`, `DELIVERY_ENABLED`; CDEK-секреты нужны только после отдельного включения доставки. При выключенной доставке публичные legal-страницы нельзя считать описанием фактического checkout без отдельной сверки.
 
 ---
 

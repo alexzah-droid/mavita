@@ -117,7 +117,7 @@ graph TD
     subgraph API["API Routes (Next.js / Server)"]
         AP["GET /api/products<br/>список товаров"]
         RI["POST /api/robokassa/init<br/>создать заказ + URL оплаты"]
-        RR["POST /api/robokassa/result<br/>сервер→сервер · paid"]
+        RR["GET/POST /api/robokassa/result<br/>сервер→сервер · paid/new"]
         RS["GET /api/robokassa/success<br/>редирект после оплаты"]
         RF["GET /api/robokassa/fail<br/>редирект при ошибке"]
     end
@@ -163,7 +163,7 @@ graph TD
     RK -->|POST ResultURL| RR
     RK -->|GET redirect| RS
     RK -->|GET redirect| RF
-    RS -->|redirect /order/id| OR
+    RS -->|redirect /order/token| OR
     OR -->|getOrder| LO
 
     %% Shared lib

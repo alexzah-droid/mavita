@@ -62,7 +62,7 @@
 
 **Почему:** Shared-хостинг reg.ru (`37.140.192.12`) оказался непригодным: Node.js 10 (Next.js 15 требует ≥18), нет root, AlmaLinux 8 вместо Ubuntu. VPS даёт полный контроль при сопоставимой цене.
 
-**Последствия:** Swap 2 GB обязателен (1 GB RAM мало для `npm run build`). Деплой через git pull + PM2, не Docker.
+**Последствия:** Swap 2 GB обязателен (1 GB RAM мало для `npm run build`). Деплой через rsync + PM2, не Docker; подробный runbook — в `docs/operations.md`.
 
 ---
 
