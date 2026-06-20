@@ -36,7 +36,12 @@ export async function requireAdminApi(): Promise<AdminSession | NextResponse> {
 }
 export function assertSameOrigin(request: Request): NextResponse | null {
   if (!['POST', 'PATCH', 'DELETE'].includes(request.method)) return null
+  const forbidden = () => NextResponse.json({ error: { code: 'FORBIDDEN', messages: ['Неверный Origin'] } }, { status: 403 })
+  // Сверяем хост Origin с Host запроса, а не полный origin: за прокси `next start`
+  // строит request.url как http://… (внутренний сервер HTTP), и сравнение по протоколу ломается.
   const origin = request.headers.get('origin')
-  if (!origin || origin !== new URL(request.url).origin) return NextResponse.json({ error: { code: 'FORBIDDEN', messages: ['Неверный Origin'] } }, { status: 403 })
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host')
+  if (!origin || !host) return forbidden()
+  try { if (new URL(origin).host !== host) return forbidden() } catch { return forbidden() }
   return null
 }
