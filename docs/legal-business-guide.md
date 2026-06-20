@@ -267,271 +267,44 @@
 
 ## 🏗️ Архитектура сайта
 
-### Вариант 1: No-code / CMS платформы (РЕКОМЕНДУЮ для старта)
+> Этот гайд — справочник по юр./бизнес-части. **Техническая архитектура магазина
+> МАВИТА уже выбрана и реализована** (собственное приложение на Next.js 15 +
+> PostgreSQL, не Tilda/WooCommerce). Не дублируем её здесь — см.:
+> - [architecture.md](../architecture.md) — стек, схема БД, флоу оплаты, деплой;
+> - [architecture-components.md](../architecture-components.md) — компоненты и sequence-диаграмма;
+> - инвариант **I1** ([PROJECT_CORE.md](../PROJECT_CORE.md)) — подпись Робокассы только на сервере.
 
-**Tilda (оптимально для РФ):**
-- Встроенный магазин, подключается Robokassa напрямую
-- Красивые шаблоны, адаптив из коробки
-- Стоимость: ~750 ₽/месяц (тариф Business)
-- Время запуска: 3–5 дней
-
-**WordPress + WooCommerce:**
-- Установить WordPress на хостинг (например, Beget или REG.RU, ~200 ₽/месяц)
-- Установить плагин WooCommerce (бесплатно)
-- Установить плагин Robokassa для WooCommerce (есть бесплатные)
-- Время запуска: 1–2 недели
-- Плюсы: гибкость, много документации, большая экосистема плагинов
-- Минусы: требует базовых технических навыков
-
-**Bitrix24 / 1С-Битрикс:**
-- Встроенный функционал для магазинов, интеграция с 1С
-- Минусы: дорого (~3000+ ₽/месяц), сложно в освоении, избыточно для старта
-
-### Вариант 2: Собственный сайт на фреймворке (для разработчиков)
-
-⚠️ **Этот вариант подходит только если у вас есть опытный разработчик.** Реалистичные сроки — 2–4 месяца, бюджет — от 100 000 ₽.
-
-**Технический стек:**
-
-```
-Frontend:
-- HTML5, CSS3, JavaScript
-- Фреймворк: React/Vue.js
-- Адаптивный дизайн (мобильная версия обязательна)
-
-Backend:
-- Node.js + Express.js (JavaScript)
-  ИЛИ
-- Python + Django/Flask
-
-База данных:
-- PostgreSQL (рекомендуется) или MongoDB
-
-Хостинг:
-- VPS в РФ (Selectel, Timeweb, Beget)
-- Стоимость: 500–2000 ₽/месяц
-
-Безопасность:
-- SSL сертификат (Let's Encrypt, бесплатный)
-- HTTPS обязателен (требование платёжных систем)
-```
-
-### Структура сайта
-
-```
-/
-├── index.html (главная страница)
-├── /catalog/ (каталог товаров)
-│   ├── candles.html или /api/products (получение товаров)
-│   └── /product/:id (страница одного товара)
-├── /cart/ (корзина)
-├── /checkout/ (оформление заказа)
-├── /payment/ (страница оплаты Robokassa)
-├── /order-success/ (после успешного платежа)
-├── /about/ (о магазине)
-├── /contacts/ (контакты, реквизиты)
-├── /privacy-policy/ (политика конфиденциальности)
-├── /terms/ (условия продажи / публичная оферта)
-├── /delivery/ (доставка и возврат)
-└── /static/
-    ├── /css/
-    ├── /js/
-    ├── /images/
-    └── /uploads/ (фото товаров)
-```
-
-### Обязательные страницы сайта
-
-1. **Главная** — привлекательное описание, подборки товаров
-2. **Каталог** — все товары с фото, ценой, описанием
-3. **Товар (детальная страница)** — состав, время горения, размер, отзывы
-4. **Корзина** — список выбранных товаров, сумма
-5. **Оформление заказа** — данные покупателя (имя, телефон, адрес)
-6. **О магазине** — кто делает свечи, преимущества
-7. **Доставка** — способы доставки, сроки, стоимость
-8. **Условия** — публичная оферта (ОБЯЗАТЕЛЬНО, см. ниже)
-9. **Политика конфиденциальности** (ОБЯЗАТЕЛЬНО)
-10. **Контакты** — e-mail, телефон, реквизиты самозанятого
+Юридически значимое требование к структуре: на сайте обязаны быть страницы
+**публичной оферты**, **политики конфиденциальности**, **условий доставки/возврата**
+и **контактов с реквизитами самозанятого** (тексты — в разделе «Юридическое
+оформление сайта» ниже).
 
 ---
 
 ## 🔌 Интеграция Robokassa в сайт
 
-### Шаг 1: Получить реквизиты Robokassa
+> Интеграция реализована в коде проекта (`lib/robokassa.ts`, `app/api/robokassa/*`).
+> Технические детали — флоу `init → result → success/fail`, проверка `MD5(Password2)`,
+> приём GET и POST на ResultURL — в [architecture.md](../architecture.md) и
+> [docs/decisions.md](decisions.md). URL в ЛК Робокассы для прода —
+> в [docs/environments.md](environments.md).
 
-После верификации в вашем личном кабинете:
+Здесь — только бизнес-памятки, не дублирующие код.
 
-```
-MerchantLogin: [ваш_логин]
-MerchantPassword: [ваш_пароль]
-TestMerchantLogin: test_login (для тестирования)
-TestMerchantPassword: test_password (для тестирования)
-```
+**Подпись (для понимания):** Robokassa требует `SignatureValue = MD5(MerchantLogin:Sum:InvId:Password1)`
+при инициации и `MD5(Sum:InvId:Password2)` при проверке. В проекте оба пароля живут
+только в `.env`, подпись считается на сервере — **никогда в браузере** (инвариант I1).
 
-### Шаг 2: Выбрать способ интеграции
-
-#### Способ 1: Редирект на форму Robokassa (САМЫЙ ПРОСТОЙ)
-
-**Как это работает:**
-1. Пользователь нажимает "Оплатить"
-2. Переводится на форму Robokassa
-3. Вводит данные карты
-4. Возвращается на ваш сайт с уведомлением об успехе
-
-**Код примера (HTML):**
-
-```html
-<form method="POST" action="https://auth.robokassa.ru/Merchant/payForm.aspx">
-  <input type="hidden" name="MerchantLogin" value="ВАША_ЛАВКА">
-  <input type="hidden" name="Sum" value="1000"> <!-- сумма в рублях -->
-  <input type="hidden" name="InvId" value="123"> <!-- номер заказа -->
-  <input type="hidden" name="Desc" value="Закупка свечей"> <!-- описание -->
-  <input type="hidden" name="ReturnUrl" value="https://yoursite.com/order-success">
-  <input type="hidden" name="SignatureValue" value="КОНТРОЛЬНАЯ_СУММА"> <!-- см. шаг 3 -->
-  
-  <button type="submit">Оплатить 1000 ₽</button>
-</form>
-```
-
-#### Способ 2: API Robokassa (рекомендуется для динамических сайтов)
-
-**Как это работает:**
-1. Сайт отправляет запрос к API Robokassa
-2. API возвращает ссылку на оплату
-3. Пользователь переходит по ссылке
-4. Robokassa отправляет уведомление на ваш сервер об успехе
-
-**Документация:** https://docs.robokassa.ru/
-
-### Шаг 3: Генерация подписи (SignatureValue)
-
-**Важно!** Robokassa требует подпись для каждого платежа (защита от подделок).
-
-**Алгоритм:**
+**Тестирование (режим Test):**
 
 ```
-SignatureValue = MD5(
-  MerchantLogin:Sum:InvId:MerchantPassword
-)
+Тестовая карта: 4111 1111 1111 1111, CVC 123, срок — любой будущий
 ```
 
-**Пример:**
-
-```
-MerchantLogin = myshop
-Sum = 1000
-InvId = 123 (номер заказа)
-MerchantPassword = secret123
-
-SignatureValue = MD5("myshop:1000:123:secret123")
-                = [результат хеширования]
-```
-
-**В зависимости от языка программирования:**
-
-**JavaScript (Node.js):**
-```javascript
-const crypto = require('crypto');
-
-function generateSignature(merchantLogin, sum, invId, merchantPassword) {
-  const str = `${merchantLogin}:${sum}:${invId}:${merchantPassword}`;
-  return crypto.createHash('md5').update(str).digest('hex');
-}
-
-const signature = generateSignature('myshop', 1000, 123, 'secret123');
-console.log(signature);
-```
-
-**Python:**
-```python
-import hashlib
-
-def generate_signature(merchant_login, sum, inv_id, merchant_password):
-    string = f"{merchant_login}:{sum}:{inv_id}:{merchant_password}"
-    return hashlib.md5(string.encode()).hexdigest()
-
-signature = generate_signature('myshop', 1000, 123, 'secret123')
-print(signature)
-```
-
-**PHP:**
-```php
-<?php
-$merchant_login = 'myshop';
-$sum = 1000;
-$inv_id = 123;
-$merchant_password = 'secret123';
-
-$signature = md5("$merchant_login:$sum:$inv_id:$merchant_password");
-echo $signature;
-?>
-```
-
-### Шаг 4: Настройка уведомлений от Robokassa
-
-**В личном кабинете Robokassa:**
-
-1. Перейти в "Управление лавкой" → "Оборудование"
-2. Указать **URL для уведомлений:**
-
-```
-https://yoursite.com/api/robokassa-notify
-```
-
-3. Указать **URL для успеха:**
-
-```
-https://yoursite.com/order-success
-```
-
-4. Указать **URL для отмены:**
-
-```
-https://yoursite.com/order-cancelled
-```
-
-**На вашем сервере обработать уведомление:**
-
-```javascript
-// Пример для Node.js + Express
-app.post('/api/robokassa-notify', (req, res) => {
-  const { Sum, InvId, SignatureValue } = req.body;
-  
-  // Проверить подпись
-  const expectedSignature = MD5(`${Sum}:${InvId}:${MERCHANT_PASSWORD}`);
-  
-  if (SignatureValue !== expectedSignature) {
-    return res.status(400).send('Invalid signature');
-  }
-  
-  // Обновить статус заказа в БД
-  updateOrderStatus(InvId, 'paid');
-  
-  res.send('OK');
-});
-```
-
-### Шаг 5: Тестирование платежа
-
-**Карты для тестирования (режим Test):**
-
-```
-Номер карты: 4111111111111111
-CVC: 123
-Срок: любой будущий
-```
-
-**Процедура:**
-
-1. Включить тестовый режим в настройках лавки
-2. Создать заказ на сумму (например, 100 ₽)
-3. Нажать "Оплатить"
-4. Ввести тестовые данные карты
-5. Проверить:
-   - Пришло ли уведомление на сервер?
-   - Обновился ли статус заказа в БД?
-   - Появилась ли ссылка на заказ в личном кабинете?
-6. Выключить тестовый режим
+Процедура: включить тест-режим лавки → создать заказ → оплатить тестовой картой →
+проверить, что пришло уведомление на ResultURL и статус заказа в БД стал `paid`.
+Боевой режим (`ROBOKASSA_TEST_MODE=false`) — только после явного подтверждения
+владельца (**Пауза 1**).
 
 ---
 

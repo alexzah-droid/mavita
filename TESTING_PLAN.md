@@ -32,4 +32,4 @@
 
 ## Инструменты
 
-> Выбрать в Ф0. Кандидаты: Vitest (unit/integration), Playwright (e2e).
+Vitest (unit + integration) — выбран в Ф0, `npm test` = `vitest run`. E2e (Playwright) — кандидат, не заведён.

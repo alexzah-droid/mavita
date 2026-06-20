@@ -88,13 +88,7 @@ GET  /api/robokassa/fail     — редирект при отмене/ошибк
 
 ### Переменные окружения
 
-```
-DATABASE_URL
-ROBOKASSA_LOGIN / ROBOKASSA_PASSWORD1 / ROBOKASSA_PASSWORD2
-ROBOKASSA_TEST_MODE          # true на стейджинге
-ADMIN_PASSWORD / SESSION_SECRET
-NEXT_PUBLIC_BASE_URL
-```
+Полный список — в `shop/.env.example` (единственный публичный источник). Значения на стендах — в [docs/environments.md](docs/environments.md).
 
 ---
 
@@ -117,4 +111,6 @@ NEXT_PUBLIC_BASE_URL
 
 `.nojekyll` — сайт публикуется через GitHub Pages (КП-материалы).
 
-Магазин деплоится на VPS `45.130.147.108` (Ubuntu 22.04, `mavita.ru`). Код живёт в `/var/www/mavita-repo/shop/` (PM2 cwd). Деплой: rsync `shop/` → VPS → `npm run build` → `pm2 reload mavita --update-env`. Nginx — reverse proxy на порт 3000, SSL через Certbot. GitHub Actions — в плане.
+Магазин деплоится на VPS `45.130.147.108` (Ubuntu 22.04, `mavita.ru`). Код живёт в `/var/www/mavita-repo/shop/` (PM2 cwd). Деплой ручной: rsync `shop/` → VPS → `npm run build` → `pm2 reload mavita --update-env`. Nginx — reverse proxy на порт 3000, SSL через Certbot. GitHub Actions — в плане.
+
+Команды деплоя, отката и backup — в [docs/operations.md](docs/operations.md); параметры стендов и SSH — в [docs/environments.md](docs/environments.md).

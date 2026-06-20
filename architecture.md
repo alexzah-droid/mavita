@@ -229,48 +229,15 @@ server {
 
 ## Деплой
 
-```
-Локально:  git push origin main
-                ↓
-GitHub Actions:
-    - npm ci
-    - npm run build  (проверяем что собирается)
-    - SSH на сервер
-        - git pull
-        - npm ci --production
-        - npm run build
-        - pm2 reload mavita
-```
+Фактический процесс деплоя, отката, backup и применения схемы — в [docs/operations.md](docs/operations.md) (runbook). Параметры стендов, SSH и пути — в [docs/environments.md](docs/environments.md).
 
-При первом развёртывании:
-```bash
-# На сервере
-git clone <repo> /var/www/mavita
-cd /var/www/mavita
-cp .env.example .env   # заполнить вручную
-psql -U postgres -f sql/schema.sql
-npm ci && npm run build
-pm2 start npm --name mavita -- start
-pm2 save && pm2 startup
-```
+Кратко: деплой ручной (rsync `shop/` → VPS → `npm run build` → `pm2 reload mavita`). Автоматизация через GitHub Actions — в плане (Ф5).
 
 ---
 
 ## Переменные окружения (.env)
 
-```env
-DATABASE_URL=postgresql://mavita:pass@localhost:5432/mavita
-
-ROBOKASSA_LOGIN=...
-ROBOKASSA_PASSWORD1=...
-ROBOKASSA_PASSWORD2=...
-ROBOKASSA_TEST_MODE=true    # false в продакшне
-
-ADMIN_PASSWORD=...
-SESSION_SECRET=...          # 32+ случайных символа
-
-NEXT_PUBLIC_BASE_URL=https://mavita.ru
-```
+Полный список — в `shop/.env.example` (единственный публичный источник, инвариант **I7**). Значения на проде — в [docs/environments.md](docs/environments.md). Ключевые: `DATABASE_URL`, `ROBOKASSA_LOGIN/PASSWORD1/PASSWORD2`, `ROBOKASSA_TEST_MODE`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `NEXT_PUBLIC_BASE_URL`.
 
 ---
 

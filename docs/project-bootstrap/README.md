@@ -21,15 +21,20 @@
 | Шаблоны окружений/операций/spec/env | `docs/project-bootstrap/templates/` |
 | Стартовый промпт Ф0 | `docs/project-bootstrap/prompts/phase-F0-skeleton.md` |
 
-## 2. Что не заводилось как рабочий документ
+## 2. Шаблоны и их материализация
 
-Не созданы рабочие:
+Принцип: рабочий документ создаётся при появлении предмета, до этого живёт только шаблон в `templates/` (анти-паттерн «пустые документы на будущее»).
 
-- `docs/environments.md`;
-- `docs/operations.md`;
-- `.env.example`.
+К 2026-06-20 все шаблоны материализованы — появился код, стенды и деплой:
 
-Причина: магазин пока не имеет кода, стендов и деплоя. Пустые документы создают ложное ощущение процесса. Шаблоны лежат в `templates/` и материализуются при появлении предмета.
+| Шаблон | Рабочий документ |
+| --- | --- |
+| `templates/environments.template.md` | `docs/environments.md` ✅ |
+| `templates/operations.template.md` | `docs/operations.md` ✅ |
+| `templates/env.example.template` | `shop/.env.example` ✅ |
+| `templates/spec.template.md` | `docs/specs/<feature>.md` (по мере фич) |
+
+Комплект `project-bootstrap/` свою роль выполнил; держится как справка по дисциплине против drift.
 
 ## 3. Как пользоваться
 

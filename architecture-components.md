@@ -182,17 +182,4 @@ graph TD
 | **Lib** | `orders.ts`, `robokassa.ts`, `products.ts`, `price.ts` | Бизнес-логика, без HTTP-зависимостей, покрыта юнит-тестами |
 | **DB** | `db.ts` → PostgreSQL | Персистентность; цены только в копейках (`INTEGER`) |
 
-## Флоу оплаты
-
-```
-Checkout → POST /api/robokassa/init
-  → createOrder (pending) → inv_id = order.id
-  → buildPaymentUrl (MD5 с Password1)
-  → [клиент редиректится на Робокассу]
-Робокасса → POST /api/robokassa/result (сервер→сервер)
-  → verifyResultSignature (MD5 с Password2)
-  → markOrderPaid (pending → paid)
-  → ответ "OK{InvId}"
-Робокасса → GET /api/robokassa/success
-  → redirect /order/{token}
-```
+Пошаговый флоу оплаты — в sequence-диаграмме и таблице выше.
