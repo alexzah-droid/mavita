@@ -28,6 +28,39 @@ function signHex(s: string): string {
   return createHash(hashAlgo()).update(s, 'utf8').digest('hex').toUpperCase()
 }
 
+/**
+ * Проверка безопасности конфигурации платежей (TD-21.1). Возвращает список
+ * проблем (пусто = всё ок). Главное: в production ROBOKASSA_TEST_MODE='true'
+ * означал бы оплату с IsTest=1 — заказы помечались бы paid без реального движения
+ * денег. Также ловим опечатку в ROBOKASSA_HASH_ALGO до первого платежа.
+ */
+export function checkPaymentConfig(): string[] {
+  const problems: string[] = []
+  const isProd = process.env.NODE_ENV === 'production'
+
+  if (isProd && process.env.ROBOKASSA_TEST_MODE === 'true') {
+    problems.push(
+      'ROBOKASSA_TEST_MODE=true в production: платежи уходили бы с IsTest=1 и помечались оплаченными без реальных денег',
+    )
+  }
+  if (isRobokassaConfigured()) {
+    try {
+      hashAlgo() // бросит при недопустимом ROBOKASSA_HASH_ALGO
+    } catch (e) {
+      problems.push((e as Error).message)
+    }
+  }
+  return problems
+}
+
+/** Бросает, если конфигурация платежей небезопасна — вызывается при старте сервера. */
+export function assertPaymentConfigSafe(): void {
+  const problems = checkPaymentConfig()
+  if (problems.length) {
+    throw new Error(`Небезопасная конфигурация платежей:\n- ${problems.join('\n- ')}`)
+  }
+}
+
 /** Копейки → строка с 2 знаками после запятой для параметра OutSum */
 export function kopecksToOutSum(kopecks: number): string {
   return (kopecks / 100).toFixed(2)

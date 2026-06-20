@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
 import { createHash } from 'node:crypto'
 import {
   buildPaymentUrl,
@@ -6,6 +6,7 @@ import {
   kopecksToOutSum,
   isRobokassaConfigured,
   isAllowedResultIp,
+  checkPaymentConfig,
 } from '@/lib/robokassa'
 
 const LOGIN = 'mavita'
@@ -29,6 +30,7 @@ afterEach(() => {
   delete process.env.ROBOKASSA_TEST_MODE
   delete process.env.ROBOKASSA_HASH_ALGO
   delete process.env.ROBOKASSA_RESULT_IPS
+  vi.unstubAllEnvs()
 })
 
 describe('kopecksToOutSum', () => {
@@ -121,6 +123,32 @@ describe('ROBOKASSA_HASH_ALGO (TD-20)', () => {
   it('неизвестный алгоритм → ошибка (не молчим)', () => {
     process.env.ROBOKASSA_HASH_ALGO = 'crc32'
     expect(() => verifyResultSignature('1800.00', '5', 'x')).toThrow(/не поддерживается/)
+  })
+})
+
+// TD-21.1: fail-fast на запуске прода в тест-режиме Робокассы.
+describe('checkPaymentConfig (TD-21.1)', () => {
+  it('production + TEST_MODE=true → проблема', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    process.env.ROBOKASSA_TEST_MODE = 'true'
+    const problems = checkPaymentConfig()
+    expect(problems.some((p) => /TEST_MODE=true в production/.test(p))).toBe(true)
+  })
+
+  it('production + боевой режим → проблем нет', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    expect(checkPaymentConfig()).toEqual([])
+  })
+
+  it('dev + TEST_MODE=true → допустимо (не блокируем локальную разработку)', () => {
+    vi.stubEnv('NODE_ENV', 'development')
+    process.env.ROBOKASSA_TEST_MODE = 'true'
+    expect(checkPaymentConfig()).toEqual([])
+  })
+
+  it('недопустимый HASH_ALGO попадает в список проблем', () => {
+    process.env.ROBOKASSA_HASH_ALGO = 'crc32'
+    expect(checkPaymentConfig().some((p) => /не поддерживается/.test(p))).toBe(true)
   })
 })
 
