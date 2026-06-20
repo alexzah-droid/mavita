@@ -16,3 +16,18 @@ describe('POST /api/upload guard', () => {
     expect(response.status).toBe(403); expect(mocks.transaction).not.toHaveBeenCalled()
   })
 })
+
+function webp(kind: 'VP8 ' | 'VP8L' | 'VP8X', width: number, height: number): Buffer {
+  const size = kind === 'VP8L' ? 25 : 30; const data = Buffer.alloc(size)
+  data.write('RIFF'); data.writeUInt32LE(size - 8, 4); data.write('WEBP', 8); data.write(kind, 12)
+  if (kind === 'VP8 ') { data.writeUInt32LE(10, 16); data.set([0x9d, 0x01, 0x2a], 23); data.writeUInt16LE(width, 26); data.writeUInt16LE(height, 28) }
+  if (kind === 'VP8L') { data.writeUInt32LE(5, 16); data[20] = 0x2f; data.writeUInt32LE((width - 1) | ((height - 1) << 14), 21) }
+  if (kind === 'VP8X') { data.writeUInt32LE(10, 16); data.writeUIntLE(width - 1, 24, 3); data.writeUIntLE(height - 1, 27, 3) }
+  return data
+}
+describe('WebP dimensions', () => {
+  it.each(['VP8 ', 'VP8L', 'VP8X'] as const)('accepts %s WebP', async (kind) => {
+    const { imageDimensions } = await import('@/lib/upload-image')
+    expect(imageDimensions(webp(kind, 640, 480), 'image/webp')).toEqual([640, 480])
+  })
+})

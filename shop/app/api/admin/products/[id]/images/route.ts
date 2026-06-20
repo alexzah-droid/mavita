@@ -8,7 +8,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!Number.isInteger(id) || !body || !Array.isArray(body.orderedImageIds) || !Number.isInteger(body.coverImageId)) return NextResponse.json({ error: { code: 'VALIDATION_ERROR', messages: ['Нужны orderedImageIds и coverImageId'] } }, { status: 400 })
   const ok = await withTransaction(async (client) => {
     const rows = await client.query<{ id: number }>('SELECT id FROM product_images WHERE product_id = $1 FOR UPDATE', [id]); const actual = rows.rows.map((x) => x.id); const ordered = body.orderedImageIds as number[]
-    if (actual.length !== ordered.length || new Set(ordered).size !== ordered.length || !ordered.includes(body.coverImageId) || [...actual].sort().some((x, i) => x !== [...ordered].sort()[i])) return false
+    const actualIds = [...actual].sort((a, b) => a - b); const orderedIds = [...ordered].sort((a, b) => a - b)
+    if (actual.length !== ordered.length || new Set(ordered).size !== ordered.length || !ordered.includes(body.coverImageId) || actualIds.some((imageId, index) => imageId !== orderedIds[index])) return false
+    // uq_product_cover проверяется PostgreSQL на каждом statement. Сначала
+    // освобождаем старую обложку, и только затем назначаем новую — иначе при
+    // перемещении новой cover раньше старой возникнет временный дубль и 23505.
+    await client.query('UPDATE product_images SET is_cover = false WHERE product_id = $1 AND is_cover = true', [id])
     for (const [index, imageId] of ordered.entries()) await client.query('UPDATE product_images SET sort_order = $1, is_cover = $2 WHERE id = $3', [(index + 1) * 10, imageId === body.coverImageId, imageId])
     return true
   })
