@@ -85,4 +85,15 @@ describe('buildOrderLines', () => {
     expect(lines).toHaveLength(0)
     expect(errors.some((e) => e.includes('нет в наличии'))).toBe(true)
   })
+
+  it('схлопывает дубли одного slug в одну позицию (TD-10)', () => {
+    const { lines, totalKopecks } = buildOrderLines(catalog, [
+      { slug: 'a', quantity: 2 },
+      { slug: 'b', quantity: 1 },
+      { slug: 'a', quantity: 3 },
+    ])
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toMatchObject({ slug: 'a', quantity: 5 })
+    expect(totalKopecks).toBe(180000 * 5 + 90000)
+  })
 })

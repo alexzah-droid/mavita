@@ -1,4 +1,4 @@
-import { createHash } from 'crypto'
+import { createHash, timingSafeEqual } from 'crypto'
 
 export function isRobokassaConfigured(): boolean {
   return !!(
@@ -61,5 +61,8 @@ export function verifyResultSignature(
 ): boolean {
   const password2 = process.env.ROBOKASSA_PASSWORD2!
   const expected = md5hex(`${outSum}:${invId}:${password2}`)
-  return expected === signature.toUpperCase()
+  // Постоянное по времени сравнение (TD-12): не утекаем длину/совпадение префикса.
+  const a = Buffer.from(expected)
+  const b = Buffer.from(signature.toUpperCase())
+  return a.length === b.length && timingSafeEqual(a, b)
 }

@@ -83,7 +83,9 @@ export function buildOrderLines(
   items: { slug: string; quantity: number }[],
 ): { lines: OrderLine[]; totalKopecks: number; errors: string[] } {
   const errors: string[] = []
-  const lines: OrderLine[] = []
+  // Дубли одного slug схлопываются в одну позицию (TD-10): иначе в заказе было бы
+  // два order_items на тот же товар. Порядок первого появления сохраняется.
+  const byslug = new Map<string, OrderLine>()
   for (const it of items) {
     const product = catalog.get(it.slug)
     if (!product) {
@@ -94,13 +96,19 @@ export function buildOrderLines(
       errors.push(`«${product.name}» нет в наличии`)
       continue
     }
-    lines.push({
-      slug: product.slug,
-      productName: product.name,
-      priceKopecks: product.priceKopecks,
-      quantity: it.quantity,
-    })
+    const existing = byslug.get(product.slug)
+    if (existing) {
+      existing.quantity += it.quantity
+    } else {
+      byslug.set(product.slug, {
+        slug: product.slug,
+        productName: product.name,
+        priceKopecks: product.priceKopecks,
+        quantity: it.quantity,
+      })
+    }
   }
+  const lines = [...byslug.values()]
   const totalKopecks = lines.reduce((s, l) => s + l.priceKopecks * l.quantity, 0)
   return { lines, totalKopecks, errors }
 }
