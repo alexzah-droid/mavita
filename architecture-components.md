@@ -183,3 +183,24 @@ graph TD
 | **DB** | `db.ts` → PostgreSQL | Персистентность; цены только в копейках (`INTEGER`) |
 
 Пошаговый флоу оплаты — в sequence-диаграмме и таблице выше.
+
+> Диаграммы выше покрывают **публичный флоу покупки**. Админ-панель (Ф4, компонент 1)
+> вынесена отдельно ниже.
+
+---
+
+## Админ-панель (Ф4, компонент 1 — реализована)
+
+Защищённый контур управления каталогом. Спецификация — [docs/specs/admin-products.md](docs/specs/admin-products.md).
+
+| Слой | Компоненты | Ответственность |
+|---|---|---|
+| **Pages** | `app/admin/login`, `app/admin/(protected)/*` (список, создание, редактирование) | Вход по паролю + UI каталога; `requireAdminPage()`-гард |
+| **API Routes** | `app/api/auth/login\|logout`, `app/api/admin/products/**` (CRUD, reorder, images), `app/api/upload` | `requireAdminApi()` + same-origin (**I8**); загрузка фото файл + `product_images` атомарно (**I5**) |
+| **Lib** | `auth.ts` (iron-session, гарды, `assertSameOrigin`), `pricing.ts` (эффективная цена/скидка), `catalog.ts` (фильтр видимости), `admin-products-db.ts`, `slug.ts` | Авторизация и серверная бизнес-логика админки |
+
+Инварианты контура: **I8** (гард + same-origin по хосту за прокси, см. `docs/decisions.md`),
+**I9** (серверная эффективная цена в snapshot заказа), **I5** (атомарная загрузка фото).
+
+Компонент 2 (заказы, доставка СДЭК, **I10**) — спроектирован, не реализован:
+[docs/specs/admin-orders.md](docs/specs/admin-orders.md).
