@@ -17,6 +17,11 @@ export type Product = {
   inStock: boolean
   visibility: Visibility
   sale: { priceKopecks: number; startsAt: string | null; endsAt: string | null } | null
+  // Доп. атрибуты карточки (источник — docs/source/goods.md). Необязательны:
+  // у товаров из БД отсутствуют, у seed-каталога заполнены.
+  category?: string // «Аромасвеча» / «Свеча»
+  aroma?: string // описание аромата одной строкой
+  tagline?: string // слоган-подпись (курсивом)
 }
 
 // Строка из SQL-запроса каталога (см. lib/catalog.ts).
@@ -76,8 +81,11 @@ export const SEED_PRODUCTS: Product[] = [
   {
     slug: 'kamennaya-piramida',
     name: 'Каменная пирамида',
-    series: 'Горы · Аромасвеча',
+    series: 'Горы',
+    category: 'Аромасвеча',
     subtitle: 'Ты — первооткрыватель!',
+    aroma: 'Аромат путешествий, свежего лесного воздуха и духа приключений.',
+    tagline: 'Ты — первооткрыватель.',
     priceKopecks: 160000,
     image: '/images/catalog/001/001-01.png',
     images: [
@@ -97,8 +105,11 @@ export const SEED_PRODUCTS: Product[] = [
   {
     slug: 'simfoniya-kamney-1-cilindr',
     name: 'Симфония камней №1 (цилиндр)',
-    series: 'Горы · Аромасвеча',
+    series: 'Горы',
+    category: 'Аромасвеча',
     subtitle: 'Ты — первооткрыватель!',
+    aroma: 'Аромат путешествий, свежего лесного воздуха и духа приключений.',
+    tagline: 'Прикоснись к камню — и зажги.',
     priceKopecks: 200000,
     image: '/images/catalog/002/002-01.jpg',
     images: [
@@ -119,8 +130,11 @@ export const SEED_PRODUCTS: Product[] = [
   {
     slug: 'simfoniya-kamney-2-kub',
     name: 'Симфония камней №2 (куб)',
-    series: 'Горы · Аромасвеча',
+    series: 'Горы',
+    category: 'Аромасвеча',
     subtitle: 'Тайна застывшей лавы',
+    aroma: 'Дымная, мистическая композиция, которая пленяет и интригует.',
+    tagline: 'Загадка, что оживает с огнём.',
     priceKopecks: 180000,
     image: '/images/catalog/003/003-01.png',
     images: [
@@ -140,8 +154,11 @@ export const SEED_PRODUCTS: Product[] = [
   {
     slug: 'simfoniya-kamney-3-cilindr',
     name: 'Симфония камней №3 (цилиндр)',
-    series: 'Горы · Аромасвеча',
+    series: 'Горы',
+    category: 'Аромасвеча',
     subtitle: 'Тайна застывшей лавы',
+    aroma: 'Дымная, мистическая композиция, которая пленяет и интригует.',
+    tagline: 'Спокойная сила горной породы.',
     priceKopecks: 200000,
     image: '/images/catalog/004/004-01.png',
     images: [
@@ -161,8 +178,11 @@ export const SEED_PRODUCTS: Product[] = [
   {
     slug: 'morskoy-kamen',
     name: 'Морской камень',
-    series: 'Горы · Свеча',
+    series: 'Горы',
+    category: 'Свеча',
     subtitle: 'Море и камень',
+    aroma: 'Лёгкий аромат свободы, свежести и скалистого берега.',
+    tagline: 'Твоя личная гавань спокойствия.',
     priceKopecks: 90000,
     image: '/images/catalog/005/005-01.png',
     images: [
@@ -182,8 +202,11 @@ export const SEED_PRODUCTS: Product[] = [
   {
     slug: 'gornaya-vershina',
     name: 'Горная вершина',
-    series: 'Горы · Свеча',
+    series: 'Горы',
+    category: 'Свеча',
     subtitle: 'Ты — первооткрыватель!',
+    aroma: 'Аромат путешествий, свежего лесного воздуха и духа приключений.',
+    tagline: 'Каждая вершина покоряется идущему.',
     priceKopecks: 80000,
     image: '/images/catalog/006/006-01.jpg',
     images: [

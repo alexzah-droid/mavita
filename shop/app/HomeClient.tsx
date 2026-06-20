@@ -204,9 +204,10 @@ export default function HomeClient({ products }: { products: Product[] }) {
         <div className="atmosphere-inner">
           <div className="atmosphere-photo reveal">
             <Image
-              src="/images/about.jpeg"
+              src="/images/author.jpg"
               alt="Виктория — основатель МАВИТА"
               fill
+              sizes="(max-width: 900px) 100vw, 42vw"
               style={{ objectFit: 'cover', objectPosition: 'top center' }}
             />
           </div>

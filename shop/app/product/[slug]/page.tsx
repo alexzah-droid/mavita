@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getProductBySlug } from '@/lib/catalog'
 import AddToCartButton from '@/app/cart/AddToCartButton'
 import ShopHeader from '@/app/components/ShopHeader'
 import PriceDisplay from '@/app/components/PriceDisplay'
+import ProductGallery from '@/app/components/ProductGallery'
 
 // Карточка товара рендерится на запрос — данные берутся из БД в рантайме.
 export const dynamic = 'force-dynamic'
@@ -44,22 +44,20 @@ export default async function ProductPage({
             <Link href="/" className="product-back">
               В каталог
             </Link>
-            <div className="product-image-stack">
-              <Image
-                src={product.image}
-                alt={product.name}
-                fill
-                sizes="(max-width: 900px) 100vw, 50vw"
-                priority
-              />
-            </div>
+            <ProductGallery images={product.images} name={product.name} />
           </div>
 
           {/* Details */}
           <div>
-            <div className="product-detail-series">{product.series}</div>
+            <div className="product-detail-series">
+              {product.series}
+              {product.category ? ` · ${product.category}` : ''}
+            </div>
             <h1 className="product-detail-name">{product.name}</h1>
             <div className="product-detail-subtitle">«{product.subtitle}»</div>
+            {product.aroma && (
+              <p className="product-detail-aroma">{product.aroma}</p>
+            )}
 
             <div className="product-detail-price">
               <PriceDisplay product={{ priceKopecks: product.priceKopecks, salePriceKopecks: product.sale?.priceKopecks ?? null, saleStartsAt: product.sale?.startsAt ?? null, saleEndsAt: product.sale?.endsAt ?? null }} />
@@ -68,8 +66,30 @@ export default async function ProductPage({
             <div className="product-detail-sep" />
 
             <p className="product-detail-desc">{product.description}</p>
+            {product.tagline && (
+              <p className="product-detail-tagline">{product.tagline}</p>
+            )}
 
-            <div className="product-detail-scents-label">Ароматы</div>
+            <dl className="product-detail-specs">
+              {product.category && (
+                <div className="product-detail-spec">
+                  <dt>Категория</dt>
+                  <dd>{product.category}</dd>
+                </div>
+              )}
+              {product.series && (
+                <div className="product-detail-spec">
+                  <dt>Серия</dt>
+                  <dd>{product.series}</dd>
+                </div>
+              )}
+              <div className="product-detail-spec">
+                <dt>Аромат</dt>
+                <dd>«{product.subtitle}»</dd>
+              </div>
+            </dl>
+
+            <div className="product-detail-scents-label">Ноты аромата</div>
             <div className="product-detail-scents">
               {product.scent.map((s) => (
                 <span key={s} className="scent-tag">
