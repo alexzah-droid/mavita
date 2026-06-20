@@ -5,6 +5,7 @@ import {
   verifyResultSignature,
   kopecksToOutSum,
   isRobokassaConfigured,
+  isAllowedResultIp,
 } from '@/lib/robokassa'
 
 const LOGIN = 'mavita'
@@ -13,6 +14,9 @@ const PW2 = 'password_two'
 
 function md5(s: string): string {
   return createHash('md5').update(s, 'utf8').digest('hex').toUpperCase()
+}
+function sha256(s: string): string {
+  return createHash('sha256').update(s, 'utf8').digest('hex').toUpperCase()
 }
 
 beforeAll(() => {
@@ -23,6 +27,8 @@ beforeAll(() => {
 
 afterEach(() => {
   delete process.env.ROBOKASSA_TEST_MODE
+  delete process.env.ROBOKASSA_HASH_ALGO
+  delete process.env.ROBOKASSA_RESULT_IPS
 })
 
 describe('kopecksToOutSum', () => {
@@ -90,5 +96,52 @@ describe('verifyResultSignature (I3)', () => {
     expect(verifyResultSignature('1800.00', '5', 'DEADBEEF')).toBe(false)
     expect(verifyResultSignature('9999.00', '5', sig)).toBe(false) // подмена суммы
     expect(verifyResultSignature('1800.00', '6', sig)).toBe(false) // подмена InvId
+  })
+})
+
+// TD-20: алгоритм подписи конфигурируется и должен совпадать с настройкой ЛК.
+describe('ROBOKASSA_HASH_ALGO (TD-20)', () => {
+  it('по умолчанию MD5', () => {
+    expect(verifyResultSignature('1800.00', '5', md5(`1800.00:5:${PW2}`))).toBe(true)
+  })
+
+  it('sha256 → подпись считается SHA-256, MD5 больше не проходит', () => {
+    process.env.ROBOKASSA_HASH_ALGO = 'sha256'
+    expect(verifyResultSignature('1800.00', '5', sha256(`1800.00:5:${PW2}`))).toBe(true)
+    expect(verifyResultSignature('1800.00', '5', md5(`1800.00:5:${PW2}`))).toBe(false)
+    // и исходящая подпись тоже на SHA-256
+    const items = [{ name: 'Свеча A', priceKopecks: 180000, quantity: 1 }]
+    const raw = buildPaymentUrl(5, 180000, items)
+    const receipt = raw.match(/[?&]Receipt=([^&]*)/)![1]
+    expect(new URL(raw).searchParams.get('SignatureValue')).toBe(
+      sha256(`${LOGIN}:1800.00:5:${receipt}:${PW1}`),
+    )
+  })
+
+  it('неизвестный алгоритм → ошибка (не молчим)', () => {
+    process.env.ROBOKASSA_HASH_ALGO = 'crc32'
+    expect(() => verifyResultSignature('1800.00', '5', 'x')).toThrow(/не поддерживается/)
+  })
+})
+
+// TD-19: allowlist IP колбэка /result.
+describe('isAllowedResultIp (TD-19)', () => {
+  it('пустой список → проверка выключена (любой IP разрешён)', () => {
+    expect(isAllowedResultIp('8.8.8.8')).toBe(true)
+    expect(isAllowedResultIp(null)).toBe(true)
+  })
+
+  it('одиночный IP: совпадение разрешено, остальное нет', () => {
+    process.env.ROBOKASSA_RESULT_IPS = '185.59.216.10'
+    expect(isAllowedResultIp('185.59.216.10')).toBe(true)
+    expect(isAllowedResultIp('185.59.216.11')).toBe(false)
+  })
+
+  it('CIDR-диапазон и IPv6-mapped IPv4', () => {
+    process.env.ROBOKASSA_RESULT_IPS = '185.59.216.0/22, 1.2.3.4'
+    expect(isAllowedResultIp('185.59.218.200')).toBe(true) // внутри /22
+    expect(isAllowedResultIp('185.59.220.1')).toBe(false) // вне /22
+    expect(isAllowedResultIp('::ffff:1.2.3.4')).toBe(true) // mapped → 1.2.3.4
+    expect(isAllowedResultIp(null)).toBe(false) // список задан, IP нет
   })
 })

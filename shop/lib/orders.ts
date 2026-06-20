@@ -189,11 +189,17 @@ export type MarkPaidResult =
   | 'already_paid' // уже был оплачен (идемпотентный повтор колбэка)
   | 'not_found' // заказа с таким InvId нет
   | 'amount_mismatch' // сумма от Робокассы не совпала с заказом
+  | 'cancelled' // заказ отменён — деньги пришли, нужен ручной разбор
 
 /**
  * Пометить заказ оплаченным. Меняет статус только если заказ pending И сумма
  * (в копейках) совпадает с total_kopecks заказа — защита от недоплаты/рассинхрона.
  * Идемпотентно: повторный колбэк по уже оплаченному заказу — 'already_paid'.
+ *
+ * Об успехе судим по числу реально обновлённых строк (RETURNING), а не по факту
+ * «дошли до UPDATE»: иначе при гонке двух колбэков оба вернули бы 'paid' (TD-18),
+ * а оплата отменённого заказа молча терялась бы — Робокасса получила бы OK и
+ * прекратила ретраи, хотя статус не сменился (TD-17).
  */
 export async function markOrderPaid(
   invId: number,
@@ -210,14 +216,26 @@ export async function markOrderPaid(
 
   const order = rows[0]
   if (order.status === 'paid') return 'already_paid'
+  if (order.status === 'cancelled') return 'cancelled'
   if (Number(order.total_kopecks) !== paidKopecks) return 'amount_mismatch'
 
-  await query(
+  const updated = await query<{ id: number }>(
     `UPDATE orders SET status = 'paid', robokassa_data = $1
-     WHERE id = $2 AND status = 'pending'`,
+     WHERE id = $2 AND status = 'pending'
+     RETURNING id`,
     [JSON.stringify(robokassaData), invId],
   )
-  return 'paid'
+  if (updated.length) return 'paid'
+
+  // Строку увели из-под нас между SELECT и UPDATE (гонка колбэков или отмена) —
+  // перечитываем фактический статус, чтобы вернуть честный результат.
+  const after = await query<{ status: string }>(
+    `SELECT status FROM orders WHERE id = $1`,
+    [invId],
+  )
+  if (after[0]?.status === 'paid') return 'already_paid'
+  if (after[0]?.status === 'cancelled') return 'cancelled'
+  return 'not_found'
 }
 
 /** token заказа по InvId (= id) — для редиректов success/fail на /order/<token>. */

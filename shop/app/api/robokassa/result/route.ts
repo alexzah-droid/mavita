@@ -1,5 +1,12 @@
 import { markOrderPaid } from '@/lib/orders'
-import { verifyResultSignature } from '@/lib/robokassa'
+import { isAllowedResultIp, verifyResultSignature } from '@/lib/robokassa'
+
+// За Nginx реальный IP — в X-Forwarded-For (первый хоп) либо X-Real-IP.
+function clientIp(req: Request): string | null {
+  const xff = req.headers.get('x-forwarded-for')
+  if (xff) return xff.split(',')[0].trim()
+  return req.headers.get('x-real-ip')
+}
 
 // Робокасса в тестовом режиме может слать GET вместо POST.
 // Оба метода обрабатываем одинаково.
@@ -21,8 +28,9 @@ async function handleResult(outSum: string, invId: string, signature: string, ra
   const result = await markOrderPaid(Number(invId), paidKopecks, rawData)
 
   // OK{InvId} только когда заказ действительно оплачен (или уже был) — тогда
-  // Робокасса перестанет повторять колбэк. При несовпадении суммы / неизвестном
-  // заказе НЕ подтверждаем: возвращаем ошибку, чтобы рассинхрон стал заметен.
+  // Робокасса перестанет повторять колбэк. При несовпадении суммы / неизвестном /
+  // отменённом заказе НЕ подтверждаем: возвращаем ошибку, чтобы рассинхрон стал
+  // заметен (ретраи Робокассы + лог), а деньги на «битый» заказ не потерялись молча.
   if (result === 'paid' || result === 'already_paid') {
     return new Response(`OK${invId}`, {
       status: 200,
@@ -30,13 +38,21 @@ async function handleResult(outSum: string, invId: string, signature: string, ra
     })
   }
 
+  // cancelled — деньги пришли на отменённый заказ: критично, нужен ручной разбор.
   console.error(`[robokassa/result] InvId=${invId} OutSum=${outSum} → ${result}`)
-  return new Response(result === 'amount_mismatch' ? 'Amount mismatch' : 'Unknown order', {
-    status: 400,
-  })
+  const message: Record<string, string> = {
+    amount_mismatch: 'Amount mismatch',
+    cancelled: 'Order cancelled',
+  }
+  return new Response(message[result] ?? 'Unknown order', { status: 400 })
 }
 
 export async function POST(req: Request) {
+  // TD-19: IP-allowlist Робокассы (если настроен) — второй рубеж к подписи.
+  if (!isAllowedResultIp(clientIp(req))) {
+    return new Response('Forbidden', { status: 403 })
+  }
+
   let body: FormData
   try {
     body = await req.formData()
@@ -56,6 +72,10 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
+  if (!isAllowedResultIp(clientIp(req))) {
+    return new Response('Forbidden', { status: 403 })
+  }
+
   const url = new URL(req.url)
   const p = url.searchParams
 

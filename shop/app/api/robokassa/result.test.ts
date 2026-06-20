@@ -82,6 +82,31 @@ describe('POST /api/robokassa/result', () => {
     )
     expect(res.status).toBe(400)
   })
+
+  // TD-17: деньги на отменённый заказ НЕ подтверждаем — иначе Робокасса
+  // прекратит ретраи, а статус останется cancelled (потеря денег молча).
+  it('оплата отменённого заказа → 400, не OK', async () => {
+    vi.mocked(markOrderPaid).mockResolvedValue('cancelled')
+    const res = await POST(
+      postReq({ OutSum: '1800.00', InvId: '5', SignatureValue: sign('1800.00', '5') }),
+    )
+    expect(res.status).toBe(400)
+    expect(await res.text()).toBe('Order cancelled')
+  })
+
+  // TD-19: при заданном allowlist колбэк с чужого/неизвестного IP отбивается до подписи.
+  it('IP вне allowlist → 403, markOrderPaid не вызывается', async () => {
+    process.env.ROBOKASSA_RESULT_IPS = '185.59.216.0/22'
+    try {
+      const res = await POST(
+        postReq({ OutSum: '1800.00', InvId: '5', SignatureValue: sign('1800.00', '5') }),
+      )
+      expect(res.status).toBe(403)
+      expect(markOrderPaid).not.toHaveBeenCalled()
+    } finally {
+      delete process.env.ROBOKASSA_RESULT_IPS
+    }
+  })
 })
 
 describe('GET /api/robokassa/result (тестовый режим Робокассы)', () => {

@@ -8,8 +8,24 @@ export function isRobokassaConfigured(): boolean {
   )
 }
 
-function md5hex(s: string): string {
-  return createHash('md5').update(s, 'utf8').digest('hex').toUpperCase()
+// Node поддерживает эти алгоритмы; должны совпадать с настройкой «Хэш-алгоритм»
+// в ЛК Робокассы (TD-20). MD5 — дефолт Робокассы, но кабинет можно перевести на
+// SHA-256/512 — тогда выставить ROBOKASSA_HASH_ALGO ОДНОВРЕМЕННО с настройкой в ЛК.
+const ALLOWED_HASH_ALGOS = new Set(['md5', 'sha1', 'sha256', 'sha384', 'sha512'])
+
+function hashAlgo(): string {
+  const algo = (process.env.ROBOKASSA_HASH_ALGO ?? 'md5').toLowerCase()
+  if (!ALLOWED_HASH_ALGOS.has(algo)) {
+    throw new Error(
+      `ROBOKASSA_HASH_ALGO="${algo}" не поддерживается (допустимо: ${[...ALLOWED_HASH_ALGOS].join(', ')})`,
+    )
+  }
+  return algo
+}
+
+/** Подпись Робокассы в верхнем регистре hex выбранным алгоритмом (по умолчанию MD5). */
+function signHex(s: string): string {
+  return createHash(hashAlgo()).update(s, 'utf8').digest('hex').toUpperCase()
 }
 
 /** Копейки → строка с 2 знаками после запятой для параметра OutSum */
@@ -41,7 +57,7 @@ function buildReceipt(items: ReceiptItem[]): string {
 /**
  * Сформировать URL для редиректа покупателя на страницу оплаты Робокассы.
  * При включённой фискализации Receipt обязателен и входит в подпись:
- * MD5(MerchantLogin:OutSum:InvId:Receipt:Password1), где Receipt — URL-encoded JSON.
+ * HASH(MerchantLogin:OutSum:InvId:Receipt:Password1), где Receipt — URL-encoded JSON.
  * Инвариант: в подпись и в URL идёт ОДНА И ТА ЖЕ закодированная строка.
  */
 export function buildPaymentUrl(
@@ -57,7 +73,7 @@ export function buildPaymentUrl(
 
   const outSum = kopecksToOutSum(totalKopecks)
   const receiptEncoded = encodeURIComponent(buildReceipt(items))
-  const sig = md5hex(`${login}:${outSum}:${invId}:${receiptEncoded}:${password1}`)
+  const sig = signHex(`${login}:${outSum}:${invId}:${receiptEncoded}:${password1}`)
 
   const params = new URLSearchParams({
     MerchantLogin: login,
@@ -79,7 +95,7 @@ export function buildPaymentUrl(
 
 /**
  * Проверить подпись ResultURL от Робокассы.
- * Эталон: MD5(OutSum:InvId:Password2)
+ * Эталон: HASH(OutSum:InvId:Password2) — алгоритм из ROBOKASSA_HASH_ALGO.
  */
 export function verifyResultSignature(
   outSum: string,
@@ -87,9 +103,53 @@ export function verifyResultSignature(
   signature: string,
 ): boolean {
   const password2 = process.env.ROBOKASSA_PASSWORD2!
-  const expected = md5hex(`${outSum}:${invId}:${password2}`)
+  const expected = signHex(`${outSum}:${invId}:${password2}`)
   // Постоянное по времени сравнение (TD-12): не утекаем длину/совпадение префикса.
   const a = Buffer.from(expected)
   const b = Buffer.from(signature.toUpperCase())
   return a.length === b.length && timingSafeEqual(a, b)
+}
+
+/**
+ * Разрешён ли IP источника колбэка /result (TD-19, defense-in-depth).
+ * Диапазоны берутся из ROBOKASSA_RESULT_IPS (CIDR/одиночные IP через запятую,
+ * актуальный список — из ЛК/поддержки Робокассы). Если переменная пуста — проверка
+ * выключена: полагаемся на подпись Password2. IPv6-mapped IPv4 (::ffff:1.2.3.4)
+ * нормализуется. Только IPv4 (источники Робокассы — IPv4).
+ */
+export function isAllowedResultIp(ip: string | null | undefined): boolean {
+  const raw = process.env.ROBOKASSA_RESULT_IPS?.trim()
+  if (!raw) return true // allowlist не настроен — не блокируем
+  if (!ip) return false
+  const addr = normalizeIp(ip)
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .some((cidr) => ipInCidr(addr, cidr))
+}
+
+function normalizeIp(ip: string): string {
+  const t = ip.trim()
+  return t.startsWith('::ffff:') ? t.slice(7) : t
+}
+
+function ipv4ToInt(ip: string): number | null {
+  const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (!m) return null
+  const parts = m.slice(1, 5).map(Number)
+  if (parts.some((p) => p > 255)) return null
+  return ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0
+}
+
+function ipInCidr(ip: string, cidr: string): boolean {
+  const [range, bitsStr] = cidr.split('/')
+  const bits = bitsStr === undefined ? 32 : Number(bitsStr)
+  const ipInt = ipv4ToInt(ip)
+  const rangeInt = ipv4ToInt(range)
+  if (ipInt === null || rangeInt === null) return false
+  if (!Number.isInteger(bits) || bits < 0 || bits > 32) return false
+  if (bits === 0) return true
+  const mask = bits === 32 ? 0xffffffff : (~((1 << (32 - bits)) - 1)) >>> 0
+  return (ipInt & mask) === (rangeInt & mask)
 }
