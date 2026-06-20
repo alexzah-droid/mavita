@@ -100,9 +100,16 @@ CREATE TABLE products (
     price       INTEGER NOT NULL,          -- в копейках (избегаем float)
     in_stock    BOOLEAN DEFAULT true,
     sort_order  INTEGER DEFAULT 0,
+    -- Ф4 (миграция 002): витрина и скидки
+    visibility         TEXT DEFAULT 'public', -- public | unlisted (по прямой ссылке) | hidden
+    sale_price_kopecks INTEGER,             -- сниженная цена; NULL = скидки нет (I2)
+    sale_starts_at     TIMESTAMPTZ,         -- начало скидки; NULL = сразу
+    sale_ends_at       TIMESTAMPTZ,         -- конец скидки (таймер); NULL = бессрочно
     created_at  TIMESTAMPTZ DEFAULT now(),
     updated_at  TIMESTAMPTZ DEFAULT now()
 );
+-- Эффективная цена считается на лету (lib/pricing.ts), без фоновых задач:
+-- по истечении sale_ends_at цена автоматически возвращается к price.
 
 -- Фотографии товара (одна карточка — несколько фото)
 CREATE TABLE product_images (
@@ -181,13 +188,17 @@ CREATE TABLE order_items (
 
 ## Админ-панель
 
-Защита: логин + пароль через `iron-session` (зашифрованная cookie, без JWT). Один пользователь-администратор, пароль в `.env`.
+Защита: логин + пароль через `iron-session` (зашифрованная cookie, без JWT). Один пользователь-администратор, пароль в `.env` (`ADMIN_PASSWORD`), ключ cookie — `SESSION_SECRET`. Сравнение пароля — `timingSafeEqual`, вход с rate-limit. Все `/admin/**` и `/api/admin/**` — за `requireAdmin()` (инвариант **I8**).
 
 Возможности:
 - Список товаров с сортировкой drag-and-drop
-- Создать / редактировать товар: название, описание, цена, наличие
+- Создать / редактировать товар: название, slug, серия, описание, цена, ароматы, наличие
+- Управление витриной: `public` (на витрине) / `unlisted` (скрыт, но покупается по прямой ссылке) / `hidden` (снят)
+- Временные скидки с таймером (дата начала/окончания); эффективная цена — на сервере, snapshot в заказ (**I9**)
 - Загрузить несколько фото, выбрать обложку, удалить фото
 - Список заказов с фильтром по статусу
+
+Детальная спецификация первого компонента — [docs/specs/admin-products.md](docs/specs/admin-products.md).
 
 ---
 
