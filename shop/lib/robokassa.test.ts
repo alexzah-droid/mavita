@@ -28,6 +28,7 @@ beforeAll(() => {
 
 afterEach(() => {
   delete process.env.ROBOKASSA_TEST_MODE
+  delete process.env.ALLOW_ROBOKASSA_TEST_MODE_IN_PRODUCTION
   delete process.env.ROBOKASSA_HASH_ALGO
   delete process.env.ROBOKASSA_RESULT_IPS
   vi.unstubAllEnvs()
@@ -133,6 +134,13 @@ describe('checkPaymentConfig (TD-21.1)', () => {
     process.env.ROBOKASSA_TEST_MODE = 'true'
     const problems = checkPaymentConfig()
     expect(problems.some((p) => /TEST_MODE=true в production/.test(p))).toBe(true)
+  })
+
+  it('production + TEST_MODE=true с явным временным разрешением → допустимо', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    process.env.ROBOKASSA_TEST_MODE = 'true'
+    process.env.ALLOW_ROBOKASSA_TEST_MODE_IN_PRODUCTION = 'true'
+    expect(checkPaymentConfig()).toEqual([])
   })
 
   it('production + боевой режим → проблем нет', () => {

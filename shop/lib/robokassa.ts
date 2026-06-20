@@ -38,9 +38,16 @@ export function checkPaymentConfig(): string[] {
   const problems: string[] = []
   const isProd = process.env.NODE_ENV === 'production'
 
-  if (isProd && process.env.ROBOKASSA_TEST_MODE === 'true') {
+  // Тестовый платёж на production допустим только с отдельным явным opt-in.
+  // Это позволяет подготовить витрину до старта продаж, не превращая test mode
+  // в молчаливую небезопасную настройку.
+  if (
+    isProd &&
+    process.env.ROBOKASSA_TEST_MODE === 'true' &&
+    process.env.ALLOW_ROBOKASSA_TEST_MODE_IN_PRODUCTION !== 'true'
+  ) {
     problems.push(
-      'ROBOKASSA_TEST_MODE=true в production: платежи уходили бы с IsTest=1 и помечались оплаченными без реальных денег',
+      'ROBOKASSA_TEST_MODE=true в production без ALLOW_ROBOKASSA_TEST_MODE_IN_PRODUCTION=true: платежи уходили бы с IsTest=1 и помечались оплаченными без реальных денег',
     )
   }
   if (isRobokassaConfigured()) {
