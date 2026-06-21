@@ -1,5 +1,6 @@
 import { isDbConfigured, query, withTransaction } from '@/lib/db'
 import { cursorEncode, maskPhone, type AdminOrderFilters, type FulfillmentStatus, type OrderStatus } from '@/lib/admin-orders'
+import { enqueueOrderNotification } from '@/lib/telegram-notifications'
 
 export type AdminOrderListItem = { id: number; customerName: string; customerEmail: string; customerPhoneMasked: string | null; totalKopecks: number; status: OrderStatus; fulfillmentStatus: FulfillmentStatus; itemCount: number; createdAt: string }
 export type AdminOrderDetail = Omit<AdminOrderListItem, 'customerPhoneMasked'> & { customerPhone: string | null; invId: number | null; itemsKopecks: number; deliveryKopecks: number; deliveryCarrier: 'cdek' | null; deliveryMethod: 'cdek_pickup' | null; pickupPoint: { code: string; city: string; name: string; address: string } | null; trackingNumber: string | null; items: { productName: string; priceKopecks: number; quantity: number }[]; adminEvents: { id: number; eventType: 'cancelled' | 'fulfillment_transition'; reason: string | null; fromFulfillmentStatus: FulfillmentStatus; toFulfillmentStatus: FulfillmentStatus; trackingNumber: string | null; actorLoginAt: number; createdAt: string }[] }
@@ -44,7 +45,7 @@ export async function cancelAdminOrder(id: number, reason: string, actorLoginAt:
   if (!isDbConfigured()) return 'not_found'
   const outcome = await withTransaction(async (client) => {
     const changed = await client.query<{ id: number }>(`UPDATE orders SET status = 'cancelled', fulfillment_status = 'cancelled' WHERE id = $1 AND status = 'pending' AND fulfillment_status = 'awaiting_payment' RETURNING id`, [id])
-    if (changed.rows[0]) { await client.query(`INSERT INTO order_admin_events (order_id, event_type, reason, from_fulfillment_status, to_fulfillment_status, actor_login_at) VALUES ($1, 'cancelled', $2, 'awaiting_payment', 'cancelled', $3)`, [id, reason, actorLoginAt]); return 'changed' as const }
+    if (changed.rows[0]) { await client.query(`INSERT INTO order_admin_events (order_id, event_type, reason, from_fulfillment_status, to_fulfillment_status, actor_login_at) VALUES ($1, 'cancelled', $2, 'awaiting_payment', 'cancelled', $3)`, [id, reason, actorLoginAt]); await enqueueOrderNotification(client, { orderId: id, eventType: 'order_cancelled', eventKey: `order:${id}:cancelled`, reason }); return 'changed' as const }
     const exists = await client.query<{ id: number }>('SELECT id FROM orders WHERE id = $1', [id]); return exists.rows[0] ? 'not_pending' as const : 'not_found' as const
   })
   return outcome === 'changed' ? (await getAdminOrderById(id))! : outcome
@@ -57,7 +58,7 @@ export async function transitionFulfillment(id: number, next: 'packing' | 'hande
     const order = current.rows[0]; const allowed = (order.fulfillment_status === 'new' && next === 'packing') || (order.fulfillment_status === 'packing' && next === 'handed_to_carrier') || (order.fulfillment_status === 'handed_to_carrier' && next === 'delivered'); if (order.status !== 'paid' || !allowed) return 'invalid' as const
     const nextTracking = next === 'handed_to_carrier' ? trackingNumber : order.fulfillment_status === 'handed_to_carrier' ? order.tracking_number : null
     await client.query('UPDATE orders SET fulfillment_status = $1, tracking_number = $2 WHERE id = $3', [next, nextTracking, id])
-    await client.query(`INSERT INTO order_admin_events (order_id, event_type, from_fulfillment_status, to_fulfillment_status, tracking_number, actor_login_at) VALUES ($1, 'fulfillment_transition', $2, $3, $4, $5)`, [id, order.fulfillment_status, next, next === 'handed_to_carrier' ? trackingNumber : null, actorLoginAt]); return 'changed' as const
+    const event = await client.query<{ id: number }>(`INSERT INTO order_admin_events (order_id, event_type, from_fulfillment_status, to_fulfillment_status, tracking_number, actor_login_at) VALUES ($1, 'fulfillment_transition', $2, $3, $4, $5) RETURNING id`, [id, order.fulfillment_status, next, next === 'handed_to_carrier' ? trackingNumber : null, actorLoginAt]); await enqueueOrderNotification(client, { orderId: id, eventType: 'fulfillment_changed', eventKey: `order:${id}:fulfillment:${event.rows[0].id}` }); return 'changed' as const
   })
   return changed === 'changed' ? (await getAdminOrderById(id))! : changed
 }

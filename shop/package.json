@@ -9,14 +9,16 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "notifications:drain": "tsx scripts/drain-notifications.ts"
   },
   "dependencies": {
     "iron-session": "^8.0.4",
     "next": "^15.3.3",
     "pg": "^8.22.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tsx": "^4.20.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",

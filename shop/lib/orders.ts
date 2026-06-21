@@ -7,6 +7,7 @@ import { isDbConfigured, query, withTransaction } from '@/lib/db'
 import { effectivePrice } from '@/lib/pricing'
 import type { Visibility } from '@/lib/products'
 import { getPickupPoint } from '@/lib/cdek'
+import { enqueueOrderNotification } from '@/lib/telegram-notifications'
 
 export type OrderInput = {
   customerName: string
@@ -257,6 +258,7 @@ export async function createOrder(
         [orderId, line.productId, line.productName, line.priceKopecks, line.quantity],
       )
     }
+    await enqueueOrderNotification(client, { orderId, eventType: 'order_created', eventKey: `order:${orderId}:created` })
     return { id: orderId, totalKopecks, itemsKopecks, deliveryKopecks, lines }
   })
 
@@ -292,7 +294,9 @@ export async function markOrderPaid(
     const order = selected.rows[0]; if (!order) return 'not_found'
     if (order.status === 'paid') return 'already_paid'; if (order.status === 'cancelled') return 'cancelled'; if (Number(order.total_kopecks) !== paidKopecks) return 'amount_mismatch'
     const updated = await client.query<{ id: number }>(`UPDATE orders SET status = 'paid', fulfillment_status = 'new', robokassa_data = $1 WHERE id = $2 AND status = 'pending' AND fulfillment_status = 'awaiting_payment' RETURNING id`, [JSON.stringify(robokassaData), invId])
-    return updated.rows.length ? 'paid' : 'not_found'
+    if (!updated.rows.length) return 'not_found'
+    await enqueueOrderNotification(client, { orderId: invId, eventType: 'payment_paid', eventKey: `order:${invId}:paid` })
+    return 'paid'
   })
 }
 

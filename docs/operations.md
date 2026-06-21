@@ -58,12 +58,67 @@ ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/see
 # Существующая production-БД: сначала backup, затем применить КАЖДУЮ ещё не
 # применённую миграцию. schema.sql не заменяет ALTER-миграции.
 ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/003_orders_delivery_and_admin_events.sql"
+# После rollout Telegram-уведомлений:
+ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/004_telegram_order_notifications.sql"
 ```
 
 Перед миграцией `003` обязательно сделать `pg_dump` из раздела выше. После неё
 проверить `\d orders`, `\d store_settings`, `\d order_admin_events` и только затем
 перезапускать приложение. Не запускать seed на действующей БД без отдельной
 необходимости: он предназначен для первоначального наполнения.
+
+## Telegram-уведомления о заказах
+
+Перед включением в `/admin/settings/notifications` добавить в
+`/var/www/mavita-repo/shop/.env` ключ, сгенерированный на самом сервере:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Сохранить результат как `TELEGRAM_SETTINGS_ENCRYPTION_KEY=<значение>` и
+перезапустить PM2. Ключ расшифровывает токен бота в БД: не менять и не терять
+его без повторного ввода токена в админке.
+
+После `npm ci` установить systemd unit `/etc/systemd/system/mavita-notifications.service`:
+
+```ini
+[Unit]
+Description=Mavita Telegram notification outbox
+
+[Service]
+Type=oneshot
+User=mavita
+WorkingDirectory=/var/www/mavita-repo/shop
+EnvironmentFile=/var/www/mavita-repo/shop/.env
+ExecStart=/usr/bin/npm run notifications:drain
+```
+
+И timer `/etc/systemd/system/mavita-notifications.timer`:
+
+```ini
+[Unit]
+Description=Run Mavita Telegram notification outbox every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Применить и проверить:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now mavita-notifications.timer
+systemctl list-timers mavita-notifications.timer
+sudo systemctl start mavita-notifications.service
+journalctl -u mavita-notifications.service -n 30 --no-pager
+```
+
+В первом релизе Telegram-сообщения не содержат персональных данных покупателя.
 
 ## Текущий rollout: заказы без СДЭК
 
