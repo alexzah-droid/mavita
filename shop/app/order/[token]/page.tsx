@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { getOrderByToken } from '@/lib/orders'
 import { buildPaymentUrl, isRobokassaConfigured } from '@/lib/robokassa'
 import { formatRub } from '@/lib/price'
+import { CARRIER_LABEL } from '@/lib/store-settings'
 import ShopHeader from '@/app/components/ShopHeader'
 import SiteFooter from '@/app/components/SiteFooter'
 
@@ -32,16 +33,20 @@ export default async function OrderPage({
   const isPaid = order.status === 'paid'
   const justFailed = !isPaid && sp.failed === '1'
 
+  const carrierLabel = order.deliveryCarrier ? CARRIER_LABEL[order.deliveryCarrier] : null
+
   let paymentUrl: string | null = null
   if (order.status === 'pending' && isRobokassaConfigured()) {
+    // Чек повторной оплаты должен совпадать с total_kopecks: при доставке добавляем
+    // её строкой, иначе сумма позиций не сойдётся с суммой платежа (I10).
+    const deliveryName = carrierLabel ? `Доставка ${carrierLabel} до ПВЗ` : 'Доставка до ПВЗ'
     paymentUrl = buildPaymentUrl(
       order.id,
       order.totalKopecks,
-      order.items.map((it) => ({
-        name: it.productName,
-        priceKopecks: it.priceKopecks,
-        quantity: it.quantity,
-      })),
+      [
+        ...order.items.map((it) => ({ name: it.productName, priceKopecks: it.priceKopecks, quantity: it.quantity })),
+        ...(order.deliveryKopecks ? [{ name: deliveryName, priceKopecks: order.deliveryKopecks, quantity: 1 }] : []),
+      ],
       order.customerEmail,
       `Заказ №${order.id} — МАВИТА`,
     )
@@ -98,11 +103,28 @@ export default async function OrderPage({
                 </li>
               ))}
             </ul>
+            {order.deliveryKopecks > 0 && (
+              <div className="cart-summary-row">
+                <span>Доставка{carrierLabel ? ` ${carrierLabel} до ПВЗ` : ''}</span>
+                <span>{formatRub(order.deliveryKopecks)}</span>
+              </div>
+            )}
             <div className="cart-summary-row cart-summary-total order-total">
               <span>Итого</span>
               <span>{formatRub(order.totalKopecks)}</span>
             </div>
           </div>
+
+          {order.pickupPoint && (
+            <div className="order-card">
+              <div className="order-card-head">Пункт выдачи{carrierLabel ? ` ${carrierLabel}` : ''}</div>
+              <p className="order-lede">
+                {order.pickupPoint.city} · {order.pickupPoint.name}
+                <br />
+                {order.pickupPoint.address}
+              </p>
+            </div>
+          )}
 
           {order.status === 'pending' && paymentUrl && (
             <a href={paymentUrl} className="btn-add checkout-submit order-pay-btn">

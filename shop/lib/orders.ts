@@ -6,29 +6,20 @@ import { randomUUID } from 'node:crypto'
 import { isDbConfigured, query, withTransaction } from '@/lib/db'
 import { effectivePrice } from '@/lib/pricing'
 import type { Visibility } from '@/lib/products'
-import { getPickupPoint } from '@/lib/cdek'
+import { providerFor } from '@/lib/delivery/providers'
+import { carrierFromMethod, getLockedDeliverySnapshot, PICKUP_METHOD, type Carrier } from '@/lib/store-settings'
 import { enqueueOrderNotification } from '@/lib/telegram-notifications'
 
+export type PickupMethod = 'cdek_pickup' | 'ozon_pickup'
 export type OrderInput = {
   customerName: string
   customerEmail: string
   customerPhone: string
-  // СДЭК ещё не подключён: на проде доставка временно отключается флагом, и заказ
-  // оформляется без ПВЗ. Когда заявку СДЭК одобрят — убрать DELIVERY_ENABLED=false
-  // в окружении, и доставка снова станет обязательной без правок кода.
-  delivery?: { method: 'cdek_pickup'; pickupPointCode: string; expectedDeliveryKopecks: number } | null
+  // Доставка обязательна, когда checkout в режиме pickup_required (есть ≥1 валидно
+  // настроенный перевозчик и DELIVERY_ENABLED≠false). Способ определяет перевозчика.
+  delivery?: { method: PickupMethod; pickupPointCode: string; expectedDeliveryKopecks: number } | null
   expectedTotalKopecks: number
   items: { slug: string; quantity: number }[]
-}
-
-/**
- * Доставка СДЭК включается только когда DELIVERY_ENABLED ≠ 'false'. По умолчанию
- * включена (целевое состояние и инварианты тестов); на проде до подключения
- * виджета СДЭК выставляется DELIVERY_ENABLED=false — тогда заказ оформляется
- * без ПВЗ: delivery_* = NULL, delivery_kopecks = 0, total = items.
- */
-export function isDeliveryEnabled(): boolean {
-  return process.env.DELIVERY_ENABLED !== 'false'
 }
 
 export type CatalogItem = {
@@ -57,6 +48,10 @@ export type Order = {
   customerEmail: string
   customerPhone: string | null
   totalKopecks: number
+  itemsKopecks: number
+  deliveryKopecks: number
+  deliveryCarrier: Carrier | null
+  pickupPoint: { code: string; city: string; name: string; address: string } | null
   status: string
   createdAt: string
   items: { productName: string; priceKopecks: number; quantity: number }[]
@@ -87,14 +82,15 @@ function normalizePhone(value: string): string | undefined {
 }
 
 /** Чистая валидация формы заказа (без обращения к БД). */
-export function validateOrderInput(input: OrderInput, deliveryRequired = isDeliveryEnabled()): ValidationResult {
+export function validateOrderInput(input: OrderInput, deliveryRequired = true): ValidationResult {
   const errors: string[] = []
   if (!input.customerName?.trim()) errors.push('Укажите ФИО получателя')
   const email = input.customerEmail?.trim() ?? ''
   if (!email || !EMAIL_RE.test(email)) errors.push('Укажите корректный email')
   if (!normalizePhone(input.customerPhone ?? '')) errors.push('Укажите корректный телефон получателя')
   if (deliveryRequired) {
-    if (input.delivery?.method !== 'cdek_pickup' || !input.delivery.pickupPointCode?.trim()) errors.push('Выберите пункт выдачи СДЭК')
+    const method = input.delivery?.method
+    if ((method !== 'cdek_pickup' && method !== 'ozon_pickup') || !input.delivery?.pickupPointCode?.trim()) errors.push('Выберите пункт выдачи')
     if (!Number.isSafeInteger(input.delivery?.expectedDeliveryKopecks) || (input.delivery?.expectedDeliveryKopecks ?? -1) < 0) errors.push('Некорректная сумма доставки')
   }
   if (!Number.isSafeInteger(input.expectedTotalKopecks) || input.expectedTotalKopecks < 0) errors.push('Некорректная сумма заказа')
@@ -196,36 +192,66 @@ async function fetchCatalog(client: { query: <T>(text: string, params?: unknown[
   return map
 }
 
+/**
+ * Повторно подтвердить выбранный ПВЗ у провайдера с credentials из снимка, с
+ * таймаутом ~5 c: внешний вызов внутри короткой транзакции допустим (нет побочного
+ * эффекта, защищён таймаутом, закрывает TOCTOU), но не должен держать БД бесконечно.
+ */
+async function reconfirmPickupPoint(carrier: Carrier, credentials: { clientId: string; secret: string; fingerprint?: string }, code: string) {
+  const provider = providerFor(carrier, credentials)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new DeliveryUnavailableError()), 5000) })
+  try {
+    return await Promise.race([provider.getPickupPoint(code), timeout])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 /** Создать заказ (status=pending) + позиции атомарно. token — неугадываемый id для URL. */
 export async function createOrder(
   input: OrderInput,
-): Promise<{ id: number; token: string; totalKopecks: number; itemsKopecks: number; deliveryKopecks: number; lines: OrderLine[] }> {
+): Promise<{ id: number; token: string; totalKopecks: number; itemsKopecks: number; deliveryKopecks: number; deliveryCarrier: Carrier | null; lines: OrderLine[] }> {
   if (!isDbConfigured()) {
     throw new Error('DATABASE_URL is not set — orders require a database')
   }
 
-  const deliveryEnabled = isDeliveryEnabled()
-  const validation = validateOrderInput(input, deliveryEnabled)
-  if (!validation.ok) throw new OrderValidationError(validation.errors)
-
-  // Snapshot точки берём повторно на сервере: клиентский callback нельзя считать
-  // авторитетным. Без СДЭК (DELIVERY_ENABLED=false) заказ оформляется без ПВЗ.
-  const pickupPoint = deliveryEnabled ? await getPickupPoint(input.delivery!.pickupPointCode.trim()) : null
-
   const token = randomUUID()
   const result = await withTransaction(async (client) => {
+    // Снимок настроек доставки под совместимой блокировкой строки (FOR SHARE):
+    // режим, тариф и credentials фиксируются на всю транзакцию — saveCarrierSettings
+    // (FOR UPDATE) не сможет подменить тариф/выключить carrier между проверкой ПВЗ и INSERT.
+    const snapshot = await getLockedDeliverySnapshot(client)
+    if (snapshot.mode === 'error') throw new DeliveryUnavailableError()
+    const deliveryRequired = snapshot.mode === 'pickup_required'
+
+    // Клиент прислал доставку, но снимок её не требует (напр. Ozon выпал из-за
+    // протухшего каталога) — отклоняем, а не молча оформляем заказ без ПВЗ.
+    if (!deliveryRequired && input.delivery) throw new OrderValidationError(['Выбранный способ доставки недоступен'])
+
+    const validation = validateOrderInput(input, deliveryRequired)
+    if (!validation.ok) throw new OrderValidationError(validation.errors)
+
+    let pickupPoint: { code: string; city: string; name: string; address: string } | null = null
+    let deliveryKopecks = 0
+    let deliveryCarrier: Carrier | null = null
+    if (deliveryRequired) {
+      const carrier = carrierFromMethod(input.delivery!.method)
+      const active = carrier ? snapshot.carrier(carrier) : undefined
+      if (!carrier || !active) throw new OrderValidationError(['Выбранный способ доставки недоступен'])
+      deliveryCarrier = carrier
+      deliveryKopecks = active.deliveryKopecks
+      // Snapshot точки берём повторно на сервере у соответствующего провайдера
+      // (клиентский код неавторитетен), пока блокировка настроек удерживается.
+      pickupPoint = await reconfirmPickupPoint(carrier, active.credentials, input.delivery!.pickupPointCode.trim())
+    }
+
     const catalog = await fetchCatalog(client, input.items.map((i) => i.slug))
     const { lines, totalKopecks: itemsKopecks, errors } = buildOrderLines(catalog, input.items, new Date())
     if (errors.length) throw new OrderValidationError(errors)
     if (!lines.length) throw new OrderValidationError(['Корзина пуста'])
-    let deliveryKopecks = 0
-    if (deliveryEnabled) {
-      const settings = await client.query<{ cdek_pickup_delivery_kopecks: number | string }>('SELECT cdek_pickup_delivery_kopecks FROM store_settings WHERE singleton = true FOR SHARE')
-      if (!settings.rows[0]) throw new DeliveryUnavailableError()
-      deliveryKopecks = Number(settings.rows[0].cdek_pickup_delivery_kopecks)
-    }
     const totalKopecks = itemsKopecks + deliveryKopecks
-    if ((deliveryEnabled && input.delivery!.expectedDeliveryKopecks !== deliveryKopecks) || input.expectedTotalKopecks !== totalKopecks) throw new PriceChangedError({ itemsKopecks, deliveryKopecks, totalKopecks })
+    if ((deliveryRequired && input.delivery!.expectedDeliveryKopecks !== deliveryKopecks) || input.expectedTotalKopecks !== totalKopecks) throw new PriceChangedError({ itemsKopecks, deliveryKopecks, totalKopecks })
     const orderRes = await client.query<{ id: number }>(
       `INSERT INTO orders (token, customer_name, customer_email, customer_phone, total_kopecks, items_kopecks, delivery_kopecks, delivery_method, delivery_carrier, pickup_point_code, pickup_point_city, pickup_point_name, pickup_point_address, fulfillment_status, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'awaiting_payment', 'pending')
@@ -238,8 +264,8 @@ export async function createOrder(
         totalKopecks,
         itemsKopecks,
         deliveryKopecks,
-        pickupPoint ? 'cdek_pickup' : null,
-        pickupPoint ? 'cdek' : null,
+        deliveryCarrier ? PICKUP_METHOD[deliveryCarrier] : null,
+        deliveryCarrier,
         pickupPoint?.code ?? null,
         pickupPoint?.city ?? null,
         pickupPoint?.name ?? null,
@@ -259,7 +285,7 @@ export async function createOrder(
       )
     }
     await enqueueOrderNotification(client, { orderId, eventType: 'order_created', eventKey: `order:${orderId}:created` })
-    return { id: orderId, totalKopecks, itemsKopecks, deliveryKopecks, lines }
+    return { id: orderId, totalKopecks, itemsKopecks, deliveryKopecks, deliveryCarrier, lines }
   })
 
   return { ...result, token }
@@ -316,6 +342,13 @@ type OrderRow = {
   customer_email: string
   customer_phone: string | null
   total_kopecks: number | string
+  items_kopecks: number | string
+  delivery_kopecks: number | string
+  delivery_carrier: Carrier | null
+  pickup_point_code: string | null
+  pickup_point_city: string | null
+  pickup_point_name: string | null
+  pickup_point_address: string | null
   status: string
   created_at: string
 }
@@ -333,7 +366,7 @@ type OrderItemRow = {
 export async function getOrderByToken(token: string): Promise<Order | undefined> {
   if (!isDbConfigured() || !token) return undefined
   const orders = await query<OrderRow>(
-    `SELECT id, customer_name, customer_email, customer_phone, total_kopecks, status, created_at
+    `SELECT id, customer_name, customer_email, customer_phone, total_kopecks, items_kopecks, delivery_kopecks, delivery_carrier, pickup_point_code, pickup_point_city, pickup_point_name, pickup_point_address, status, created_at
      FROM orders WHERE token = $1`,
     [token],
   )
@@ -349,6 +382,12 @@ export async function getOrderByToken(token: string): Promise<Order | undefined>
     customerEmail: o.customer_email,
     customerPhone: o.customer_phone,
     totalKopecks: Number(o.total_kopecks),
+    itemsKopecks: Number(o.items_kopecks),
+    deliveryKopecks: Number(o.delivery_kopecks),
+    deliveryCarrier: o.delivery_carrier,
+    pickupPoint: o.pickup_point_code && o.pickup_point_city && o.pickup_point_name && o.pickup_point_address
+      ? { code: o.pickup_point_code, city: o.pickup_point_city, name: o.pickup_point_name, address: o.pickup_point_address }
+      : null,
     status: o.status,
     createdAt: o.created_at,
     items: items.map((it) => ({

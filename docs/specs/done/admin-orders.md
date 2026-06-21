@@ -6,9 +6,9 @@
 миграцию `003`. СДЭК отключён `DELIVERY_ENABLED=false`, поэтому текущая проверка
 платежей проходит без ПВЗ и CDEK OAuth-учётных данных.
 
-Связанные документы: [architecture.md](../../architecture.md),
-[PROJECT_CORE.md](../../PROJECT_CORE.md) (I2, I3, I4, I8),
-[docs/tech-debt.md](../tech-debt.md) (TD-6, TD-17, TD-18),
+Связанные документы: [architecture.md](../../../architecture.md),
+[PROJECT_CORE.md](../../../PROJECT_CORE.md) (I2, I3, I4, I8),
+[docs/tech-debt.md](../../tech-debt.md) (TD-6, TD-17, TD-18),
 [docs/specs/admin-products.md](admin-products.md) (авторизация и API-конвенции),
 [CDEK API](https://confluence.cdek.ru/display/documentation/List+of+Pickup+Points) (выбор ПВЗ),
 [FAQ СДЭК](https://mobile.cdek.ru/faq) (данные получателя).

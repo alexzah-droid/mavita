@@ -11,4 +11,18 @@ export async function register() {
   if (process.env.NODE_ENV === 'production' && process.env.ROBOKASSA_TEST_MODE === 'true' && process.env.ALLOW_ROBOKASSA_TEST_MODE_IN_PRODUCTION !== 'true') throw new Error('ROBOKASSA_TEST_MODE=true в production без ALLOW_ROBOKASSA_TEST_MODE_IN_PRODUCTION=true')
   const algorithm = (process.env.ROBOKASSA_HASH_ALGO ?? 'md5').toLowerCase()
   if (process.env.ROBOKASSA_LOGIN && process.env.ROBOKASSA_PASSWORD1 && process.env.ROBOKASSA_PASSWORD2 && !['md5', 'sha1', 'sha256', 'sha384', 'sha512'].includes(algorithm)) throw new Error(`ROBOKASSA_HASH_ALGO="${algorithm}" не поддерживается`)
+  // SETTINGS_ENC_KEY шифрует ключи перевозчиков в БД. Не обязателен (доставка
+  // может быть выключена), но если задан — должен декодироваться ровно в 32 байта,
+  // иначе модуль доставки молча упадёт при первом обращении. Buffer есть и в edge,
+  // node:crypto не импортируем (см. выше).
+  const encKey = process.env.SETTINGS_ENC_KEY?.trim()
+  if (encKey) {
+    // Та же строгая проверка, что и в secret-box-core.parseEncKey: hex64 ЛИБО
+    // canonical base64 (Buffer.from('base64') игнорирует мусор — сверяем round-trip),
+    // декодирование ровно в 32 байта. Иначе кривой ключ доживёт до первой расшифровки.
+    let ok = /^[0-9a-f]{64}$/i.test(encKey)
+    if (!ok) { const b = Buffer.from(encKey, 'base64'); ok = b.length === 32 && b.toString('base64').replace(/=+$/, '') === encKey.replace(/=+$/, '') }
+    else ok = Buffer.from(encKey, 'hex').length === 32
+    if (!ok) throw new Error('SETTINGS_ENC_KEY должен быть 64 hex-символа или canonical base64, ровно 32 байта')
+  }
 }

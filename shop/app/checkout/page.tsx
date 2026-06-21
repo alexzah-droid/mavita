@@ -12,12 +12,14 @@ export default function CheckoutPage() {
   const router = useRouter()
   const { cart, ready, count, totalKopecks, clear } = useCart()
 
+  type DeliveryCarrier = { carrier: 'cdek' | 'ozon'; label: string; deliveryKopecks: number }
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  const [deliveryKopecks, setDeliveryKopecks] = useState<number | null>(null)
-  // null — статус доставки ещё не загружен; false — СДЭК не подключён, заказ без ПВЗ.
+  // null — статус доставки ещё не загружен; false — доставка отключена, заказ без ПВЗ.
   const [deliveryEnabled, setDeliveryEnabled] = useState<boolean | null>(null)
+  const [carriers, setCarriers] = useState<DeliveryCarrier[]>([])
+  const [carrier, setCarrier] = useState<DeliveryCarrier | null>(null)
   // Суммы, подтверждённые сервером после 409 PRICE_CHANGED. Корзина хранит цену
   // на момент добавления, поэтому повторно использовать её для expectedTotal нельзя.
   const [confirmedAmounts, setConfirmedAmounts] = useState<{ itemsKopecks: number; deliveryKopecks: number; totalKopecks: number } | null>(null)
@@ -29,13 +31,16 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const isEmpty = ready && count === 0
+  const deliveryKopecks = deliveryEnabled === false ? 0 : carrier?.deliveryKopecks ?? null
   const itemsForPayment = confirmedAmounts?.itemsKopecks ?? totalKopecks
   const deliveryForPayment = confirmedAmounts?.deliveryKopecks ?? deliveryKopecks
   const totalWithDelivery = confirmedAmounts?.totalKopecks ?? totalKopecks + (deliveryKopecks ?? 0)
 
-  useEffect(() => { fetch('/api/checkout/delivery').then(async (res) => { const data = await res.json(); if (res.ok) { const enabled = data.enabled !== false; setDeliveryEnabled(enabled); setDeliveryKopecks(enabled ? data.cdekPickupDeliveryKopecks : 0) } else setErrors(data.error?.messages ?? ['Оформление временно недоступно']) }).catch(() => setErrors(['Оформление временно недоступно'])) }, [])
+  useEffect(() => { fetch('/api/checkout/delivery').then(async (res) => { const data = await res.json(); if (res.ok) { if (data.mode === 'pickup_required' && Array.isArray(data.carriers) && data.carriers.length) { setDeliveryEnabled(true); setCarriers(data.carriers); setCarrier(data.carriers[0]) } else { setDeliveryEnabled(false) } } else setErrors(data.error?.messages ?? ['Оформление временно недоступно']) }).catch(() => setErrors(['Оформление временно недоступно'])) }, [])
   useEffect(() => { setConfirmedAmounts(null) }, [cart.lines])
-  async function findPickupPoints() { setErrors([]); setPickupPoints([]); setPickupPoint(null); try { const res = await fetch(`/api/cdek?city=${encodeURIComponent(city)}`); const data = await res.json(); if (!res.ok) throw new Error(data.error?.messages?.[0]); setPickupPoints(data.pickupPoints) } catch (error) { setErrors([error instanceof Error ? error.message : 'Не удалось получить пункты выдачи']) } }
+  // Смена перевозчика сбрасывает выбранный ПВЗ — коды между службами не совпадают.
+  useEffect(() => { setPickupPoints([]); setPickupPoint(null) }, [carrier?.carrier])
+  async function findPickupPoints() { if (!carrier) return; setErrors([]); setPickupPoints([]); setPickupPoint(null); try { const res = await fetch(`/api/${carrier.carrier}?city=${encodeURIComponent(city)}`); const data = await res.json(); if (!res.ok) throw new Error(data.error?.messages?.[0]); setPickupPoints(data.pickupPoints) } catch (error) { setErrors([error instanceof Error ? error.message : 'Не удалось получить пункты выдачи']) } }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -49,8 +54,8 @@ export default function CheckoutPage() {
           customerName: name,
           customerEmail: email,
           customerPhone: phone,
-          // Без СДЭК доставку не отправляем — сервер оформит заказ без ПВЗ.
-          delivery: deliveryEnabled ? { method: 'cdek_pickup', pickupPointCode: pickupPoint?.code, expectedDeliveryKopecks: deliveryForPayment } : undefined,
+          // Доставку не отправляем, когда она отключена — сервер оформит заказ без ПВЗ.
+          delivery: deliveryEnabled && carrier ? { method: `${carrier.carrier}_pickup`, pickupPointCode: pickupPoint?.code, expectedDeliveryKopecks: deliveryForPayment } : undefined,
           expectedTotalKopecks: totalWithDelivery,
           items: cart.lines.map((l) => ({ slug: l.slug, quantity: l.quantity })),
         }),
@@ -59,7 +64,6 @@ export default function CheckoutPage() {
       if (!res.ok) {
         const priceChangedAmounts = res.status === 409 && data.error?.code === 'PRICE_CHANGED' ? parsePriceChangedAmounts(data) : undefined
         if (priceChangedAmounts) {
-          setDeliveryKopecks(priceChangedAmounts.deliveryKopecks)
           setConfirmedAmounts(priceChangedAmounts)
           setErrors(['Цена изменилась. Итог обновлён — повторите оплату.'])
         } else setErrors(data.errors ?? data.error?.messages ?? [data.error ?? 'Не удалось оформить заказ'])
@@ -144,9 +148,14 @@ export default function CheckoutPage() {
                   />
                 </label>
 
-                {deliveryEnabled && (
+                {deliveryEnabled && carrier && (
                   <div className="checkout-field">
-                    <span>Пункт выдачи СДЭК <Link href="/delivery" target="_blank" className="checkout-field-hint">условия доставки</Link></span>
+                    <span>Пункт выдачи {carrier.label} <Link href="/delivery" target="_blank" className="checkout-field-hint">условия доставки</Link></span>
+                    {carriers.length > 1 && (
+                      <select value={carrier.carrier} onChange={(e) => setCarrier(carriers.find((c) => c.carrier === e.target.value) ?? null)} aria-label="Способ получения">
+                        {carriers.map((c) => <option key={c.carrier} value={c.carrier}>Пункт выдачи {c.label}</option>)}
+                      </select>
+                    )}
                     <div className="checkout-pvz-search"><input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Город" /><button type="button" className="admin-button" onClick={findPickupPoints} disabled={city.trim().length < 2}>Найти пункты</button></div>
                     {pickupPoints.length > 0 && <select value={pickupPoint?.code ?? ''} onChange={(e) => setPickupPoint(pickupPoints.find((point) => point.code === e.target.value) ?? null)} required><option value="">Выберите пункт выдачи</option>{pickupPoints.map((point) => <option key={point.code} value={point.code}>{point.city} · {point.name} · {point.address}</option>)}</select>}
                     {pickupPoint && <p className="checkout-pvz-selected">{pickupPoint.city} · {pickupPoint.name}<br />{pickupPoint.address}</p>}
@@ -163,7 +172,7 @@ export default function CheckoutPage() {
                   </span>
                 </label>
 
-                <button type="submit" className="btn-add checkout-submit" disabled={submitting || deliveryEnabled === null || (deliveryEnabled && !pickupPoint) || !consent}>
+                <button type="submit" className="btn-add checkout-submit" disabled={submitting || deliveryEnabled === null || (!!deliveryEnabled && !pickupPoint) || !consent}>
                   {submitting ? 'Переходим к оплате…' : deliveryEnabled ? 'Оплатить заказ с доставкой' : 'Оплатить заказ'}
                 </button>
               </form>
@@ -181,7 +190,7 @@ export default function CheckoutPage() {
                   ))}
                 </ul>
                 <div className="cart-summary-row"><span>Товары</span><span>{formatRub(itemsForPayment)}</span></div>
-                {deliveryEnabled && <div className="cart-summary-row"><span>Доставка СДЭК до ПВЗ</span><span>{deliveryForPayment === null ? '…' : formatRub(deliveryForPayment)}</span></div>}
+                {deliveryEnabled && carrier && <div className="cart-summary-row"><span>Доставка {carrier.label} до ПВЗ</span><span>{deliveryForPayment === null ? '…' : formatRub(deliveryForPayment)}</span></div>}
                 <div className="cart-summary-row cart-summary-total">
                   <span>К оплате</span>
                   <span>{deliveryForPayment === null ? '…' : formatRub(totalWithDelivery)}</span>

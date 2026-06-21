@@ -191,7 +191,7 @@ graph TD
 
 ## Админ-панель (Ф4, компонент 1 — реализована)
 
-Защищённый контур управления каталогом. Спецификация — [docs/specs/admin-products.md](docs/specs/admin-products.md).
+Защищённый контур управления каталогом. Спецификация — [docs/specs/done/admin-products.md](docs/specs/done/admin-products.md).
 
 | Слой | Компоненты | Ответственность |
 |---|---|---|
@@ -206,4 +206,4 @@ graph TD
 `/admin/orders`, `/admin/settings/delivery`, admin API и миграция `003`.
 Текущий rollout держит `DELIVERY_ENABLED=false`, поэтому платёжный флоу проверяется
 без ПВЗ. Включение СДЭК и OAuth-ключей — отдельный следующий этап:
-[docs/specs/admin-orders.md](docs/specs/admin-orders.md).
+[docs/specs/done/admin-orders.md](docs/specs/done/admin-orders.md).

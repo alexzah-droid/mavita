@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createOrder, DeliveryUnavailableError, OrderValidationError, PriceChangedError, type OrderInput } from '@/lib/orders'
 import { buildPaymentUrl, isRobokassaConfigured } from '@/lib/robokassa'
-import { CdekValidationError } from '@/lib/cdek'
+import { DeliveryProviderError } from '@/lib/delivery/types'
+import { CARRIER_LABEL } from '@/lib/store-settings'
 
 // POST /api/robokassa/init
 // Создаёт заказ (pending), при наличии конфига Робокассы — возвращает URL оплаты.
@@ -17,10 +18,10 @@ export async function POST(req: Request) {
     customerName: String(body.customerName ?? ''),
     customerEmail: String(body.customerEmail ?? ''),
     customerPhone: String(body.customerPhone ?? ''),
-    // Доставку принимаем, только если клиент её прислал. Без СДЭК checkout её не
-    // шлёт; createOrder сам решает по DELIVERY_ENABLED, обязательна она или нет.
+    // Доставку принимаем, только если клиент её прислал. createOrder сам решает по
+    // режиму доставки (resolveDeliveryMode), обязательна она или нет, и валиден ли способ.
     delivery: body.delivery
-      ? { method: body.delivery.method === 'cdek_pickup' ? 'cdek_pickup' : 'invalid' as never, pickupPointCode: String(body.delivery.pickupPointCode ?? ''), expectedDeliveryKopecks: Number(body.delivery.expectedDeliveryKopecks) }
+      ? { method: body.delivery.method === 'cdek_pickup' || body.delivery.method === 'ozon_pickup' ? body.delivery.method : 'invalid' as never, pickupPointCode: String(body.delivery.pickupPointCode ?? ''), expectedDeliveryKopecks: Number(body.delivery.expectedDeliveryKopecks) }
       : null,
     expectedTotalKopecks: Number(body.expectedTotalKopecks),
     items: Array.isArray(body.items)
@@ -29,16 +30,17 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { id, token, totalKopecks, lines, deliveryKopecks } = await createOrder(input)
+    const { id, token, totalKopecks, lines, deliveryKopecks, deliveryCarrier } = await createOrder(input)
 
     if (!isRobokassaConfigured()) {
       return NextResponse.json({ id, token, paymentUrl: null }, { status: 201 })
     }
 
+    const deliveryName = deliveryCarrier ? `Доставка ${CARRIER_LABEL[deliveryCarrier]} до ПВЗ` : 'Доставка до ПВЗ'
     const paymentUrl = buildPaymentUrl(
       id,
       totalKopecks,
-      [...lines.map((l) => ({ name: l.productName, priceKopecks: l.priceKopecks, quantity: l.quantity })), ...(deliveryKopecks ? [{ name: 'Доставка СДЭК до ПВЗ', priceKopecks: deliveryKopecks, quantity: 1 }] : [])],
+      [...lines.map((l) => ({ name: l.productName, priceKopecks: l.priceKopecks, quantity: l.quantity })), ...(deliveryKopecks ? [{ name: deliveryName, priceKopecks: deliveryKopecks, quantity: 1 }] : [])],
       input.customerEmail.trim(),
       `Заказ №${id} — МАВИТА`,
     )
@@ -51,7 +53,7 @@ export async function POST(req: Request) {
     if (err instanceof PriceChangedError) {
       return NextResponse.json({ error: { code: 'PRICE_CHANGED', messages: ['Цена товаров или доставки изменилась'] }, ...err.amounts }, { status: 409 })
     }
-    if (err instanceof CdekValidationError) {
+    if (err instanceof DeliveryProviderError) {
       return NextResponse.json({ error: { code: err.unavailable ? 'DELIVERY_UNAVAILABLE' : 'DELIVERY_VALIDATION_ERROR', messages: [err.message] } }, { status: err.unavailable ? 503 : 400 })
     }
     if (err instanceof OrderValidationError) {

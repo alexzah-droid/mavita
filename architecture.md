@@ -61,14 +61,16 @@ Certbot              — Let's Encrypt SSL
 │   │   ├── products/new/         — создать товар
 │   │   ├── products/[id]/edit/   — редактировать товар
 │   │   ├── orders/               — список и карточка заказов
-│   │   └── settings/delivery/    — тариф СДЭК до ПВЗ
+│   │   └── settings/delivery/    — перевозчики: вкл/выкл, ключи (маска), тариф
 │   │
 │   └── api/
 │       ├── products/             — публичный каталог (GET)
 │       ├── admin/                — CRUD товаров, заказы и настройки (admin-only)
+│       │   └── settings/delivery/{,clear,test} — ключи перевозчиков, удаление, «проверить связь»
 │       ├── upload/               — загрузка фотографий
-│       ├── cdek/                 — поиск ПВЗ через серверный OAuth-прокси
-│       ├── checkout/delivery/    — публичный тариф / признак доступности доставки
+│       ├── cdek/                 — поиск ПВЗ СДЭК через серверный OAuth-прокси
+│       ├── ozon/                 — поиск ПВЗ Ozon по локальному каталогу
+│       ├── checkout/delivery/    — режим доставки и список активных перевозчиков
 │       ├── robokassa/
 │       │   ├── init/             — формирование подписи, редирект в Робокассу
 │       │   ├── result/           — ResultURL (сервер→сервер, подтверждение оплаты)
@@ -79,8 +81,14 @@ Certbot              — Let's Encrypt SSL
 ├── lib/
 │   ├── db.ts                     — Postgres-клиент (pg / postgres.js)
 │   ├── robokassa.ts              — генерация и проверка MD5-подписи
-│   └── auth.ts                   — сессия для админки (iron-session)
-│   └── orders.ts                 — snapshot заказа, оплаты и delivery
+│   ├── auth.ts                   — сессия для админки (iron-session)
+│   ├── orders.ts                 — snapshot заказа, оплаты и delivery
+│   ├── secret-box{,-core}.ts     — AES-256-GCM шифрование ключей перевозчиков (server-only обёртка + core)
+│   ├── store-settings.ts         — мульти-перевозчик: режим доставки, credentials, locked snapshot
+│   ├── delivery/                 — общий интерфейс провайдера ПВЗ (cdek/ozon реализации)
+│   ├── cdek.ts / ozon.ts         — провайдеры ПВЗ (credentials передаются явно)
+│   ├── ozon-catalog.ts           — локальный каталог ПВЗ Ozon + жизненный цикл синхронизации
+│   └── ops-alert.ts              — алерт оператору (Telegram) с подтверждением доставки
 │
 ├── public/
 │   └── uploads/                  — загружаемые фото товаров
@@ -105,13 +113,20 @@ Certbot              — Let's Encrypt SSL
 | `product_images` | несколько фото, единственная обложка на товар через partial unique index |
 | `orders` | неугадываемый `token`, `inv_id`, `items_kopecks + delivery_kopecks = total_kopecks`, payment status и отдельный fulfillment status |
 | `order_items` | snapshot названия, цены и количества позиции |
-| `store_settings` | единственный фиксированный тариф СДЭК; `0` — явная бесплатная доставка |
+| `store_settings` | синглтон: на каждого перевозчика (СДЭК, Ozon) флаг, тариф (`0`=бесплатно) и **шифрованные** ключи (`*_client_id`, `*_enc` AES-256-GCM); открытый ключ в БД не хранится |
 | `order_admin_events` | неизменяемый аудит отмены и переходов исполнения |
+| `ozon_pickup_points` | локальный каталог ПВЗ Ozon (city/name/address, `active`) — поиск по нему, т.к. Ozon `point/list` отдаёт только id+координаты |
+| `ozon_catalog_sync` | состояние/поколение синхронизации каталога Ozon (`last_success_at`, fencing по `run_id`) |
+| `delivery_test_attempts` | общий между инстансами rate-limit «Проверить связь» |
 
-`orders.delivery_method`, `delivery_carrier` и поля ПВЗ — нейтральный snapshot.
-При `DELIVERY_ENABLED=false` новый заказ не содержит ПВЗ и имеет
-`delivery_kopecks=0`; это режим текущего rollout. Включённая доставка требует
-подтверждённого ПВЗ и серверной повторной проверки через CDEK API.
+`orders.delivery_method` (`cdek_pickup`/`ozon_pickup`), `delivery_carrier` и поля
+ПВЗ — нейтральный snapshot. Режим доставки даёт единый резолвер `resolveDeliveryMode()`:
+`disabled` (заказ без ПВЗ при `DELIVERY_ENABLED=false` или отсутствии валидных
+перевозчиков), `pickup_required` (выбор перевозчика+ПВЗ) или `error`→503 (fail closed:
+включённый, но неисправный перевозчик/нечитаемые настройки не деградируют в «заказ без ПВЗ»).
+Создание заказа берёт locked snapshot настроек (`FOR SHARE`) и повторно подтверждает
+ПВЗ у провайдера. Секреты перевозчиков управляются в админке и хранятся шифрованными
+(мастер-ключ `SETTINGS_ENC_KEY` только в `.env`). Миграции `005`–`009` — см. ROADMAP.
 
 ---
 
@@ -173,13 +188,20 @@ same-origin проверку (инвариант **I8**): сверяется **�
 - Временные скидки с таймером (дата начала/окончания); эффективная цена — на сервере, snapshot в заказ (**I9**)
 - Загрузить несколько фото, выбрать обложку, удалить фото
 - Список/карточка заказов, отмена неоплаченного заказа и переходы исполнения с аудитом
-- Настройка фиксированного тарифа доставки
+- Управление перевозчиками доставки: карточка на СДЭК и Ozon — включение, ввод
+  ключей (секрет показывается маской, наружу не отдаётся), тариф, «Проверить связь»,
+  удаление ключей. Ключи хранятся шифрованными в БД (AES-256-GCM).
 
-Код СДЭК реализован, однако в текущем rollout отключён `DELIVERY_ENABLED=false`:
-поля ПВЗ не показываются и не обязательны. Включение требует отдельной внешней
-интеграции и CDEK OAuth-учётных данных.
+Доставка по умолчанию выключена глобальным флагом `DELIVERY_ENABLED=false` (заказ без
+ПВЗ). Включение перевозчика гейтится наличием ключей+тарифа; Ozon дополнительно требует
+свежей синхронизации локального каталога ПВЗ (`npm run delivery:sync-ozon`, см.
+[docs/operations.md](docs/operations.md)). Перенос ключей из `.env` в БД и ротация
+мастер-ключа — операционные скрипты `backfill-delivery-credentials.ts` /
+`rotate-delivery-settings-key.ts`.
 
-Детальная спецификация первого компонента — [docs/specs/admin-products.md](docs/specs/admin-products.md).
+Детальные спецификации — [docs/specs/done/admin-products.md](docs/specs/done/admin-products.md),
+[docs/specs/admin-delivery-settings.md](docs/specs/admin-delivery-settings.md),
+[docs/specs/ozon-pvz.md](docs/specs/ozon-pvz.md).
 
 ---
 
@@ -234,7 +256,7 @@ server {
 
 ## Переменные окружения (.env)
 
-Полный список — в `shop/.env.example` (единственный публичный источник, инвариант **I7**). Значения на проде — в [docs/environments.md](docs/environments.md). Ключевые: `DATABASE_URL`, `ROBOKASSA_LOGIN/PASSWORD1/PASSWORD2`, `ROBOKASSA_TEST_MODE`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `NEXT_PUBLIC_BASE_URL`, `DELIVERY_ENABLED`; CDEK-секреты нужны только после отдельного включения доставки. При выключенной доставке публичные legal-страницы нельзя считать описанием фактического checkout без отдельной сверки.
+Полный список — в `shop/.env.example` (единственный публичный источник, инвариант **I7**). Значения на проде — в [docs/environments.md](docs/environments.md). Ключевые: `DATABASE_URL`, `ROBOKASSA_LOGIN/PASSWORD1/PASSWORD2`, `ROBOKASSA_TEST_MODE`, `ADMIN_PASSWORD`, `SESSION_SECRET`, `NEXT_PUBLIC_BASE_URL`, `DELIVERY_ENABLED`. Доставка: `SETTINGS_ENC_KEY` (мастер-ключ шифрования ключей перевозчиков, ровно 32 байта; **потеря = потеря всех ключей**), опц. `CDEK_API_BASE`/`OZON_API_BASE`, `ALERT_WEBHOOK_URL` (независимый канал алертов синхронизации Ozon). Ключи самих перевозчиков (СДЭК/Ozon) теперь в БД шифрованными, не в `.env`. При выключенной доставке публичные legal-страницы нельзя считать описанием фактического checkout без отдельной сверки.
 
 ---
 

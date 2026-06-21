@@ -10,7 +10,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "notifications:drain": "tsx scripts/drain-notifications.ts"
+    "notifications:drain": "tsx scripts/drain-notifications.ts",
+    "delivery:backfill": "tsx scripts/backfill-delivery-credentials.ts",
+    "delivery:rotate-key": "tsx scripts/rotate-delivery-settings-key.ts",
+    "delivery:sync-ozon": "tsx scripts/sync-ozon-pickup-points.ts"
   },
   "dependencies": {
     "iron-session": "^8.0.4",
@@ -18,6 +21,7 @@
     "pg": "^8.22.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "server-only": "^0.0.1",
     "tsx": "^4.20.3"
   },
   "devDependencies": {

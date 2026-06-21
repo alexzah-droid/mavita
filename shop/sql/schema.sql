@@ -81,8 +81,8 @@ CREATE TABLE IF NOT EXISTS orders (
     robokassa_data JSONB,                         -- сырой ответ Робокассы
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT orders_total_components_check CHECK (total_kopecks = items_kopecks + delivery_kopecks),
-    CONSTRAINT orders_delivery_method_check CHECK ((delivery_method IS NULL AND delivery_carrier IS NULL AND delivery_kopecks = 0) OR (delivery_method = 'cdek_pickup' AND delivery_carrier = 'cdek')),
-    CONSTRAINT orders_pickup_point_snapshot_check CHECK (delivery_method IS NULL OR (delivery_method = 'cdek_pickup' AND pickup_point_code IS NOT NULL AND char_length(btrim(pickup_point_code)) > 0 AND pickup_point_city IS NOT NULL AND char_length(btrim(pickup_point_city)) > 0 AND pickup_point_name IS NOT NULL AND char_length(btrim(pickup_point_name)) > 0 AND pickup_point_address IS NOT NULL AND char_length(btrim(pickup_point_address)) > 0)),
+    CONSTRAINT orders_delivery_method_check CHECK ((delivery_method IS NULL AND delivery_carrier IS NULL AND delivery_kopecks = 0) OR (delivery_method = 'cdek_pickup' AND delivery_carrier = 'cdek') OR (delivery_method = 'ozon_pickup' AND delivery_carrier = 'ozon')),
+    CONSTRAINT orders_pickup_point_snapshot_check CHECK (delivery_method IS NULL OR (delivery_method LIKE '%\_pickup' AND pickup_point_code IS NOT NULL AND char_length(btrim(pickup_point_code)) > 0 AND pickup_point_city IS NOT NULL AND char_length(btrim(pickup_point_city)) > 0 AND pickup_point_name IS NOT NULL AND char_length(btrim(pickup_point_name)) > 0 AND pickup_point_address IS NOT NULL AND char_length(btrim(pickup_point_address)) > 0)),
     CONSTRAINT orders_fulfillment_status_check CHECK (fulfillment_status IN ('awaiting_payment', 'new', 'packing', 'handed_to_carrier', 'delivered', 'cancelled')),
     CONSTRAINT orders_payment_fulfillment_check CHECK ((status = 'pending' AND fulfillment_status = 'awaiting_payment') OR (status = 'paid' AND fulfillment_status IN ('new', 'packing', 'handed_to_carrier', 'delivered')) OR (status = 'cancelled' AND fulfillment_status = 'cancelled')),
     CONSTRAINT orders_tracking_number_check CHECK ((fulfillment_status IN ('handed_to_carrier', 'delivered') AND tracking_number IS NOT NULL AND char_length(btrim(tracking_number)) BETWEEN 5 AND 64) OR (fulfillment_status NOT IN ('handed_to_carrier', 'delivered') AND tracking_number IS NULL))
@@ -91,12 +91,67 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_created_id_desc ON orders (created_at DESC, id DESC);
 
+-- Мульти-перевозчик доставки. Тарифы nullable (выключенный перевозчик может не
+-- иметь тарифа); секреты ключей хранятся ШИФРОВАННЫМИ (*_enc, AES-256-GCM,
+-- формат version|iv|tag|ciphertext; см. lib/secret-box.ts). Открытый ключ в БД
+-- не хранится. enabled ⇒ заданы client_id + секрет + тариф.
 CREATE TABLE IF NOT EXISTS store_settings (
     singleton BOOLEAN PRIMARY KEY DEFAULT true CONSTRAINT store_settings_singleton_check CHECK (singleton),
-    cdek_pickup_delivery_kopecks INTEGER NOT NULL CONSTRAINT store_settings_cdek_delivery_nonnegative CHECK (cdek_pickup_delivery_kopecks >= 0),
+    cdek_pickup_enabled BOOLEAN NOT NULL DEFAULT false,
+    cdek_pickup_delivery_kopecks INTEGER CONSTRAINT store_settings_cdek_delivery_nonnegative CHECK (cdek_pickup_delivery_kopecks IS NULL OR cdek_pickup_delivery_kopecks >= 0),
+    cdek_client_id TEXT,
+    cdek_client_secret_enc BYTEA,
+    ozon_pickup_enabled BOOLEAN NOT NULL DEFAULT false,
+    ozon_pickup_delivery_kopecks INTEGER CONSTRAINT store_settings_ozon_delivery_nonnegative CHECK (ozon_pickup_delivery_kopecks IS NULL OR ozon_pickup_delivery_kopecks >= 0),
+    ozon_client_id TEXT,
+    ozon_api_key_enc BYTEA,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_by_actor_login_at BIGINT NOT NULL
+    updated_by_actor_login_at BIGINT NOT NULL,
+    CONSTRAINT store_settings_cdek_complete_check CHECK (cdek_pickup_enabled = false OR (cdek_client_id IS NOT NULL AND cdek_client_secret_enc IS NOT NULL AND cdek_pickup_delivery_kopecks IS NOT NULL)),
+    CONSTRAINT store_settings_ozon_complete_check CHECK (ozon_pickup_enabled = false OR (ozon_client_id IS NOT NULL AND ozon_api_key_enc IS NOT NULL AND ozon_pickup_delivery_kopecks IS NOT NULL))
 );
+
+-- Локальный каталог ПВЗ Ozon (point/list даёт только id+координаты; детали —
+-- через point/info батчами). Поиск по городу идёт по этой копии; обновляет её
+-- фоновая синхронизация (scripts/sync-ozon-pickup-points.ts).
+CREATE TABLE IF NOT EXISTS ozon_pickup_points (
+    map_point_id BIGINT PRIMARY KEY,
+    city         TEXT NOT NULL,
+    name         TEXT NOT NULL,
+    address      TEXT NOT NULL,
+    lat          DOUBLE PRECISION,
+    lng          DOUBLE PRECISION,
+    last_seen_run_id UUID,                 -- метка последнего полного прохода синхронизации
+    missed_runs  INTEGER NOT NULL DEFAULT 0, -- сколько полных проходов подряд id отсутствовал
+    active       BOOLEAN NOT NULL DEFAULT true, -- скрытие вместо удаления (обратимо)
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Поиск отдаёт только активные точки; индекс частичный.
+CREATE INDEX IF NOT EXISTS idx_ozon_pickup_points_city ON ozon_pickup_points (lower(city)) WHERE active;
+
+-- Состояние синхронизации каталога Ozon. Ozon включается только при свежей
+-- успешной полной синхронизации; resolveDeliveryMode() это проверяет.
+CREATE TABLE IF NOT EXISTS ozon_catalog_sync (
+    singleton          BOOLEAN PRIMARY KEY DEFAULT true CONSTRAINT ozon_catalog_sync_singleton_check CHECK (singleton),
+    run_id             UUID,
+    status             TEXT NOT NULL DEFAULT 'idle' CONSTRAINT ozon_catalog_sync_status_check CHECK (status IN ('idle','running','success','failed')),
+    started_at         TIMESTAMPTZ,
+    completed_at       TIMESTAMPTZ,
+    expected_ids       INTEGER,
+    processed_ids      INTEGER NOT NULL DEFAULT 0,
+    last_error         TEXT,
+    last_success_at    TIMESTAMPTZ,        -- источник истины для свежести
+    last_success_count INTEGER NOT NULL DEFAULT 0
+);
+
+-- Общий лимит попыток «Проверить связь» перевозчика (5 / 10 мин на actor+IP).
+CREATE TABLE IF NOT EXISTS delivery_test_attempts (
+    id             BIGSERIAL PRIMARY KEY,
+    actor_login_at BIGINT NOT NULL,
+    ip             TEXT NOT NULL,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_delivery_test_attempts_window ON delivery_test_attempts (actor_login_at, ip, created_at);
 
 CREATE TABLE IF NOT EXISTS order_admin_events (
     id BIGSERIAL PRIMARY KEY,

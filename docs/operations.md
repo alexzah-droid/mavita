@@ -190,6 +190,128 @@ proxy_set_header X-Forwarded-For $remote_addr;
 
 ---
 
+## Ключи перевозчиков доставки (СДЭК / Ozon)
+
+Секреты перевозчиков хранятся в `store_settings` **шифрованными** (AES-256-GCM).
+Мастер-ключ `SETTINGS_ENC_KEY` — только в `.env` (64 hex-символа или canonical
+base64, ровно 32 байта). **Потеря ключа = потеря всех ключей перевозчиков**; бэкап
+мастер-ключа хранить отдельно от backup БД.
+
+### Первичный rollout СДЭК (.env → БД), без скрытого отключения доставки
+
+1. Backup БД. Убедиться, что `SETTINGS_ENC_KEY` задан и декодируется в 32 байта.
+   Старые `CDEK_CLIENT_*` пока **не удалять**.
+2. Применить миграции `005_delivery_multi_carrier.sql`, `006_delivery_carrier_secrets.sql`,
+   `007_delivery_test_rate_limit.sql`. Старый runtime продолжает работать от `.env`.
+3. Перенести ключи в БД одним из способов (старый runtime ещё обслуживает витрину):
+   - backfill: `SETTINGS_ENC_KEY=… CDEK_CLIENT_ID=… CDEK_CLIENT_SECRET=… DATABASE_URL=… npx tsx scripts/backfill-delivery-credentials.ts`
+     (тариф СДЭК должен быть уже задан в `store_settings`, иначе включение упадёт);
+   - или ввести ключи в админке «Доставка», нажать «Проверить связь», включить.
+4. Проверить `/api/checkout/delivery` и оформить тестовый заказ. Затем выпустить
+   новый код (он читает только DB-credentials). Откат возможен, пока env-ключи целы.
+5. После подтверждённого rollout удалить `CDEK_CLIENT_SECRET`, `CDEK_CLIENT_ID`,
+   `OZON_API_KEY`, `OZON_CLIENT_ID` из `.env`.
+6. После заполнения боевых ключей валидировать отложенные CHECK:
+   ```sql
+   ALTER TABLE store_settings VALIDATE CONSTRAINT store_settings_cdek_complete_check;
+   ALTER TABLE store_settings VALIDATE CONSTRAINT store_settings_ozon_complete_check;
+   ```
+
+Если окно требует выключить доставку — выставить `DELIVERY_ENABLED=false` (только
+этот глобальный выключатель легитимно создаёт заказы без ПВЗ).
+
+### Каталог ПВЗ Ozon (обязателен до включения Ozon)
+
+Поиск ПВЗ Ozon у клиента идёт по локальной таблице `ozon_pickup_points`, потому что
+живой `point/list` отдаёт только id+координаты, а город/адрес — отдельным
+`point/info` батчами ≤100. Синхронизация (`scripts/sync-ozon-pickup-points.ts`)
+помечает все id прохода `run_id` и фиксирует состояние в `ozon_catalog_sync`.
+
+**Синхронизация НЕ удаляет точки (защита целостности).** Финализация:
+- считает реальный overlap среди активных точек в одной транзакции под блокировкой;
+- при существенном расхождении (не подтверждено > 2% активных, `MIN_OVERLAP_RATIO`)
+  — статус `failed`, **активная выдача не меняется** (новые точки остаются скрытыми,
+  существующие активные не скрываются), и шлёт **алерт** (Telegram-канал
+  заказов, если настроен; иначе stderr) + ненулевой код выхода для `OnFailure=`;
+- иначе точку, отсутствующую **два полных прохода подряд** (`missed_runs`), лишь
+  **СКРЫВАЕТ** (`active=false`) — это обратимо: вернулась в `point/list` → снова
+  активна. Поиск отдаёт только `active`. Точки не удаляются — потери данных нет.
+
+**Гейт свежести:** включить Ozon в админке и показать его на checkout можно только
+при успешной полной синхронизации не старше 48 ч (`resolveDeliveryMode` и
+`saveCarrierSettings` это проверяют). Несвежий каталог не роняет checkout — Ozon
+просто перестаёт предлагаться, СДЭК остаётся.
+
+Запуск вручную (~90k точек, ~900 вызовов; есть таймаут/ретраи и взаимное исключение):
+
+```bash
+cd /var/www/mavita-repo/shop && set -a && . ./.env && set +a && npm run delivery:sync-ozon
+```
+
+Ежедневно — **через systemd с `EnvironmentFile`** (cron не подхватывает `.env`;
+`$SETTINGS_ENC_KEY`/`$DATABASE_URL` в crontab будут пустыми):
+
+```ini
+# /etc/systemd/system/mavita-ozon-sync.service
+[Unit]
+# Доп. эскалация на падение поверх алерта из скрипта (см. ниже).
+OnFailure=mavita-alert@%n.service
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/mavita-repo/shop
+EnvironmentFile=/var/www/mavita-repo/shop/.env
+ExecStart=/usr/bin/npm run delivery:sync-ozon
+User=www-data
+```
+Сам скрипт при `low_overlap`/падении шлёт алерт в Telegram-канал заказов и **проверяет
+факт доставки** (`response.ok`): при недоставке (нет Telegram, неверный chat id/токен,
+429/5xx) пишет об этом в лог. Так как Telegram может не сработать, обязательна
+**вторая, независимая линия** через `OnFailure=` — конкретный unit ниже шлёт хвост
+журнала на отдельный webhook (`ALERT_WEBHOOK_URL` из `.env`):
+
+```ini
+# /etc/systemd/system/mavita-alert@.service
+[Service]
+Type=oneshot
+EnvironmentFile=/var/www/mavita-repo/shop/.env
+# %i — имя упавшего юнита; шлём последние строки его журнала на независимый канал.
+ExecStart=/bin/sh -c 'curl -fsS -m 10 -X POST "$ALERT_WEBHOOK_URL" --data-urlencode "text=МАВИТА: юнит %i упал. $(journalctl -u %i -n 20 --no-pager | tail -c 1500)"'
+User=www-data
+```
+`ALERT_WEBHOOK_URL` — независимый от Telegram канал (Slack/Telegram-бот мониторинга/
+почтовый relay). Без него `OnFailure` молча ничего не отправит, поэтому задайте его в
+`.env` до включения Ozon в продакшене.
+```ini
+# /etc/systemd/system/mavita-ozon-sync.timer
+[Timer]
+OnCalendar=*-*-* 15:30:00
+Persistent=true
+[Install]
+WantedBy=timers.target
+```
+`systemctl enable --now mavita-ozon-sync.timer`. Если всё же cron — обязательно
+сорсить `.env`: `cd …/shop && set -a && . ./.env && set +a && npm run delivery:sync-ozon`.
+
+Порядок включения Ozon: применить миграции `005`–`009` → ввести ключи в админке →
+прогнать синхронизацию (в логе «Активных в каталоге: N>0», статус success) →
+«Проверить связь» → включить перевозчика.
+
+### Ротация `SETTINGS_ENC_KEY` (офлайн, обязательно с backup)
+
+1. Backup БД; включить maintenance; остановить все app/worker-процессы (PATCH,
+   «Проверить связь» и checkout на это время недоступны — осознанное короткое окно).
+2. Задать одновременно `SETTINGS_ENC_KEY_OLD` (текущий) и `SETTINGS_ENC_KEY` (новый):
+   ```
+   SETTINGS_ENC_KEY_OLD=<старый> SETTINGS_ENC_KEY=<новый> DATABASE_URL=… \
+   npx tsx scripts/rotate-delivery-settings-key.ts
+   ```
+   Скрипт под блокировкой singleton перешифровывает все секреты и проверяет каждый.
+3. При ошибке транзакция откатывается — старый ключ остаётся рабочим. При успехе:
+   убрать `SETTINGS_ENC_KEY_OLD`, поднять приложение только с новым ключом.
+4. Rollback после успешного commit = восстановление backup БД **и** старого ключа.
+
+---
+
 ## Запрещено на production
 
 - Прямой `UPDATE` в БД в обход API (нарушает I4).

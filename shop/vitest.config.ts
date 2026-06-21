@@ -11,6 +11,8 @@ export default defineConfig({
     exclude: ['node_modules', '.next'],
   },
   resolve: {
-    alias: { '@': root },
+    // server-only — заглушка: node-окружение vitest без react-server-условия иначе
+    // падает на guarded-модулях (secret-box, store-settings). В проде guard реальный.
+    alias: { '@': root, 'server-only': `${root}/test/server-only-stub.ts` },
   },
 })

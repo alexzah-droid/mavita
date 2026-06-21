@@ -7,8 +7,8 @@
 за прокси (TD-22); ревью реализации 2026-06-21 — инвариант cover (clear-then-set,
 TD-23) и распознавание WebP во всех контейнерах (TD-24), см. `docs/tech-debt.md`.
 
-Связанные документы: [architecture.md](../../architecture.md), [PROJECT_CORE.md](../../PROJECT_CORE.md)
-(инварианты), [ROADMAP.md](../../ROADMAP.md), [TESTING_PLAN.md](../../TESTING_PLAN.md).
+Связанные документы: [architecture.md](../../../architecture.md), [PROJECT_CORE.md](../../../PROJECT_CORE.md)
+(инварианты), [ROADMAP.md](../../../ROADMAP.md), [TESTING_PLAN.md](../../../TESTING_PLAN.md).
 
 ---
 
