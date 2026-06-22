@@ -130,6 +130,13 @@
 > заголовком `Host`, а не полный origin: `next start` за Nginx строит `request.url`
 > как `http://`, из-за чего вход в админку на проде падал «Неверный Origin». См. TD-22.
 
+> **Усиление товаров (2026-06-22):** закрыты пять дефектов модуля —
+> [docs/specs/done/admin-products-hardening.md](docs/specs/done/admin-products-hardening.md):
+> локальное время скидки (DST-safe), проверка скидки по итоговому состоянию,
+> атомарная сортировка фото с ответом `{ images }`, архивирование + hard delete с
+> подтверждением имени, transaction-scoped advisory lock витрины. Добавлен
+> `npm run test:integration` (реальный PostgreSQL) и concurrency-/e2e-тесты.
+
 **Компонент 2 — заказы** 🚧 (реализован в репозитории, rollout не подтверждён):
 спецификация [docs/specs/done/admin-orders.md](docs/specs/done/admin-orders.md).
 - ✅ Checkout: server-side snapshot товаров и, при включённой доставке, тарифа и
@@ -150,8 +157,8 @@
 **Тесты:** `lib/auth.test.ts` (I8), `lib/pricing.test.ts`, `lib/orders.test.ts` (I9), `app/api/upload/route.test.ts` + `app/api/admin/products/[id]/images/route.test.ts` (I5, cover-инвариант TD-23, распознавание WebP TD-24).
 
 **Компонент 3 — мульти-перевозчик доставки (СДЭК + Ozon)** 🚧 (реализован в репозитории 2026-06-21, production rollout не выполнен):
-спеки [docs/specs/admin-delivery-settings.md](docs/specs/admin-delivery-settings.md),
-[docs/specs/ozon-pvz.md](docs/specs/ozon-pvz.md). Вводит инвариант шифрования ключей и
+спеки [docs/specs/done/admin-delivery-settings.md](docs/specs/done/admin-delivery-settings.md),
+[docs/specs/done/ozon-pvz.md](docs/specs/done/ozon-pvz.md). Вводит инвариант шифрования ключей и
 fail-closed семантику доставки.
 - ✅ `lib/secret-box{,-core}.ts` — AES-256-GCM (версия+AAD), ключи перевозчиков в БД шифрованными; мастер-ключ `SETTINGS_ENC_KEY` только в `.env`.
 - ✅ Миграции `005` (мульти-перевозчик orders/store_settings), `006` (шифрованные секреты), `007` (rate-limit «Проверить связь»), `008`/`009` (локальный каталог ПВЗ Ozon + жизненный цикл синхронизации).
@@ -161,9 +168,10 @@ fail-closed семантику доставки.
 - ✅ Админка «Доставка» карточками перевозчиков; API `GET/PATCH` + `/clear` + `/test`; checkout-селектор; чек Робокассы и отображение заказа по перевозчику.
 - ✅ Операционка: `backfill-delivery-credentials.ts`, `rotate-delivery-settings-key.ts`, систем-таймер синхронизации Ozon (см. [docs/operations.md](docs/operations.md)); privacy policy дополнена Ozon.
 
-**Перед включением Ozon на проде:** применить миграции `005`–`009` → ввести ключи в
-админке (или backfill из `.env`) → `npm run delivery:sync-ozon` (наполнить каталог,
-статус success) → `VALIDATE CONSTRAINT` → «Проверить связь» → включить перевозчика.
+**Перед включением Ozon на проде:** миграции `005`–`009`, ключи и
+`npm run delivery:sync-ozon` готовят только каталог ПВЗ. Не включать перевозчика
+после этих шагов: сперва нужен подтверждённый непубличный FBS-каталог и
+реализованный order flow; см. [ozon-fbs-catalog-sync.md](docs/specs/ozon-fbs-catalog-sync.md).
 СДЭК включается отдельным gate с боевыми OAuth-ключами.
 
 **Тесты:** `lib/secret-box.test.ts`, `lib/store-settings.test.ts`, `lib/ozon.test.ts`, `lib/ozon-catalog.test.ts`, `lib/cdek.test.ts`, `lib/ops-alert.test.ts`, `lib/orders.createOrder.test.ts`, миграции `005`–`009`, API-роуты доставки. Весь прогон — 238 тестов зелёные.

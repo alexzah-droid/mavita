@@ -2,6 +2,12 @@
 
 Статус: **реализовано (2026-06-21), архитектура скорректирована по живому API.**
 
+> **Последующее ограничение (2026-06-21).** Эта реализация покрывает только
+> выбор и локальную синхронизацию ПВЗ. Наличие ключей и свежего каталога ПВЗ не
+> разрешает включать Ozon на checkout: до автоматического order flow не
+> подтверждён непубличный режим технических FBS-карточек. См.
+> [ozon-fbs-catalog-sync.md](../ozon-fbs-catalog-sync.md).
+
 > ## Поправка после проверки живым ключом (2026-06-21)
 > Исходное предположение «как у СДЭК: `point/list`+`point/info` достаточно для
 > живого поиска по городу» **оказалось неверным**. Реальный контракт:
@@ -23,22 +29,23 @@
 >   `run_id`; состояние — в `ozon_catalog_sync` (с поколением `last_success_at`);
 > - `/api/ozon` ищет ПО ЛОКАЛЬНОМУ каталогу (префикс `lower(city)`, индекс), не живьём;
 > - `getPickupPoint` (re-confirm при заказе) — живой `point/info` по одному id;
-> - **гейт свежести**: включить Ozon и предлагать на checkout можно только при
->   успешной полной синхронизации не старше 48 ч (`resolveDeliveryMode`,
->   `saveCarrierSettings`); несвежий каталог убирает Ozon, СДЭК не трогает.
+> - **гейт свежести**: успешная полная синхронизация не старше 48 ч — необходимое
+>   условие доступности каталога ПВЗ (`resolveDeliveryMode`,
+>   `saveCarrierSettings`); это не отменяет последующий запрет на включение Ozon
+>   до готовности FBS-каталога и order flow.
 >
 > Разделы ниже про `listPickupPoints(city)` как клиентский поиск читать с этой
 > поправкой: живой `listPickupPoints` остался лишь как пинг «Проверить связь».
 
-Предпосылка — исследование [ozon-wb-pickup-points.md](ozon-wb-pickup-points.md):
+Предпосылка — исследование [ozon-wb-pickup-points.md](../ozon-wb-pickup-points.md):
 у Ozon есть сервис «Ozon Доставка» (Ozon Логистика) для сторонних магазинов с
 публичным API и сетью 85 000+ ПВЗ; у Wildberries аналога нет. Поэтому
 реализуем **только Ozon**.
 
-Связанные документы: [cdek-pvz.md](done/cdek-pvz.md) (реализованная СДЭК-интеграция —
-эталон, который обобщаем), [delivery-options.md](delivery-options.md) (порядок
-развития, Ozon — второй ПВЗ-перевозчик), [admin-orders.md](done/admin-orders.md)
-(модель заказа), [legal-business-guide.md](../legal-business-guide.md) (статус
+Связанные документы: [cdek-pvz.md](cdek-pvz.md) (реализованная СДЭК-интеграция —
+эталон, который обобщаем), [delivery-options.md](../delivery-options.md) (порядок
+развития, Ozon — второй ПВЗ-перевозчик), [admin-orders.md](admin-orders.md)
+(модель заказа), [legal-business-guide.md](../../legal-business-guide.md) (статус
 продавца, ПДн).
 
 ## Цель
@@ -96,7 +103,7 @@
 **Новых полей покупателя не нужно.** Для будущего авто-создания отправления через
 Seller API Ozon потребует имя + телефон получателя и код ПВЗ — всё это у нас
 есть. Адрес двери нужен только для курьерского сценария — он вне этой спеки
-(см. «мир до двери» в [delivery-options.md](delivery-options.md)).
+(см. «мир до двери» в [delivery-options.md](../delivery-options.md)).
 
 ## Что предоставляет Ozon
 
@@ -326,7 +333,7 @@ ALTER TABLE store_settings
   продавца Ozon. До этого Ozon выключен в админке; режим не требует тестовых ключей.
 - **Право торговли:** подтвердить, что свечи МАВИТА можно возить через Ozon
   Доставку при статусе самозанятого/ИП (собственное производство, маркировка) —
-  см. [legal-business-guide.md](../legal-business-guide.md).
+  см. [legal-business-guide.md](../../legal-business-guide.md).
 - **Нужен ли активный FBO/FBS-листинг** (товар на витрине Ozon) ради доступа к
   логистике, или достаточно зарегистрированного продавца — уточнить в ЛК до старта.
 - **Тариф 30 ₽/товар** может вырасти (возможно акция) — фикс-цену доставки
@@ -339,7 +346,7 @@ ALTER TABLE store_settings
 - Ozon for dev — Ozon Логистика: https://dev.ozon.ru/start/446-Ozon-Logistika-podkliuchenie-nastroika-i-poriadok-raboty-s-novym-funktsionalom/
 - Ozon for dev — справочник методов Seller API для Ozon Логистики: https://dev.ozon.ru/start/448-Spravochnik-metodov-Seller-API-dlia-Ozon-logistiki/
 - Oborot.ru — тариф 30 ₽/товар для сторонних магазинов: https://oborot.ru/news/30-rublej-za-tovar-vmesto-procenta-ot-ceny-ozon-vvel-deshevyj-tarif-dlya-dostavki-zakazov-iz-chuzhih-internet-magazinov-i270500.html
-- Исследование перевозчиков: [ozon-wb-pickup-points.md](ozon-wb-pickup-points.md)
+- Исследование перевозчиков: [ozon-wb-pickup-points.md](../ozon-wb-pickup-points.md)
 </content>
 </invoke>
 </invoke>
