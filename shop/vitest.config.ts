@@ -8,7 +8,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['**/*.test.ts'],
-    exclude: ['node_modules', '.next'],
+    // Интеграционные тесты требуют реальный PostgreSQL и запускаются отдельной
+    // командой `npm run test:integration` (vitest.integration.config.ts).
+    exclude: ['node_modules', '.next', '**/*.integration.test.ts'],
   },
   resolve: {
     // server-only — заглушка: node-окружение vitest без react-server-условия иначе

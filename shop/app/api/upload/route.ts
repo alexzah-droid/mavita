@@ -23,6 +23,9 @@ export async function POST(request: Request) {
       const name = `${randomUUID()}.${kind.ext}`; const stage = path.join(UPLOAD_DIR, `.${name}.upload`); const final = path.join(UPLOAD_DIR, name); await writeFile(stage, data); prepared.push({ stage, final, filename: `/uploads/products/${name}` })
     }
     const images = await withTransaction(async (client) => {
+      // Блокировка строки товara — первый запрос транзакции. Та же строка lockается
+      // в reorderProductImages/deleteProductImage (lib/admin-products-db.ts), что
+      // сериализует все фото-операции и сохраняет инвариант единственной обложки.
       const product = await client.query<{ id: number }>('SELECT id FROM products WHERE id = $1 FOR UPDATE', [id]); if (!product.rows[0]) throw new Error('NOT_FOUND')
       const count = await client.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM product_images WHERE product_id = $1 FOR UPDATE', [id]); if (Number(count.rows[0].count) + prepared.length > MAX_FILES) throw new Error('У товара может быть до 10 фотографий')
       const existing = Number(count.rows[0].count); const created: Created[] = []

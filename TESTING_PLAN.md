@@ -65,9 +65,9 @@ Live-прогон PostgreSQL `SKIP LOCKED` и реальных ответов Te
 | Требование | Инв. | Тест | Статус |
 | --- | --- | --- | --- |
 | FR-AUTH-1…6 вход, сессия, rate-limit, гард, CSRF | I8 | `lib/auth.test.ts`, `app/api/auth/login/route.test.ts`, `app/api/admin/**/*.test.ts` | 🟡 (интеграция с БД) |
-| FR-PROD-1…5 CRUD товаров, видимость, сортировка | I8 | `lib/products-admin.test.ts`, `app/api/admin/products/route.test.ts` | ✅ |
-| FR-PROD-6 скидка по таймеру | I2, I9 | `lib/pricing.test.ts` | ✅ |
-| FR-IMG-1…5 загрузка/обложка/формат/удаление | I5 | `app/api/upload/route.test.ts`, `app/api/admin/products/[id]/images/route.test.ts` | 🟡 (live ФС/PostgreSQL) |
+| FR-PROD-1…5 CRUD товаров, видимость, сортировка, hard delete с подтверждением | I8 | `lib/products-admin.test.ts`, `lib/admin-products-db.test.ts`, `app/api/admin/products/route.test.ts`, `app/api/admin/products/[id]/route.test.ts`, `test/products-concurrency.integration.test.ts` | ✅ (concurrency — live PostgreSQL) |
+| FR-PROD-6 скидка по таймеру + локальное время (DST-safe), проверка итогового состояния | I2, I9 | `lib/pricing.test.ts`, `lib/admin-product-datetime.test.ts`, `lib/admin-products-db.test.ts`, `lib/products-admin.test.ts` | ✅ |
+| FR-IMG-1…5 загрузка/обложка/сортировка/формат/удаление (`{ images }`-контракт) | I5 | `app/api/upload/route.test.ts`, `lib/admin-products-db.test.ts`, `app/api/admin/products/[id]/images/route.test.ts`, `e2e/admin-product-photos-archive.spec.ts` | 🟡 (live ФС/PostgreSQL) |
 | FR-ADMORD-1/2/3 список, маска PII, карточка | — | `lib/admin-orders.test.ts`, `lib/admin-orders-db.test.ts`, `app/api/admin/orders/route.test.ts` | 🟡 |
 | FR-ADMORD-4 отмена pending + причина | I4 | `lib/admin-orders.test.ts`, `lib/admin-orders-db.test.ts` | 🟡 |
 | FR-ADMORD-5/6/7 переходы исполнения, запрет paid, аудит | I10 | `lib/admin-orders.test.ts`, `lib/admin-orders-db.test.ts` | 🟡 |
@@ -102,10 +102,19 @@ Live-прогон PostgreSQL `SKIP LOCKED` и реальных ответов Te
 | Hidden товар нельзя открыть/заказать; unlisted доступен только по URL | I8, I9 |
 | Временная скидка переключается на границах окна и фиксируется в заказе | I2, I9 |
 | Выбор ПВЗ + тариф → в Робокассу уходит полная сумма; отгрузка не меняет `paid` | I2, I3, I8, I10 |
+| Локальное время скидки (часовой пояс браузера, DST-safe) round-trip без сдвига instant | I9 |
+| Параллельный reorder/публикация витрины сериализуется advisory lock; устаревший reorder → 409 | I8 |
+| Фото переупорядочиваются и cover назначается атомарно; форма берёт `{ images }` сервера | I5 |
+| Архивирование скрывает товар; hard delete требует точного названия (сервер) | I8 |
 
 ## Инструменты
 
-Vitest (unit + mock-интеграционные) — `npm test` = `vitest run`. Playwright
-подключён: `npm run test:e2e`, сценарий `e2e/checkout-price-changed.spec.ts`.
-Он поднимает локальный Next.js и мокает внешние API; полный путь оплаты на
-production в него не входит.
+Vitest — `npm test` = `vitest run` (unit + mock-интеграционные; файлы
+`*.integration.test.ts` исключены). `npm run test:integration`
+(`vitest.integration.config.ts`) — против реального PostgreSQL по
+`TEST_DATABASE_URL`: уникальная schema на запуск, последовательный прогон
+(общий advisory key), `test/products-concurrency.integration.test.ts`. Playwright —
+`npm run test:e2e`: `e2e/checkout-price-changed.spec.ts` и
+`e2e/admin-product-photos-archive.spec.ts` (последний требует приложения с
+`DATABASE_URL`, иначе пропускается). Release gate:
+`npm run typecheck && npm test && npm run test:integration && npm run build && npm run test:e2e`.

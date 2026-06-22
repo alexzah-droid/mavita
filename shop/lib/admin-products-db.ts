@@ -1,7 +1,39 @@
+import type { PoolClient } from 'pg'
 import { query, withTransaction } from '@/lib/db'
 import { effectivePrice } from '@/lib/pricing'
 import type { Visibility } from '@/lib/products'
 import type { SaleInput, ValidatedProductInput } from '@/lib/products-admin'
+
+// Единый transaction-scoped advisory lock, сериализующий любые операции, которые
+// способны изменить состав или порядок публичной витрины (создание, PATCH,
+// reorder, удаление). Человекочитаемое имя ключа — `products:public-order`; в SQL
+// передаётся только число. Брать его нужно ПЕРВЫМ запросом транзакции, до чтения
+// товара, списка public или вычисления max(sort_order). См.
+// docs/specs/admin-products-hardening.md §5.
+export const PRODUCTS_PUBLIC_ORDER_LOCK = 7_903_244_111
+async function lockPublicOrder(client: PoolClient): Promise<void> {
+  await client.query('SELECT pg_advisory_xact_lock($1::bigint)', [PRODUCTS_PUBLIC_ORDER_LOCK])
+}
+
+// Все операции с фото (upload, reorder, delete) сериализуются на ОДНОЙ строке
+// products через `SELECT … FOR UPDATE`. Без этого гонка delete-последней-обложки
+// против upload могла оставить товар с фото и без cover: delete блокирует только
+// product_images и читает пустой набор, пока параллельный upload (тоже под этой
+// блокировкой) ещё не закоммитил вставку non-cover. `app/api/upload/route.ts`
+// берёт ту же блокировку первым запросом своей транзакции.
+async function lockProductRow(client: PoolClient, productId: number): Promise<boolean> {
+  return (await client.query('SELECT id FROM products WHERE id = $1 FOR UPDATE', [productId])).rows.length > 0
+}
+
+// Тестовый barrier-хук: позволяет интеграционному concurrency-тесту удержать
+// функцию слоя БД после захвата блокировок (см. test/products-concurrency.integration.test.ts).
+// В production не задаётся и является no-op.
+type LockBarrier = (op: 'create' | 'update' | 'reorder' | 'delete') => Promise<void>
+let lockBarrier: LockBarrier | null = null
+export function __setLockBarrier(fn: LockBarrier | null): void { lockBarrier = fn }
+
+/** Результат жёсткого удаления: подтверждение имени проверяется на сервере. */
+export type DeleteResult = 'deleted' | 'not_found' | 'name_mismatch'
 
 export type AdminImage = { id: number; filename: string; sortOrder: number; isCover: boolean }
 export type AdminProduct = {
@@ -59,6 +91,8 @@ function fields(input: ValidatedProductInput, create: boolean) {
 }
 export async function createAdminProduct(input: ValidatedProductInput): Promise<AdminProduct> {
   return withTransaction(async (client) => {
+    await lockPublicOrder(client)
+    if (lockBarrier) await lockBarrier('create')
     const { parts, values } = fields(input, true)
     // При публикации сразу ставим в конец публичной очереди.
     if (input.visibility === 'public') parts.push(`sort_order = (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM products WHERE visibility = 'public')`)
@@ -76,10 +110,19 @@ export async function createAdminProduct(input: ValidatedProductInput): Promise<
 }
 export async function updateAdminProduct(id: number, input: ValidatedProductInput): Promise<AdminProduct | undefined> {
   return withTransaction(async (client) => {
+    await lockPublicOrder(client)
+    if (lockBarrier) await lockBarrier('update')
     const currentResult = await client.query<Row>(`SELECT p.*, '[]'::json AS images FROM products p WHERE p.id = $1 FOR UPDATE`, [id])
     const current = currentResult.rows[0]
     if (!current) return undefined
-    if (input.sale && input.sale.priceKopecks >= (input.priceKopecks ?? Number(current.price_kopecks))) throw new Error('SALE_PRICE_INVALID')
+    // Зависимое ограничение проверяется по ИТОГОВОМУ состоянию: новая обычная цена
+    // (или текущая) против новой скидки (или текущей). Так частичный PATCH цены при
+    // уже сохранённой скидке отдаёт контролируемый 400, а не доходит до CHECK.
+    const finalPrice = input.priceKopecks ?? Number(current.price_kopecks)
+    const finalSale = input.sale === undefined
+      ? (current.sale_price_kopecks === null ? null : { priceKopecks: Number(current.sale_price_kopecks) })
+      : input.sale
+    if (finalSale && finalSale.priceKopecks >= finalPrice) throw new Error('SALE_PRICE_INVALID')
     const { parts, values } = fields(input, false)
     if (!parts.length) return adminProduct(current)
     if (input.visibility === 'public' && current.visibility !== 'public') parts.push(`sort_order = (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM products WHERE visibility = 'public')`)
@@ -91,16 +134,63 @@ export async function updateAdminProduct(id: number, input: ValidatedProductInpu
     return product
   })
 }
-export async function deleteAdminProduct(id: number): Promise<boolean> {
-  const rows = await query<{ id: number }>('DELETE FROM products WHERE id = $1 RETURNING id', [id])
-  return Boolean(rows[0])
+// Жёсткое удаление: подтверждение точным текущим именем проверяется на сервере
+// (клиентская проверка — только UX). Берёт order-lock до чтения строки, потому что
+// удаление public-товара меняет состав витрины. Сравнение `name` — без trim,
+// нормализации и case-folding.
+export async function deleteAdminProduct(id: number, confirmationName: string): Promise<DeleteResult> {
+  return withTransaction(async (client) => {
+    await lockPublicOrder(client)
+    if (lockBarrier) await lockBarrier('delete')
+    const result = await client.query<{ name: string }>('SELECT name FROM products WHERE id = $1 FOR UPDATE', [id])
+    const current = result.rows[0]
+    if (!current) return 'not_found'
+    if (current.name !== confirmationName) return 'name_mismatch'
+    await client.query('DELETE FROM products WHERE id = $1', [id])
+    return 'deleted'
+  })
 }
 export async function reorderPublicProducts(ids: number[]): Promise<'ok' | 'conflict'> {
   return withTransaction(async (client) => {
+    await lockPublicOrder(client)
     const result = await client.query<{ id: number }>("SELECT id FROM products WHERE visibility = 'public' ORDER BY id FOR UPDATE")
+    if (lockBarrier) await lockBarrier('reorder')
     const actual = result.rows.map((x) => x.id)
     if (actual.length !== ids.length || new Set(ids).size !== ids.length || [...actual].sort().some((id, i) => id !== [...ids].sort()[i])) return 'conflict'
     for (const [index, id] of ids.entries()) await client.query('UPDATE products SET sort_order = $1 WHERE id = $2', [(index + 1) * 10, id])
     return 'ok'
+  })
+}
+const IMAGE_SELECT = 'SELECT id, filename, sort_order AS "sortOrder", is_cover AS "isCover" FROM product_images WHERE product_id = $1 ORDER BY sort_order, id'
+async function imagesOf(client: PoolClient, productId: number): Promise<AdminImage[]> {
+  return (await client.query<AdminImage>(IMAGE_SELECT, [productId])).rows
+}
+// Атомарная перестановка порядка и назначение ровно одной обложки. `orderedImageIds`
+// обязан быть полным точным набором фото товара; иначе — 'conflict' без записи.
+// Старая обложка снимается ОДНИМ запросом до назначения новой (uq_product_cover
+// проверяется на каждом statement, иначе временный дубль и 23505). Возвращает
+// полный актуальный список — форма заменяет им локальное состояние (см. §3 спеки).
+export async function reorderProductImages(productId: number, orderedImageIds: number[], coverImageId: number): Promise<{ images: AdminImage[] } | 'conflict'> {
+  return withTransaction(async (client) => {
+    await lockProductRow(client, productId)
+    const rows = await client.query<{ id: number }>('SELECT id FROM product_images WHERE product_id = $1 FOR UPDATE', [productId])
+    const actual = rows.rows.map((x) => x.id).sort((a, b) => a - b)
+    const orderedSorted = [...orderedImageIds].sort((a, b) => a - b)
+    if (actual.length !== orderedImageIds.length || new Set(orderedImageIds).size !== orderedImageIds.length || !orderedImageIds.includes(coverImageId) || actual.some((imageId, i) => imageId !== orderedSorted[i])) return 'conflict'
+    await client.query('UPDATE product_images SET is_cover = false WHERE product_id = $1 AND is_cover = true', [productId])
+    for (const [index, imageId] of orderedImageIds.entries()) await client.query('UPDATE product_images SET sort_order = $1, is_cover = $2 WHERE id = $3', [(index + 1) * 10, imageId === coverImageId, imageId])
+    return { images: await imagesOf(client, productId) }
+  })
+}
+// Удаляет фото; при удалении текущей обложки назначает следующую по sort_order в той
+// же транзакции. Возвращает обновлённый список и имя файла для последующего cleanup.
+export async function deleteProductImage(productId: number, imageId: number): Promise<{ filename: string; images: AdminImage[] } | null> {
+  return withTransaction(async (client) => {
+    await lockProductRow(client, productId)
+    const result = await client.query<{ filename: string; is_cover: boolean }>('DELETE FROM product_images WHERE id = $1 AND product_id = $2 RETURNING filename, is_cover', [imageId, productId])
+    const image = result.rows[0]
+    if (!image) return null
+    if (image.is_cover) await client.query('UPDATE product_images SET is_cover = true WHERE id = (SELECT id FROM product_images WHERE product_id = $1 ORDER BY sort_order, id LIMIT 1)', [productId])
+    return { filename: image.filename, images: await imagesOf(client, productId) }
   })
 }
