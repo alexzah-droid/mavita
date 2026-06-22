@@ -30,6 +30,30 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
 }
 
 /**
+ * Сессионный advisory-lock на отдельном соединении, удерживаемый на ВСЁ время fn
+ * (в т.ч. через несколько транзакций fn на пуле). Если лок занят другим процессом —
+ * fn не выполняется, возвращается { acquired:false }. Используется как singleton
+ * worker-lease: «одна активная задача одновременно» поверх pool-запросов внутри fn.
+ */
+export async function tryWithAdvisoryLock<T>(
+  key: number,
+  fn: () => Promise<T>,
+): Promise<{ acquired: true; value: T } | { acquired: false }> {
+  const client = await getPool().connect()
+  try {
+    const got = (await client.query<{ locked: boolean }>('SELECT pg_try_advisory_lock($1::bigint) AS locked', [key])).rows[0]?.locked
+    if (!got) return { acquired: false }
+    try {
+      return { acquired: true, value: await fn() }
+    } finally {
+      await client.query('SELECT pg_advisory_unlock($1::bigint)', [key])
+    }
+  } finally {
+    client.release()
+  }
+}
+
+/**
  * Выполнить набор запросов в одной транзакции. При исключении — ROLLBACK,
  * иначе COMMIT. Используется для атомарного создания заказа + позиций.
  */

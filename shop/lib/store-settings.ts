@@ -95,6 +95,11 @@ export async function getDeliverySettings(): Promise<DeliverySettings> {
 // ── Резолвер режима доставки (чистая функция над строкой + аварийный флаг) ────
 function emergencyOff(): boolean { return process.env.DELIVERY_ENABLED === 'false' }
 
+// Жёсткий feature gate оформления отправления Ozon: пока флаг не равен literal
+// 'true', Ozon не предлагается покупателю независимо от ozon_pickup_enabled, ключей
+// и свежести каталога ПВЗ. Эта фаза умеет искать ПВЗ, но не создаёт Ozon-заказ.
+export function ozonOrderFlowEnabled(): boolean { return process.env.OZON_LOGISTICS_ORDER_FLOW_ENABLED === 'true' }
+
 /** Вычислить режим из уже прочитанной строки. error, если включённый перевозчик сломан. */
 function resolveFromRow(row: SettingsRow | null): DeliveryResolution {
   if (emergencyOff()) return { mode: 'disabled', carriers: [] }
@@ -102,6 +107,9 @@ function resolveFromRow(row: SettingsRow | null): DeliveryResolution {
   const active: ActiveCarrier[] = []
   for (const c of CARRIERS) {
     if (!rawEnabled(row, c)) continue
+    // Order-flow gate: даже включённый и валидный Ozon не доходит до checkout,
+    // пока не реализовано оформление отправления. Не error — просто исключаем.
+    if (c === 'ozon' && !ozonOrderFlowEnabled()) continue
     const tariff = rawTariff(row, c)
     if (rawClientId(row, c) == null || rawEnc(row, c) == null || tariff == null) return { mode: 'error', carriers: [] }
     try { decryptCredentials(row, c) } catch { return { mode: 'error', carriers: [] } }
@@ -220,6 +228,39 @@ export async function saveCarrierSettings(carrier: Carrier, patch: CarrierPatch,
       [enabled, tariff, clientId, enc, actorLoginAt],
     )
     return settingsDto(rows.rows[0])
+  })
+}
+
+// ── Выбранный FBS-склад Ozon (для технического каталога) ─────────────────────
+export type OzonFbsWarehouse = { warehouseId: number; name: string | null }
+
+/** Прочитать выбранный FBS-склад (id + имя) из store_settings. */
+export async function getOzonFbsWarehouse(): Promise<OzonFbsWarehouse | null> {
+  if (!isDbConfigured()) return null
+  const rows = await query<{ ozon_fbs_warehouse_id: string | number | null; ozon_fbs_warehouse_name: string | null }>(
+    'SELECT ozon_fbs_warehouse_id, ozon_fbs_warehouse_name FROM store_settings WHERE singleton = true')
+  const id = rows[0]?.ozon_fbs_warehouse_id
+  return id == null ? null : { warehouseId: Number(id), name: rows[0]?.ozon_fbs_warehouse_name ?? null }
+}
+
+/** id выбранного склада (для worker). */
+export async function getOzonFbsWarehouseId(): Promise<number | null> {
+  return (await getOzonFbsWarehouse())?.warehouseId ?? null
+}
+
+/** Сохранить выбранный существующий FBS-склад. Склад приложением не создаётся. */
+export async function saveOzonFbsWarehouse(warehouseId: number | null, name: string | null, actorLoginAt: number): Promise<OzonFbsWarehouse | null> {
+  if (!isDbConfigured()) throw new Error('DATABASE_URL is not set')
+  return withTransaction(async (client) => {
+    const rows = await client.query<{ ozon_fbs_warehouse_id: string | number | null; ozon_fbs_warehouse_name: string | null }>(
+      `INSERT INTO store_settings (singleton, ozon_fbs_warehouse_id, ozon_fbs_warehouse_name, updated_at, updated_by_actor_login_at)
+       VALUES (true, $1, $2, now(), $3)
+       ON CONFLICT (singleton) DO UPDATE SET ozon_fbs_warehouse_id = EXCLUDED.ozon_fbs_warehouse_id, ozon_fbs_warehouse_name = EXCLUDED.ozon_fbs_warehouse_name, updated_at = now(), updated_by_actor_login_at = EXCLUDED.updated_by_actor_login_at
+       RETURNING ozon_fbs_warehouse_id, ozon_fbs_warehouse_name`,
+      [warehouseId, name, actorLoginAt],
+    )
+    const id = rows.rows[0]?.ozon_fbs_warehouse_id
+    return id == null ? null : { warehouseId: Number(id), name: rows.rows[0]?.ozon_fbs_warehouse_name ?? null }
   })
 }
 

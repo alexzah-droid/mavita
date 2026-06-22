@@ -14,7 +14,8 @@
     "notifications:drain": "tsx scripts/drain-notifications.ts",
     "delivery:backfill": "tsx scripts/backfill-delivery-credentials.ts",
     "delivery:rotate-key": "tsx scripts/rotate-delivery-settings-key.ts",
-    "delivery:sync-ozon": "tsx scripts/sync-ozon-pickup-points.ts"
+    "delivery:sync-ozon": "tsx scripts/sync-ozon-pickup-points.ts",
+    "ozon:catalog-worker": "tsx scripts/ozon-catalog-worker.ts"
   },
   "dependencies": {
     "iron-session": "^8.0.4",
