@@ -34,3 +34,7 @@ tsconfig.tsbuildinfo
 # Playwright artifacts
 /test-results
 /playwright-report
+
+# Одноразовые live-probe скрипты Ozon (мутируют прод-аккаунт, ручной запуск)
+scripts/ozon-*-morskoy-kamen.ts
+scripts/ozon-catalog-discovery.ts
