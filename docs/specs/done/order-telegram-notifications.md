@@ -190,6 +190,15 @@ CREATE INDEX IF NOT EXISTS idx_order_notification_outbox_ready
   WHERE status = 'pending';
 ```
 
+> Реализационная заметка (2026-06-23): `saveTelegramSettings` использует
+> `INSERT … ON CONFLICT (singleton) DO UPDATE`, но в `VALUES` обязан передавать
+> уже **эффективные** значения токена (новый, иначе сохранённый), а не `NULL`.
+> PostgreSQL проверяет CHECK-констрейнты на строке-кандидате INSERT **до**
+> разрешения конфликта в `UPDATE`, поэтому кандидат `enabled=true` с
+> `bot_token_ciphertext=NULL` нарушал бы `enabled_check` при включении канала без
+> повторного ввода токена. `COALESCE` только в ветке `DO UPDATE` эту проверку не
+> спасает.
+
 `event_key` — явный ключ дедупликации: `order:<id>:created`,
 `order:<id>:paid`, `order:<id>:cancelled`,
 `order:<id>:fulfillment:<audit_event_id>`. Он не зависит от точности времени и

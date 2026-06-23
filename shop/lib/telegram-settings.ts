@@ -36,15 +36,23 @@ export async function saveTelegramSettings(input: { enabled: boolean; chatId?: s
     const current = (await client.query<Stored>(`SELECT ${cols} FROM telegram_notification_settings WHERE singleton = true FOR UPDATE`)).rows[0]
     const token = input.botToken ? encryptTelegramToken(input.botToken) : undefined
     const chatId = input.chatId ?? current?.chat_id ?? null
-    const configured = Boolean(token ?? current?.bot_token_ciphertext)
+    // Эффективные значения токена: новый, иначе уже сохранённый. Кладём их прямо в
+    // INSERT VALUES — иначе строка-кандидат INSERT (enabled=true + ciphertext=NULL)
+    // нарушает enabled_check, а PostgreSQL проверяет CHECK на кандидате ДО разрешения
+    // ON CONFLICT → UPDATE. Поэтому включение без повторного ввода токена падало.
+    const ciphertext = token?.ciphertext ?? current?.bot_token_ciphertext ?? null
+    const iv = token?.iv ?? current?.bot_token_iv ?? null
+    const authTag = token?.authTag ?? current?.bot_token_auth_tag ?? null
+    const tokenLast4 = input.botToken?.slice(-4) ?? current?.token_last4 ?? null
+    const configured = Boolean(ciphertext)
     if (input.enabled && (!chatId || !configured)) throw new Error('Для включения укажите токен бота и ID чата')
     if (input.enabled) encryptionKey()
     const rows = await client.query<Stored>(
       `INSERT INTO telegram_notification_settings (singleton, enabled, chat_id, bot_token_ciphertext, bot_token_iv, bot_token_auth_tag, token_last4, updated_at, updated_by_actor_login_at)
        VALUES (true, $1, $2, $3, $4, $5, $6, now(), $7)
-       ON CONFLICT (singleton) DO UPDATE SET enabled = EXCLUDED.enabled, chat_id = EXCLUDED.chat_id, bot_token_ciphertext = COALESCE(EXCLUDED.bot_token_ciphertext, telegram_notification_settings.bot_token_ciphertext), bot_token_iv = COALESCE(EXCLUDED.bot_token_iv, telegram_notification_settings.bot_token_iv), bot_token_auth_tag = COALESCE(EXCLUDED.bot_token_auth_tag, telegram_notification_settings.bot_token_auth_tag), token_last4 = COALESCE(EXCLUDED.token_last4, telegram_notification_settings.token_last4), updated_at = now(), updated_by_actor_login_at = EXCLUDED.updated_by_actor_login_at
+       ON CONFLICT (singleton) DO UPDATE SET enabled = EXCLUDED.enabled, chat_id = EXCLUDED.chat_id, bot_token_ciphertext = EXCLUDED.bot_token_ciphertext, bot_token_iv = EXCLUDED.bot_token_iv, bot_token_auth_tag = EXCLUDED.bot_token_auth_tag, token_last4 = EXCLUDED.token_last4, updated_at = now(), updated_by_actor_login_at = EXCLUDED.updated_by_actor_login_at
        RETURNING ${cols}`,
-      [input.enabled, chatId, token?.ciphertext ?? null, token?.iv ?? null, token?.authTag ?? null, input.botToken?.slice(-4) ?? null, actorLoginAt],
+      [input.enabled, chatId, ciphertext, iv, authTag, tokenLast4, actorLoginAt],
     )
     return dto(rows.rows[0])
   })

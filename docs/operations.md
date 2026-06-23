@@ -108,7 +108,30 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 перезапустить PM2. Ключ расшифровывает токен бота в БД: не менять и не терять
 его без повторного ввода токена в админке.
 
-После `npm ci` установить systemd unit `/etc/systemd/system/mavita-notifications.service`:
+> Статус прода (2026-06-23): `TELEGRAM_SETTINGS_ENCRYPTION_KEY` сгенерирован и
+> добавлен в `.env`, PM2 перезапущен; systemd service+timer установлены и
+> активны (ежеминутно), smoke-run раннера прошёл; токен бота и chat_id введены,
+> канал включён (`enabled=true`).
+>
+> ⚠️ **БЛОКЕР ДОСТАВКИ: `api.telegram.org` недоступен с прод-сервера.** Проверено
+> 2026-06-23: curl до Telegram и по IPv4 (`149.154.166.110`), и по IPv6 —
+> таймаут (`code=000`, exit 28), при этом обычный интернет работает (`ya.ru` —
+> 302 за 0.2с). Это блокировка диапазонов Telegram на российском хостинге, не
+> наш баг. Очередь копит события со статусом `pending`/`failed` и
+> `last_error = network: ... timeout`. Для доставки нужен сетевой путь до
+> Telegram: исходящий прокси (undici `ProxyAgent`/SOCKS), собственный
+> Bot-API-реверс-прокси на не-РФ хосте, либо запуск раннера с внешнего хоста.
+> Решение за владельцем — без него уведомления не уходят.
+>
+> Баг включения без повторного ввода токена ИСПРАВЛЕН (2026-06-23,
+> `lib/telegram-settings.ts`): `saveTelegramSettings` кладёт в INSERT `VALUES`
+> уже эффективные значения токена (новый или сохранённый), иначе строка-кандидат
+> INSERT (`enabled=true` + `ciphertext=NULL`) нарушала `enabled_check` — Postgres
+> проверяет CHECK на кандидате до разрешения `ON CONFLICT → UPDATE`.
+
+Установить systemd unit `/etc/systemd/system/mavita-notifications.service`
+(отдельного пользователя `mavita` на сервере нет — сервис идёт под root, как PM2
+и владелец `.env`; `tsx` уже стоит в `node_modules`, отдельный `npm ci` не нужен):
 
 ```ini
 [Unit]
@@ -116,7 +139,6 @@ Description=Mavita Telegram notification outbox
 
 [Service]
 Type=oneshot
-User=mavita
 WorkingDirectory=/var/www/mavita-repo/shop
 EnvironmentFile=/var/www/mavita-repo/shop/.env
 ExecStart=/usr/bin/npm run notifications:drain
