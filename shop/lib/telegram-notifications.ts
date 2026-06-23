@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg'
+import { ProxyAgent } from 'undici'
 import { isDbConfigured, query, withTransaction } from '@/lib/db'
 import { formatRub } from '@/lib/price'
 import { getTelegramDeliveryCredentials, recordTelegramDeliveryError } from '@/lib/telegram-settings'
@@ -43,6 +44,18 @@ async function claimNext(): Promise<OutboxRow | undefined> {
   })
 }
 function safeError(status: number | undefined, value: unknown): string { const description = value && typeof value === 'object' && 'description' in value && typeof value.description === 'string' ? value.description : 'Telegram delivery failed'; return `${status ?? 'network'}: ${description}`.slice(0, 300) }
+
+// api.telegram.org заблокирован с РФ-хоста, поэтому при заданном TELEGRAM_HTTPS_PROXY
+// шлём sendMessage через egress-прокси (undici ProxyAgent). URL остаётся api.telegram.org;
+// внутри CONNECT-туннеля идёт сквозной TLS — прокси токен не видит. Диспетчер мемоизируем.
+let cachedDispatcher: ProxyAgent | null | undefined
+function telegramDispatcher(): ProxyAgent | undefined {
+  if (cachedDispatcher === undefined) {
+    const proxy = process.env.TELEGRAM_HTTPS_PROXY?.trim()
+    cachedDispatcher = proxy ? new ProxyAgent(proxy) : null
+  }
+  return cachedDispatcher ?? undefined
+}
 export function retryMinutes(attempt: number): number | undefined { return [1, 5, 15, 60][attempt - 1] ?? (attempt < 10 ? 360 : undefined) }
 async function sendClaimed(row: OutboxRow): Promise<void> {
   let credentials: { chatId: string; token: string } | undefined
@@ -51,7 +64,7 @@ async function sendClaimed(row: OutboxRow): Promise<void> {
   const attempts = await query<{ attempt_count: number | string }>("UPDATE order_notification_outbox SET attempt_count = attempt_count + 1 WHERE id = $1 RETURNING attempt_count", [row.id])
   const attempt = Number(attempts[0].attempt_count)
   try {
-    const response = await fetch(`https://api.telegram.org/bot${credentials.token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: credentials.chatId, text: formatTelegramOrderNotification(row.payload), disable_web_page_preview: true }), signal: AbortSignal.timeout(10_000), redirect: 'error' })
+    const response = await fetch(`https://api.telegram.org/bot${credentials.token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: credentials.chatId, text: formatTelegramOrderNotification(row.payload), disable_web_page_preview: true }), signal: AbortSignal.timeout(10_000), redirect: 'error', dispatcher: telegramDispatcher() } as RequestInit & { dispatcher?: unknown })
     const body: unknown = await response.json().catch(() => null)
     if (response.ok && body && typeof body === 'object' && 'ok' in body && body.ok === true && 'result' in body && body.result && typeof body.result === 'object' && 'message_id' in body.result && typeof body.result.message_id === 'number') { await query("UPDATE order_notification_outbox SET status = 'sent', sent_at = now(), telegram_message_id = $2, locked_at = NULL, last_error = NULL WHERE id = $1", [row.id, body.result.message_id]); return }
     const message = safeError(response.status, body)

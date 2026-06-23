@@ -24,7 +24,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "server-only": "^0.0.1",
-    "tsx": "^4.20.3"
+    "tsx": "^4.20.3",
+    "undici": "^6.27.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",

@@ -113,15 +113,10 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 > активны (ежеминутно), smoke-run раннера прошёл; токен бота и chat_id введены,
 > канал включён (`enabled=true`).
 >
-> ⚠️ **БЛОКЕР ДОСТАВКИ: `api.telegram.org` недоступен с прод-сервера.** Проверено
-> 2026-06-23: curl до Telegram и по IPv4 (`149.154.166.110`), и по IPv6 —
-> таймаут (`code=000`, exit 28), при этом обычный интернет работает (`ya.ru` —
-> 302 за 0.2с). Это блокировка диапазонов Telegram на российском хостинге, не
-> наш баг. Очередь копит события со статусом `pending`/`failed` и
-> `last_error = network: ... timeout`. Для доставки нужен сетевой путь до
-> Telegram: исходящий прокси (undici `ProxyAgent`/SOCKS), собственный
-> Bot-API-реверс-прокси на не-РФ хосте, либо запуск раннера с внешнего хоста.
-> Решение за владельцем — без него уведомления не уходят.
+> `api.telegram.org` недоступен с прод-сервера (РФ-хостинг блокирует диапазоны
+> Telegram: curl и по IPv4 `149.154.166.110`, и по IPv6 — таймаут, при этом
+> обычный интернет работает). РЕШЕНО через egress-прокси (см. ниже): доставка
+> подтверждена 2026-06-23 — события заказов №11/№12 ушли в чат (`status=sent`).
 >
 > Баг включения без повторного ввода токена ИСПРАВЛЕН (2026-06-23,
 > `lib/telegram-settings.ts`): `saveTelegramSettings` кладёт в INSERT `VALUES`
@@ -167,6 +162,24 @@ systemctl list-timers mavita-notifications.timer
 sudo systemctl start mavita-notifications.service
 journalctl -u mavita-notifications.service -n 30 --no-pager
 ```
+
+### Egress-прокси для Telegram (обход РФ-блокировки)
+
+`api.telegram.org` режется с прод-хоста, поэтому исходящие вызовы Telegram идут
+через лёгкий CONNECT-прокси на сервере **rezerv** (`45.145.14.166`, egress вне
+блокировки):
+
+- На rezerv: `tinyproxy` (порт 8888), `Allow 45.130.147.108` (только mavita) +
+  `ConnectPort 443`; `systemctl enable --now tinyproxy`.
+- В `.env` прода: `TELEGRAM_HTTPS_PROXY=http://45.145.14.166:8888`.
+- Sender (`lib/telegram-notifications.ts`) при заданной переменной шлёт
+  `sendMessage` через undici `ProxyAgent` (зависимость `undici`). URL остаётся
+  `api.telegram.org`; CONNECT — сквозной TLS, токен прокси не виден.
+- Проверка пути:
+  `ssh mavita 'curl -x http://45.145.14.166:8888 https://api.telegram.org/'` →
+  быстрый `302`.
+
+Если rezerv недоступен — уведомления копятся в outbox и ретраятся, без потерь.
 
 В первом релизе Telegram-сообщения не содержат персональных данных покупателя.
 
