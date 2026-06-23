@@ -48,11 +48,14 @@ describe('isRobokassaConfigured', () => {
   })
 })
 
-// I1: подпись считается на сервере как MD5(login:OutSum:InvId:Receipt:Password1).
+// I1: подпись считается на сервере как MD5(login:OutSum:InvId:Receipt:Password1),
+// где Receipt — ИСХОДНЫЙ JSON (а в URL он же URL-encoded). Проверено вживую 2026-06-23:
+// подпись по URL-encoded строке Робокасса отвергает с кодом 29.
 describe('buildPaymentUrl (I1)', () => {
   const ITEMS = [{ name: 'Свеча A', priceKopecks: 180000, quantity: 1 }]
-  // Извлекает Receipt в исходном (URL-encoded) виде — именно он входит в подпись.
-  const rawReceipt = (rawUrl: string) => rawUrl.match(/[?&]Receipt=([^&]*)/)![1]
+  // Receipt, который входит в подпись = исходный JSON (Receipt из URL, раскодированный).
+  const signedReceipt = (rawUrl: string) =>
+    decodeURIComponent(rawUrl.match(/[?&]Receipt=([^&]*)/)![1])
 
   it('кладёт в URL OutSum, InvId и корректную подпись на Password1 (с Receipt)', () => {
     const raw = buildPaymentUrl(5, 180000, ITEMS, 'a@b.ru', 'Заказ №5')
@@ -62,8 +65,20 @@ describe('buildPaymentUrl (I1)', () => {
     expect(url.searchParams.get('OutSum')).toBe('1800.00')
     expect(url.searchParams.get('InvId')).toBe('5')
     expect(url.searchParams.get('SignatureValue')).toBe(
-      md5(`${LOGIN}:1800.00:5:${rawReceipt(raw)}:${PW1}`),
+      md5(`${LOGIN}:1800.00:5:${signedReceipt(raw)}:${PW1}`),
     )
+  })
+
+  it('подпись считается по ИСХОДНОМУ JSON Receipt, а не по URL-encoded (регресс кода 29)', () => {
+    // Имя с пробелом → encoded (%20) и сырой JSON различаются, тест осмыслен.
+    const raw = buildPaymentUrl(10, 10000, [{ name: 'Горная вершина', priceKopecks: 10000, quantity: 1 }])
+    const url = new URL(raw)
+    const encodedReceipt = raw.match(/[?&]Receipt=([^&]*)/)![1]
+    const rawJsonReceipt = url.searchParams.get('Receipt')! // декодированный JSON
+    expect(rawJsonReceipt).not.toBe(encodedReceipt) // sanity: формы реально разные
+    const sig = url.searchParams.get('SignatureValue')
+    expect(sig).toBe(md5(`${LOGIN}:100.00:10:${rawJsonReceipt}:${PW1}`)) // верный вариант
+    expect(sig).not.toBe(md5(`${LOGIN}:100.00:10:${encodedReceipt}:${PW1}`)) // старый баг
   })
 
   it('формирует Receipt с tax=none и суммой позиции для самозанятого', () => {
@@ -112,10 +127,10 @@ describe('ROBOKASSA_HASH_ALGO (TD-20)', () => {
     process.env.ROBOKASSA_HASH_ALGO = 'sha256'
     expect(verifyResultSignature('1800.00', '5', sha256(`1800.00:5:${PW2}`))).toBe(true)
     expect(verifyResultSignature('1800.00', '5', md5(`1800.00:5:${PW2}`))).toBe(false)
-    // и исходящая подпись тоже на SHA-256
+    // и исходящая подпись тоже на SHA-256 (Receipt в подписи — исходный JSON)
     const items = [{ name: 'Свеча A', priceKopecks: 180000, quantity: 1 }]
     const raw = buildPaymentUrl(5, 180000, items)
-    const receipt = raw.match(/[?&]Receipt=([^&]*)/)![1]
+    const receipt = decodeURIComponent(raw.match(/[?&]Receipt=([^&]*)/)![1])
     expect(new URL(raw).searchParams.get('SignatureValue')).toBe(
       sha256(`${LOGIN}:1800.00:5:${receipt}:${PW1}`),
     )

@@ -97,8 +97,11 @@ function buildReceipt(items: ReceiptItem[]): string {
 /**
  * Сформировать URL для редиректа покупателя на страницу оплаты Робокассы.
  * При включённой фискализации Receipt обязателен и входит в подпись:
- * HASH(MerchantLogin:OutSum:InvId:Receipt:Password1), где Receipt — URL-encoded JSON.
- * Инвариант: в подпись и в URL идёт ОДНА И ТА ЖЕ закодированная строка.
+ * HASH(MerchantLogin:OutSum:InvId:Receipt:Password1).
+ * ВАЖНО (проверено вживую 2026-06-23): в ПОДПИСЬ Receipt идёт как ИСХОДНЫЙ JSON, а в
+ * URL — тот же JSON, но URL-encoded. Робокасса при приёме раскодирует Receipt из запроса
+ * и сверяет подпись по сырому JSON; если подписать URL-encoded строку — Робокасса вернёт
+ * код 29 «Неверная подпись» (офиц. дока про «URL-encoded в подписи» вводит в заблуждение).
  */
 export function buildPaymentUrl(
   invId: number,
@@ -112,8 +115,10 @@ export function buildPaymentUrl(
   const testMode = process.env.ROBOKASSA_TEST_MODE === 'true'
 
   const outSum = kopecksToOutSum(totalKopecks)
-  const receiptEncoded = encodeURIComponent(buildReceipt(items))
-  const sig = signHex(`${login}:${outSum}:${invId}:${receiptEncoded}:${password1}`)
+  const receiptJson = buildReceipt(items)
+  const receiptEncoded = encodeURIComponent(receiptJson)
+  // Подпись — по ИСХОДНОМУ JSON (не по URL-encoded строке!), см. док-блок выше.
+  const sig = signHex(`${login}:${outSum}:${invId}:${receiptJson}:${password1}`)
 
   const params = new URLSearchParams({
     MerchantLogin: login,
@@ -128,8 +133,9 @@ export function buildPaymentUrl(
   if (email) params.set('Email', email)
   if (testMode) params.set('IsTest', '1')
 
-  // Receipt дописываем вручную уже в URL-encoded виде — той же строкой, что в подписи.
-  // Через URLSearchParams нельзя: он повторно закодирует %-последовательности и подпись разойдётся.
+  // В URL Receipt дописываем вручную в URL-encoded виде (encodeURIComponent = rawurlencode:
+  // пробел → %20). В подпись же идёт ИСХОДНЫЙ JSON (см. выше) — это РАЗНЫЕ строки.
+  // Через URLSearchParams нельзя: он повторно закодирует %-последовательности.
   return `https://auth.robokassa.ru/Merchant/Index.aspx?${params}&Receipt=${receiptEncoded}`
 }
 
