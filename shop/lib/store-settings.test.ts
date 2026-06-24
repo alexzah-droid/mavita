@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { randomBytes } from 'node:crypto'
 
-const mocks = vi.hoisted(() => ({ isDbConfigured: vi.fn(() => true), query: vi.fn(), withTransaction: vi.fn(), fresh: vi.fn(async () => true) }))
+const mocks = vi.hoisted(() => ({ isDbConfigured: vi.fn(() => true), query: vi.fn(), withTransaction: vi.fn() }))
 vi.mock('@/lib/db', () => ({ isDbConfigured: mocks.isDbConfigured, query: mocks.query, withTransaction: mocks.withTransaction }))
-vi.mock('@/lib/ozon-catalog', () => ({ isOzonCatalogFresh: mocks.fresh }))
 
 import { encryptSecret } from '@/lib/secret-box'
 
@@ -11,28 +10,20 @@ import { encryptSecret } from '@/lib/secret-box'
 function baseRow() {
   return {
     cdek_pickup_enabled: false, cdek_pickup_delivery_kopecks: null, cdek_client_id: null, cdek_client_secret_enc: null,
-    ozon_pickup_enabled: false, ozon_pickup_delivery_kopecks: null, ozon_client_id: null, ozon_api_key_enc: null,
     updated_at: new Date('2026-06-21T00:00:00Z'), updated_by_actor_login_at: 7,
   }
 }
 function cdekConfigured(extra: Record<string, unknown> = {}) {
   return { ...baseRow(), cdek_pickup_enabled: true, cdek_pickup_delivery_kopecks: 35000, cdek_client_id: 'cid-123', cdek_client_secret_enc: encryptSecret('cdek-secret', 'cdek:client_secret'), ...extra }
 }
-function withOzon(row: Record<string, unknown>, extra: Record<string, unknown> = {}) {
-  return { ...row, ozon_pickup_enabled: true, ozon_pickup_delivery_kopecks: 0, ozon_client_id: 'oid', ozon_api_key_enc: encryptSecret('ozon-secret', 'ozon:api_key'), ...extra }
-}
 
 beforeEach(() => {
   process.env.SETTINGS_ENC_KEY = randomBytes(32).toString('hex')
   delete process.env.DELIVERY_ENABLED
-  // Order-flow gate открыт по умолчанию в тестах режима/свежести; отдельный блок
-  // ниже проверяет именно его выключенное состояние.
-  process.env.OZON_LOGISTICS_ORDER_FLOW_ENABLED = 'true'
   mocks.isDbConfigured.mockReturnValue(true)
   mocks.query.mockReset(); mocks.withTransaction.mockReset()
-  mocks.fresh.mockReset(); mocks.fresh.mockResolvedValue(true)
 })
-afterEach(() => { delete process.env.SETTINGS_ENC_KEY; delete process.env.OZON_LOGISTICS_ORDER_FLOW_ENABLED })
+afterEach(() => { delete process.env.SETTINGS_ENC_KEY })
 
 describe('resolveDeliveryMode', () => {
   it('DELIVERY_ENABLED=false → disabled (перебивает настройки)', async () => {
@@ -79,60 +70,6 @@ describe('resolveDeliveryMode', () => {
     const { resolveDeliveryMode } = await import('@/lib/store-settings')
     expect((await resolveDeliveryMode()).mode).toBe('disabled')
   })
-  it('здоровый перевозчик не спасает сломанный enabled (оба → error)', async () => {
-    const row = cdekConfigured({ ozon_pickup_enabled: true, ozon_pickup_delivery_kopecks: null })
-    mocks.query.mockResolvedValue([row])
-    const { resolveDeliveryMode } = await import('@/lib/store-settings')
-    expect((await resolveDeliveryMode()).mode).toBe('error')
-  })
-})
-
-describe('resolveDeliveryMode — гейт свежести каталога Ozon', () => {
-  it('Ozon валиден и каталог свеж → ozon в активных', async () => {
-    mocks.query.mockResolvedValue([withOzon(baseRow())]); mocks.fresh.mockResolvedValue(true)
-    const { resolveDeliveryMode } = await import('@/lib/store-settings')
-    const r = await resolveDeliveryMode()
-    expect(r.mode).toBe('pickup_required'); expect(r.carriers.map((c) => c.carrier)).toContain('ozon')
-  })
-  it('Ozon валиден, но каталог НЕ свеж → ozon убран (СДЭК остаётся)', async () => {
-    mocks.query.mockResolvedValue([withOzon(cdekConfigured())]); mocks.fresh.mockResolvedValue(false)
-    const { resolveDeliveryMode } = await import('@/lib/store-settings')
-    const r = await resolveDeliveryMode()
-    expect(r.mode).toBe('pickup_required'); expect(r.carriers.map((c) => c.carrier)).toEqual(['cdek'])
-  })
-  it('только Ozon и каталог не свеж → disabled', async () => {
-    mocks.query.mockResolvedValue([withOzon(baseRow())]); mocks.fresh.mockResolvedValue(false)
-    const { resolveDeliveryMode } = await import('@/lib/store-settings')
-    expect((await resolveDeliveryMode()).mode).toBe('disabled')
-  })
-})
-
-describe('order-flow feature gate (OZON_LOGISTICS_ORDER_FLOW_ENABLED)', () => {
-  it('флаг не true → Ozon исключён из checkout, даже валидный и свежий', async () => {
-    delete process.env.OZON_LOGISTICS_ORDER_FLOW_ENABLED
-    mocks.query.mockResolvedValue([withOzon(baseRow())]); mocks.fresh.mockResolvedValue(true)
-    const { resolveDeliveryMode } = await import('@/lib/store-settings')
-    expect((await resolveDeliveryMode()).mode).toBe('disabled')
-  })
-  it('флаг не true: ozon enabled+сломан НЕ роняет в error (просто исключён)', async () => {
-    delete process.env.OZON_LOGISTICS_ORDER_FLOW_ENABLED
-    mocks.query.mockResolvedValue([withOzon(cdekConfigured(), { ozon_pickup_delivery_kopecks: null })])
-    const { resolveDeliveryMode } = await import('@/lib/store-settings')
-    const r = await resolveDeliveryMode()
-    expect(r.mode).toBe('pickup_required'); expect(r.carriers.map((c) => c.carrier)).toEqual(['cdek'])
-  })
-  it('флаг не true: getLockedDeliverySnapshot не отдаёт ozon', async () => {
-    delete process.env.OZON_LOGISTICS_ORDER_FLOW_ENABLED
-    const { getLockedDeliverySnapshot } = await import('@/lib/store-settings')
-    const snap = await getLockedDeliverySnapshot({ query: vi.fn().mockResolvedValue({ rows: [withOzon(baseRow())] }) })
-    expect(snap.carrier('ozon')).toBeUndefined(); expect(snap.mode).toBe('disabled')
-  })
-  it('флаг ровно "true" литерал требуется (например "TRUE"/"1" не открывают)', async () => {
-    process.env.OZON_LOGISTICS_ORDER_FLOW_ENABLED = '1'
-    mocks.query.mockResolvedValue([withOzon(baseRow())])
-    const { resolveDeliveryMode } = await import('@/lib/store-settings')
-    expect((await resolveDeliveryMode()).mode).toBe('disabled')
-  })
 })
 
 describe('credentials access', () => {
@@ -172,7 +109,6 @@ describe('getLockedDeliverySnapshot', () => {
     expect(snap.mode).toBe('pickup_required')
     const cdek = snap.carrier('cdek')
     expect(cdek?.deliveryKopecks).toBe(35000); expect(cdek?.credentials.secret).toBe('cdek-secret')
-    expect(snap.carrier('ozon')).toBeUndefined()
   })
   it('сломанный enabled-перевозчик → mode error, carrier() пуст', async () => {
     const { getLockedDeliverySnapshot } = await import('@/lib/store-settings')
@@ -205,11 +141,5 @@ describe('saveCarrierSettings', () => {
     const { saveCarrierSettings } = await import('@/lib/store-settings')
     const dto = await saveCarrierSettings('cdek', { enabled: true, clientId: 'cid-123', secret: 'cdek-secret', deliveryKopecks: 35000 }, 9)
     expect(dto.carriers.cdek.enabled).toBe(true)
-  })
-  it('включение Ozon без свежего каталога → DeliveryConfigurationError', async () => {
-    mocks.fresh.mockResolvedValue(false)
-    mocks.withTransaction.mockImplementation(async (fn: (c: unknown) => unknown) => fn({ query: vi.fn().mockResolvedValue({ rows: [] }) }))
-    const { saveCarrierSettings, DeliveryConfigurationError } = await import('@/lib/store-settings')
-    await expect(saveCarrierSettings('ozon', { enabled: true, clientId: 'oid', secret: 'ozon-secret', deliveryKopecks: 0 }, 1)).rejects.toBeInstanceOf(DeliveryConfigurationError)
   })
 })

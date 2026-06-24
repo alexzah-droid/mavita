@@ -7,12 +7,12 @@ import { formatRub } from '@/lib/price'
 
 export const metadata: Metadata = {
   title: 'Доставка — МАВИТА',
-  description: 'Доставка заказов МАВИТА в пункты выдачи СДЭК и ОЗОН. Стоимость, сроки и порядок оплаты.',
+  description: 'Доставка заказов МАВИТА в пункты выдачи СДЭК. Стоимость, сроки и порядок оплаты.',
 }
 
 // Динамическая страница: активные перевозчики и тарифы берутся из настроек
 // магазина (store_settings), 0 означает бесплатную доставку. Контент — из раздела
-// «Денежный поток» спецификаций cdek-pvz.md / ozon-pvz.md.
+// «Денежный поток» спецификации cdek-pvz.md.
 export const dynamic = 'force-dynamic'
 
 export default async function DeliveryPage() {

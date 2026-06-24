@@ -1,18 +1,23 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/app/cart/CartProvider'
 import { formatRub } from '@/lib/price'
 import { parsePriceChangedAmounts } from '@/lib/checkout-amounts'
 import ShopHeader from '@/app/components/ShopHeader'
+import CdekWidget from './CdekWidget'
+import type { PickupPoint } from '@/lib/delivery/types'
+
+type CdekCity = { code: number; city: string; region: string | null }
+function cityLabel(c: CdekCity) { return c.region ? `${c.city}, ${c.region}` : c.city }
 
 export default function CheckoutPage() {
   const router = useRouter()
   const { cart, ready, count, totalKopecks, clear } = useCart()
 
-  type DeliveryCarrier = { carrier: 'cdek' | 'ozon'; label: string; deliveryKopecks: number }
+  type DeliveryCarrier = { carrier: 'cdek'; label: string; deliveryKopecks: number }
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -20,15 +25,24 @@ export default function CheckoutPage() {
   const [deliveryEnabled, setDeliveryEnabled] = useState<boolean | null>(null)
   const [carriers, setCarriers] = useState<DeliveryCarrier[]>([])
   const [carrier, setCarrier] = useState<DeliveryCarrier | null>(null)
-  // Суммы, подтверждённые сервером после 409 PRICE_CHANGED. Корзина хранит цену
-  // на момент добавления, поэтому повторно использовать её для expectedTotal нельзя.
+  // Суммы, подтверждённые сервером после 409 PRICE_CHANGED.
   const [confirmedAmounts, setConfirmedAmounts] = useState<{ itemsKopecks: number; deliveryKopecks: number; totalKopecks: number } | null>(null)
-  const [city, setCity] = useState('')
-  const [pickupPoints, setPickupPoints] = useState<{ code: string; city: string; name: string; address: string }[]>([])
-  const [pickupPoint, setPickupPoint] = useState<{ code: string; city: string; name: string; address: string } | null>(null)
+  // Город: ввод (cityInput) + выбранный город с city_code (selectedCity).
+  const [cityInput, setCityInput] = useState('')
+  const [citySuggestions, setCitySuggestions] = useState<CdekCity[]>([])
+  const [selectedCity, setSelectedCity] = useState<CdekCity | null>(null)
+  // Город, определённый по IP — пока хранится, показываем плашку «Ваш город — X».
+  const [ipPrefillCity, setIpPrefillCity] = useState<CdekCity | null>(null)
+  const [pickupPoints, setPickupPoints] = useState<PickupPoint[]>([])
+  const [pickupPoint, setPickupPoint] = useState<PickupPoint | null>(null)
+  const [pointFilter, setPointFilter] = useState('')
   const [consent, setConsent] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [widgetFailed, setWidgetFailed] = useState(false)
+  const isCdek = carrier?.carrier === 'cdek'
+  const yandexKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY ?? ''
+  const useWidget = isCdek && yandexKey.length > 0 && !widgetFailed
 
   const isEmpty = ready && count === 0
   const deliveryKopecks = deliveryEnabled === false ? 0 : carrier?.deliveryKopecks ?? null
@@ -36,11 +50,71 @@ export default function CheckoutPage() {
   const deliveryForPayment = confirmedAmounts?.deliveryKopecks ?? deliveryKopecks
   const totalWithDelivery = confirmedAmounts?.totalKopecks ?? totalKopecks + (deliveryKopecks ?? 0)
 
+  // Восстанавливаем поля из localStorage при монтировании.
+  useEffect(() => {
+    setPhone(localStorage.getItem('mavita_checkout_phone') ?? '')
+    setName(localStorage.getItem('mavita_checkout_name') ?? '')
+    setEmail(localStorage.getItem('mavita_checkout_email') ?? '')
+  }, [])
+
+  // Начинаем качать бандл виджета как только знаем, что он нужен —
+  // параллельно с остальными запросами, не дожидаясь рендера CdekWidget.
+  useEffect(() => {
+    if (isCdek && yandexKey.length > 0) import('@cdek-it/widget').catch(() => {})
+  }, [isCdek, yandexKey])
+
   useEffect(() => { fetch('/api/checkout/delivery').then(async (res) => { const data = await res.json(); if (res.ok) { if (data.mode === 'pickup_required' && Array.isArray(data.carriers) && data.carriers.length) { setDeliveryEnabled(true); setCarriers(data.carriers); setCarrier(data.carriers[0]) } else { setDeliveryEnabled(false) } } else setErrors(data.error?.messages ?? ['Оформление временно недоступно']) }).catch(() => setErrors(['Оформление временно недоступно'])) }, [])
   useEffect(() => { setConfirmedAmounts(null) }, [cart.lines])
-  // Смена перевозчика сбрасывает выбранный ПВЗ — коды между службами не совпадают.
-  useEffect(() => { setPickupPoints([]); setPickupPoint(null) }, [carrier?.carrier])
-  async function findPickupPoints() { if (!carrier) return; setErrors([]); setPickupPoints([]); setPickupPoint(null); try { const res = await fetch(`/api/${carrier.carrier}?city=${encodeURIComponent(city)}`); const data = await res.json(); if (!res.ok) throw new Error(data.error?.messages?.[0]); setPickupPoints(data.pickupPoints) } catch (error) { setErrors([error instanceof Error ? error.message : 'Не удалось получить пункты выдачи']) } }
+  // Смена перевозчика сбрасывает выбор города, ПВЗ и плашку IP-гео.
+  useEffect(() => { setCityInput(''); setCitySuggestions([]); setSelectedCity(null); setIpPrefillCity(null); setPickupPoints([]); setPickupPoint(null); setPointFilter(''); setWidgetFailed(false) }, [carrier?.carrier])
+
+  async function loadPointsByCityCode(cityCode: number) {
+    setErrors([]); setPickupPoints([]); setPickupPoint(null); setPointFilter('')
+    try { const res = await fetch(`/api/cdek?cityCode=${cityCode}`); const data = await res.json(); if (!res.ok) throw new Error(data.error?.messages?.[0]); setPickupPoints(data.pickupPoints) }
+    catch (error) { setErrors([error instanceof Error ? error.message : 'Не удалось получить пункты выдачи']) }
+  }
+
+  // fromIpPrefill=true — не сбрасываем ipPrefillCity (плашка должна остаться).
+  // В режиме виджета список ПВЗ не нужен — виджет сам загружает точки через /api/cdek/widget.
+  function pickCity(c: CdekCity, fromIpPrefill = false) {
+    if (!fromIpPrefill) setIpPrefillCity(null)
+    setSelectedCity(c); setCityInput(cityLabel(c)); setCitySuggestions([])
+    if (!useWidget) loadPointsByCityCode(c.code)
+  }
+
+  // Пользователь нажал «Изменить» в плашке — сбрасываем всё и показываем поле ввода.
+  function resetCity() {
+    setIpPrefillCity(null); setSelectedCity(null); setCityInput(''); setPickupPoints([]); setPickupPoint(null); setCitySuggestions([])
+  }
+
+  // Префилл города по IP (СДЭК): один раз при активной доставке, пока город не выбран.
+  const prefillDone = useRef(false)
+  useEffect(() => {
+    if (!deliveryEnabled || !isCdek || prefillDone.current) return
+    prefillDone.current = true
+    fetch('/api/checkout/city').then((r) => r.json()).then((data) => {
+      if (data?.city) { setIpPrefillCity(data.city); pickCity(data.city, true) }
+    }).catch(() => {})
+  }, [deliveryEnabled, isCdek])
+
+  // Автокомплит города СДЭК с дебаунсом. Не ищем, если ввод совпадает с уже
+  // выбранным городом (после выбора из подсказки) — иначе зациклим запрос.
+  useEffect(() => {
+    if (!isCdek) return
+    const q = cityInput.trim()
+    if (selectedCity && cityInput === cityLabel(selectedCity)) { setCitySuggestions([]); return }
+    if (q.length < 2) { setCitySuggestions([]); return }
+    const timer = setTimeout(async () => {
+      try { const res = await fetch(`/api/cdek/cities?q=${encodeURIComponent(q)}`); const data = await res.json(); if (res.ok) setCitySuggestions(Array.isArray(data.cities) ? data.cities : []) } catch { /* подсказки — необязательны */ }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [cityInput, isCdek, selectedCity])
+
+  const filteredPoints = pickupPoints.filter((p) => { const f = pointFilter.trim().toLowerCase(); return !f || p.name.toLowerCase().includes(f) || p.address.toLowerCase().includes(f) })
+
+  // Плашка «Ваш город — X» видна только в режиме списка (без виджета):
+  // виджет сам отображает выбранный город.
+  const showCityBanner = !useWidget && ipPrefillCity !== null && selectedCity !== null && selectedCity.code === ipPrefillCity.code
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -116,11 +190,22 @@ export default function CheckoutPage() {
                 )}
 
                 <label className="checkout-field">
+                  <span>Телефон получателя</span>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => { setPhone(e.target.value); localStorage.setItem('mavita_checkout_phone', e.target.value) }}
+                    autoComplete="tel"
+                    required
+                  />
+                </label>
+
+                <label className="checkout-field">
                   <span>ФИО получателя</span>
                   <input
                     type="text"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => { setName(e.target.value); localStorage.setItem('mavita_checkout_name', e.target.value) }}
                     autoComplete="name"
                     required
                   />
@@ -131,19 +216,8 @@ export default function CheckoutPage() {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); localStorage.setItem('mavita_checkout_email', e.target.value) }}
                     autoComplete="email"
-                    required
-                  />
-                </label>
-
-                <label className="checkout-field">
-                  <span>Телефон получателя</span>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    autoComplete="tel"
                     required
                   />
                 </label>
@@ -156,9 +230,45 @@ export default function CheckoutPage() {
                         {carriers.map((c) => <option key={c.carrier} value={c.carrier}>Пункт выдачи {c.label}</option>)}
                       </select>
                     )}
-                    <div className="checkout-pvz-search"><input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Город" /><button type="button" className="admin-button" onClick={findPickupPoints} disabled={city.trim().length < 2}>Найти пункты</button></div>
-                    {pickupPoints.length > 0 && <select value={pickupPoint?.code ?? ''} onChange={(e) => setPickupPoint(pickupPoints.find((point) => point.code === e.target.value) ?? null)} required><option value="">Выберите пункт выдачи</option>{pickupPoints.map((point) => <option key={point.code} value={point.code}>{point.city} · {point.name} · {point.address}</option>)}</select>}
-                    {pickupPoint && <p className="checkout-pvz-selected">{pickupPoint.city} · {pickupPoint.name}<br />{pickupPoint.address}</p>}
+                    {useWidget ? (
+                      <CdekWidget apiKey={yandexKey} onSelect={(point) => setPickupPoint(point)} onUnavailable={() => setWidgetFailed(true)} defaultLocation={selectedCity?.city} />
+                    ) : (
+                      <>
+                        {showCityBanner ? (
+                          <div className="checkout-city-detected">
+                            <span>Ваш город — <strong>{selectedCity!.city}</strong></span>
+                            <button type="button" className="checkout-city-change" onClick={resetCity}>Изменить</button>
+                          </div>
+                        ) : (
+                          <div className="checkout-pvz-city">
+                            <input type="text" value={cityInput} onChange={(e) => { setSelectedCity(null); setPickupPoints([]); setPickupPoint(null); setCityInput(e.target.value) }} placeholder="Город — начните вводить" autoComplete="off" aria-label="Город доставки" />
+                            {citySuggestions.length > 0 && !selectedCity && (
+                              <ul className="checkout-city-suggest">
+                                {citySuggestions.map((c) => <li key={c.code}><button type="button" onClick={() => pickCity(c)}>{cityLabel(c)}</button></li>)}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                        {pickupPoints.length > 8 && <input type="text" value={pointFilter} onChange={(e) => setPointFilter(e.target.value)} placeholder="Фильтр по адресу или названию" aria-label="Фильтр пунктов выдачи" />}
+                        {pickupPoints.length > 0 && (
+                          <select value={pickupPoint?.code ?? ''} onChange={(e) => setPickupPoint(pickupPoints.find((point) => point.code === e.target.value) ?? null)} required>
+                            <option value="">Выберите пункт выдачи ({filteredPoints.length})</option>
+                            {filteredPoints.map((point) => (
+                              <option key={point.code} value={point.code}>
+                                {point.name} · {point.address}{point.workTime ? ` · ${point.workTime}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        {selectedCity && pickupPoints.length === 0 && <p className="checkout-field-hint">В этом городе нет пунктов выдачи {carrier.label}.</p>}
+                      </>
+                    )}
+                    {pickupPoint && (
+                      <p className="checkout-pvz-selected">
+                        {pickupPoint.city} · {pickupPoint.name}<br />{pickupPoint.address}
+                        {pickupPoint.workTime && <><br />{pickupPoint.workTime}</>}
+                      </p>
+                    )}
                   </div>
                 )}
                 {deliveryEnabled === false && <p className="checkout-pvz-selected">Доставку согласуем с вами после оплаты.</p>}

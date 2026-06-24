@@ -6,8 +6,8 @@ const mocks = vi.hoisted(() => ({ isDb: vi.fn(() => true), withTx: vi.fn(), snap
 vi.mock('@/lib/db', () => ({ isDbConfigured: mocks.isDb, withTransaction: mocks.withTx, query: vi.fn() }))
 vi.mock('@/lib/store-settings', () => ({
   getLockedDeliverySnapshot: mocks.snapshot,
-  carrierFromMethod: (m: string) => (m === 'cdek_pickup' ? 'cdek' : m === 'ozon_pickup' ? 'ozon' : undefined),
-  PICKUP_METHOD: { cdek: 'cdek_pickup', ozon: 'ozon_pickup' },
+  carrierFromMethod: (m: string) => (m === 'cdek_pickup' ? 'cdek' : undefined),
+  PICKUP_METHOD: { cdek: 'cdek_pickup' },
 }))
 vi.mock('@/lib/delivery/providers', () => ({ providerFor: mocks.provider }))
 vi.mock('@/lib/telegram-notifications', () => ({ enqueueOrderNotification: mocks.enqueue }))
@@ -32,27 +32,27 @@ beforeEach(() => {
 })
 
 describe('createOrder (multi-carrier)', () => {
-  it('оформляет Ozon-заказ: тариф из снимка, ПВЗ подтверждён, snapshot записан', async () => {
+  it('оформляет СДЭК-заказ: тариф из снимка, ПВЗ подтверждён, snapshot записан', async () => {
     const capture: { params?: unknown[] } = {}
     const client = makeClient(capture)
     mocks.withTx.mockImplementation(async (fn: (c: unknown) => unknown) => fn(client))
-    mocks.snapshot.mockResolvedValue({ mode: 'pickup_required', carrier: (c: string) => (c === 'ozon' ? { deliveryKopecks: 0, credentials: { clientId: 'cid', secret: 'k', fingerprint: 'fp' } } : undefined) })
-    const getPickupPoint = vi.fn().mockResolvedValue({ code: 'OZ1', city: 'Москва', name: 'ПВЗ Центр', address: 'ул. 1' })
+    mocks.snapshot.mockResolvedValue({ mode: 'pickup_required', carrier: (c: string) => (c === 'cdek' ? { deliveryKopecks: 35000, credentials: { clientId: 'cid', secret: 'k', fingerprint: 'fp' } } : undefined) })
+    const getPickupPoint = vi.fn().mockResolvedValue({ code: 'MSK1', city: 'Москва', name: 'ПВЗ Центр', address: 'ул. 1' })
     mocks.provider.mockReturnValue({ getPickupPoint, listPickupPoints: vi.fn() })
 
     const { createOrder } = await import('@/lib/orders')
     const result = await createOrder({
       customerName: 'Иван', customerEmail: 'i@example.com', customerPhone: '+79991234567',
-      delivery: { method: 'ozon_pickup', pickupPointCode: 'OZ1', expectedDeliveryKopecks: 0 },
-      expectedTotalKopecks: 100000, items: [{ slug: 'a', quantity: 1 }],
+      delivery: { method: 'cdek_pickup', pickupPointCode: 'MSK1', expectedDeliveryKopecks: 35000 },
+      expectedTotalKopecks: 135000, items: [{ slug: 'a', quantity: 1 }],
     })
 
-    expect(mocks.provider).toHaveBeenCalledWith('ozon', { clientId: 'cid', secret: 'k', fingerprint: 'fp' })
-    expect(getPickupPoint).toHaveBeenCalledWith('OZ1')
-    expect(result.deliveryCarrier).toBe('ozon')
+    expect(mocks.provider).toHaveBeenCalledWith('cdek', { clientId: 'cid', secret: 'k', fingerprint: 'fp' })
+    expect(getPickupPoint).toHaveBeenCalledWith('MSK1')
+    expect(result.deliveryCarrier).toBe('cdek')
     // INSERT orders params: [..., delivery_method($8), delivery_carrier($9), code($10) ...]
     const p = capture.params!
-    expect(p[7]).toBe('ozon_pickup'); expect(p[8]).toBe('ozon'); expect(p[9]).toBe('OZ1')
+    expect(p[7]).toBe('cdek_pickup'); expect(p[8]).toBe('cdek'); expect(p[9]).toBe('MSK1')
   })
 
   it('mode=error из снимка → DeliveryUnavailableError (503)', async () => {
@@ -62,21 +62,20 @@ describe('createOrder (multi-carrier)', () => {
     const { createOrder, DeliveryUnavailableError } = await import('@/lib/orders')
     await expect(createOrder({
       customerName: 'Иван', customerEmail: 'i@example.com', customerPhone: '+79991234567',
-      delivery: { method: 'ozon_pickup', pickupPointCode: 'OZ1', expectedDeliveryKopecks: 0 },
-      expectedTotalKopecks: 100000, items: [{ slug: 'a', quantity: 1 }],
+      delivery: { method: 'cdek_pickup', pickupPointCode: 'MSK1', expectedDeliveryKopecks: 35000 },
+      expectedTotalKopecks: 135000, items: [{ slug: 'a', quantity: 1 }],
     })).rejects.toBeInstanceOf(DeliveryUnavailableError)
   })
 
-  it('Ozon выбран, но снимок его не отдаёт (каталог протух) → отклоняем заказ', async () => {
+  it('cdek выбран, но снимок его не отдаёт → отклоняем заказ', async () => {
     const client = makeClient({})
     mocks.withTx.mockImplementation(async (fn: (c: unknown) => unknown) => fn(client))
-    // cdek остаётся активным, ozon выпал из снимка → carrier('ozon') = undefined
-    mocks.snapshot.mockResolvedValue({ mode: 'pickup_required', carrier: (c: string) => (c === 'cdek' ? { deliveryKopecks: 35000, credentials: { clientId: 'c', secret: 's' } } : undefined) })
+    mocks.snapshot.mockResolvedValue({ mode: 'pickup_required', carrier: () => undefined })
     const { createOrder, OrderValidationError } = await import('@/lib/orders')
     await expect(createOrder({
       customerName: 'Иван', customerEmail: 'i@example.com', customerPhone: '+79991234567',
-      delivery: { method: 'ozon_pickup', pickupPointCode: 'OZ1', expectedDeliveryKopecks: 0 },
-      expectedTotalKopecks: 100000, items: [{ slug: 'a', quantity: 1 }],
+      delivery: { method: 'cdek_pickup', pickupPointCode: 'MSK1', expectedDeliveryKopecks: 35000 },
+      expectedTotalKopecks: 135000, items: [{ slug: 'a', quantity: 1 }],
     })).rejects.toBeInstanceOf(OrderValidationError)
   })
 
@@ -87,8 +86,8 @@ describe('createOrder (multi-carrier)', () => {
     const { createOrder, OrderValidationError } = await import('@/lib/orders')
     await expect(createOrder({
       customerName: 'Иван', customerEmail: 'i@example.com', customerPhone: '+79991234567',
-      delivery: { method: 'ozon_pickup', pickupPointCode: 'OZ1', expectedDeliveryKopecks: 0 },
-      expectedTotalKopecks: 100000, items: [{ slug: 'a', quantity: 1 }],
+      delivery: { method: 'cdek_pickup', pickupPointCode: 'MSK1', expectedDeliveryKopecks: 35000 },
+      expectedTotalKopecks: 135000, items: [{ slug: 'a', quantity: 1 }],
     })).rejects.toBeInstanceOf(OrderValidationError)
   })
 

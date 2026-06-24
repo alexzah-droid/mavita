@@ -25,7 +25,7 @@ describe('delivery test endpoint', () => {
   it('нет полного набора ключей → 409 credentials_missing', async () => {
     mocks.stored.mockResolvedValue(undefined)
     const { POST } = await import('@/app/api/admin/settings/delivery/test/route')
-    const res = await POST(post({ carrier: 'ozon' }))
+    const res = await POST(post({ carrier: 'cdek' }))
     expect(res.status).toBe(409)
     expect((await res.json()).error.code).toBe('credentials_missing')
   })

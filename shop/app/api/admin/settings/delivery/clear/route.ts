@@ -12,8 +12,8 @@ export async function POST(request: Request) {
   const auth = await requireAdminApi(); if (!authOk(auth)) return auth
   const csrf = assertSameOrigin(request); if (csrf) return csrf
   const body = await request.json().catch(() => null)
-  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some((k) => k !== 'carrier') || ((body as Record<string, unknown>).carrier !== 'cdek' && (body as Record<string, unknown>).carrier !== 'ozon')) {
-    return NextResponse.json({ error: { code: 'VALIDATION_ERROR', messages: ['Ожидается { carrier: cdek | ozon }'] } }, { status: 400, headers: noStore })
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some((k) => k !== 'carrier') || (body as Record<string, unknown>).carrier !== 'cdek') {
+    return NextResponse.json({ error: { code: 'VALIDATION_ERROR', messages: ['Ожидается { carrier: cdek }'] } }, { status: 400, headers: noStore })
   }
   const settings = await clearCarrierCredentials((body as { carrier: Carrier }).carrier, auth.loginAt)
   return NextResponse.json(settings, { headers: noStore })

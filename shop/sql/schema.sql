@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS orders (
     robokassa_data JSONB,                         -- сырой ответ Робокассы
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT orders_total_components_check CHECK (total_kopecks = items_kopecks + delivery_kopecks),
-    CONSTRAINT orders_delivery_method_check CHECK ((delivery_method IS NULL AND delivery_carrier IS NULL AND delivery_kopecks = 0) OR (delivery_method = 'cdek_pickup' AND delivery_carrier = 'cdek') OR (delivery_method = 'ozon_pickup' AND delivery_carrier = 'ozon')),
+    CONSTRAINT orders_delivery_method_check CHECK ((delivery_method IS NULL AND delivery_carrier IS NULL AND delivery_kopecks = 0) OR (delivery_method = 'cdek_pickup' AND delivery_carrier = 'cdek')),
     CONSTRAINT orders_pickup_point_snapshot_check CHECK (delivery_method IS NULL OR (delivery_method LIKE '%\_pickup' AND pickup_point_code IS NOT NULL AND char_length(btrim(pickup_point_code)) > 0 AND pickup_point_city IS NOT NULL AND char_length(btrim(pickup_point_city)) > 0 AND pickup_point_name IS NOT NULL AND char_length(btrim(pickup_point_name)) > 0 AND pickup_point_address IS NOT NULL AND char_length(btrim(pickup_point_address)) > 0)),
     CONSTRAINT orders_fulfillment_status_check CHECK (fulfillment_status IN ('awaiting_payment', 'new', 'packing', 'handed_to_carrier', 'delivered', 'cancelled')),
     CONSTRAINT orders_payment_fulfillment_check CHECK ((status = 'pending' AND fulfillment_status = 'awaiting_payment') OR (status = 'paid' AND fulfillment_status IN ('new', 'packing', 'handed_to_carrier', 'delivered')) OR (status = 'cancelled' AND fulfillment_status = 'cancelled')),
@@ -91,8 +91,8 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_created_id_desc ON orders (created_at DESC, id DESC);
 
--- Мульти-перевозчик доставки. Тарифы nullable (выключенный перевозчик может не
--- иметь тарифа); секреты ключей хранятся ШИФРОВАННЫМИ (*_enc, AES-256-GCM,
+-- Настройки перевозчика доставки (СДЭК). Тарифы nullable (выключенный перевозчик
+-- может не иметь тарифа); секреты ключей хранятся ШИФРОВАННЫМИ (*_enc, AES-256-GCM,
 -- формат version|iv|tag|ciphertext; см. lib/secret-box.ts). Открытый ключ в БД
 -- не хранится. enabled ⇒ заданы client_id + секрет + тариф.
 CREATE TABLE IF NOT EXISTS store_settings (
@@ -101,177 +101,10 @@ CREATE TABLE IF NOT EXISTS store_settings (
     cdek_pickup_delivery_kopecks INTEGER CONSTRAINT store_settings_cdek_delivery_nonnegative CHECK (cdek_pickup_delivery_kopecks IS NULL OR cdek_pickup_delivery_kopecks >= 0),
     cdek_client_id TEXT,
     cdek_client_secret_enc BYTEA,
-    ozon_pickup_enabled BOOLEAN NOT NULL DEFAULT false,
-    ozon_pickup_delivery_kopecks INTEGER CONSTRAINT store_settings_ozon_delivery_nonnegative CHECK (ozon_pickup_delivery_kopecks IS NULL OR ozon_pickup_delivery_kopecks >= 0),
-    ozon_client_id TEXT,
-    ozon_api_key_enc BYTEA,
-    ozon_fbs_warehouse_id BIGINT,        -- выбранный существующий FBS-склад Ozon
-    ozon_fbs_warehouse_name TEXT,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_by_actor_login_at BIGINT NOT NULL,
-    CONSTRAINT store_settings_cdek_complete_check CHECK (cdek_pickup_enabled = false OR (cdek_client_id IS NOT NULL AND cdek_client_secret_enc IS NOT NULL AND cdek_pickup_delivery_kopecks IS NOT NULL)),
-    CONSTRAINT store_settings_ozon_complete_check CHECK (ozon_pickup_enabled = false OR (ozon_client_id IS NOT NULL AND ozon_api_key_enc IS NOT NULL AND ozon_pickup_delivery_kopecks IS NOT NULL))
+    CONSTRAINT store_settings_cdek_complete_check CHECK (cdek_pickup_enabled = false OR (cdek_client_id IS NOT NULL AND cdek_client_secret_enc IS NOT NULL AND cdek_pickup_delivery_kopecks IS NOT NULL))
 );
-
--- Локальный каталог ПВЗ Ozon (point/list даёт только id+координаты; детали —
--- через point/info батчами). Поиск по городу идёт по этой копии; обновляет её
--- фоновая синхронизация (scripts/sync-ozon-pickup-points.ts).
-CREATE TABLE IF NOT EXISTS ozon_pickup_points (
-    map_point_id BIGINT PRIMARY KEY,
-    city         TEXT NOT NULL,
-    name         TEXT NOT NULL,
-    address      TEXT NOT NULL,
-    lat          DOUBLE PRECISION,
-    lng          DOUBLE PRECISION,
-    last_seen_run_id UUID,                 -- метка последнего полного прохода синхронизации
-    missed_runs  INTEGER NOT NULL DEFAULT 0, -- сколько полных проходов подряд id отсутствовал
-    active       BOOLEAN NOT NULL DEFAULT true, -- скрытие вместо удаления (обратимо)
-    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
-);
--- Поиск отдаёт только активные точки; индекс частичный.
-CREATE INDEX IF NOT EXISTS idx_ozon_pickup_points_city ON ozon_pickup_points (lower(city)) WHERE active;
-
--- Состояние синхронизации каталога Ozon. Ozon включается только при свежей
--- успешной полной синхронизации; resolveDeliveryMode() это проверяет.
-CREATE TABLE IF NOT EXISTS ozon_catalog_sync (
-    singleton          BOOLEAN PRIMARY KEY DEFAULT true CONSTRAINT ozon_catalog_sync_singleton_check CHECK (singleton),
-    run_id             UUID,
-    status             TEXT NOT NULL DEFAULT 'idle' CONSTRAINT ozon_catalog_sync_status_check CHECK (status IN ('idle','running','success','failed')),
-    started_at         TIMESTAMPTZ,
-    completed_at       TIMESTAMPTZ,
-    expected_ids       INTEGER,
-    processed_ids      INTEGER NOT NULL DEFAULT 0,
-    last_error         TEXT,
-    last_success_at    TIMESTAMPTZ,        -- источник истины для свежести
-    last_success_count INTEGER NOT NULL DEFAULT 0
-);
-
--- ─────────────────────────────────────────────────────────────
--- Технический FBS-каталог Ozon (МАВИТА → Ozon). См. миграции 010/011 и
--- docs/specs/ozon-fbs-catalog-sync.md. Источник правды — БД МАВИТА; приложение НЕ
--- управляет видимостью карточки (скрытие — ручной шаг оператора в ЛК), держит
--- FBS-остаток 0 до аудируемого подтверждения скрытия.
--- ─────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS ozon_product_profiles (
-    product_id              INTEGER PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
-    enabled                 BOOLEAN NOT NULL DEFAULT false,
-    offer_id                TEXT NOT NULL UNIQUE,             -- 'mavita-<product_id>', неизменяем
-    fbs_stock_quantity      INTEGER NOT NULL DEFAULT 0 CHECK (fbs_stock_quantity >= 0),
-    description_category_id BIGINT,
-    type_id                 BIGINT,
-    barcode                 TEXT,
-    weight_grams            INTEGER,
-    length_mm               INTEGER,
-    width_mm                INTEGER,
-    height_mm               INTEGER,
-    attributes_json         JSONB NOT NULL DEFAULT '[]'::jsonb,
-    ozon_product_id         BIGINT,
-    import_task_id          TEXT,
-    remote_state            TEXT NOT NULL DEFAULT 'not_synced'
-                             CHECK (remote_state IN ('not_synced','pending','awaiting_moderation','awaiting_manual_hide','hidden_confirmed','invalid','failed','disabled')),
-    content_synced_at       TIMESTAMPTZ,
-    stock_synced_at         TIMESTAMPTZ,
-    moderation_started_at   TIMESTAMPTZ,
-    last_moderation_checked_at TIMESTAMPTZ,
-    moderation_status       TEXT,
-    manual_hidden_confirmed_at TIMESTAMPTZ,
-    manual_hidden_confirmed_by_login_at BIGINT,
-    hidden_verified_at      TIMESTAMPTZ,
-    hidden_verification_method TEXT CHECK (hidden_verification_method IN ('api','operator')),
-    content_dirty           BOOLEAN NOT NULL DEFAULT true,
-    stock_dirty             BOOLEAN NOT NULL DEFAULT true,
-    last_stock_sent_quantity INTEGER NOT NULL DEFAULT 0 CHECK (last_stock_sent_quantity >= 0),
-    compliance_status       TEXT NOT NULL DEFAULT 'not_checked' CHECK (compliance_status IN ('not_checked','ready','blocked')),
-    compliance_note         TEXT,
-    last_error_code         TEXT,
-    last_error_message      TEXT,
-    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ozon_profile_dimensions_positive CHECK (
-      (weight_grams IS NULL OR weight_grams > 0) AND
-      (length_mm IS NULL OR length_mm > 0) AND
-      (width_mm IS NULL OR width_mm > 0) AND
-      (height_mm IS NULL OR height_mm > 0)
-    ),
-    CONSTRAINT ozon_profile_category_pair CHECK ((description_category_id IS NULL) = (type_id IS NULL))
-);
-CREATE INDEX IF NOT EXISTS idx_ozon_product_profiles_state ON ozon_product_profiles (enabled, remote_state);
-CREATE INDEX IF NOT EXISTS idx_ozon_product_profiles_ozon_id ON ozon_product_profiles (ozon_product_id);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_ozon_product_profiles_barcode ON ozon_product_profiles (barcode) WHERE barcode IS NOT NULL;
-
-CREATE OR REPLACE FUNCTION ozon_product_profiles_set_updated_at()
-RETURNS TRIGGER AS $$ BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END; $$ LANGUAGE plpgsql;
-DROP TRIGGER IF EXISTS trg_ozon_product_profiles_set_updated_at ON ozon_product_profiles;
-CREATE TRIGGER trg_ozon_product_profiles_set_updated_at BEFORE UPDATE ON ozon_product_profiles
-FOR EACH ROW EXECUTE FUNCTION ozon_product_profiles_set_updated_at();
-
--- Персистентная очередь синхронизации каталога товаров (lease/fencing).
-CREATE TABLE IF NOT EXISTS ozon_catalog_product_sync_runs (
-    id                 UUID PRIMARY KEY,
-    kind               TEXT NOT NULL CHECK (kind IN ('single','bulk')),
-    operation          TEXT NOT NULL CHECK (operation IN ('content_import','stock_update','zero_stock','moderation_poll')),
-    warehouse_id       BIGINT,
-    status             TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','completed','failed')),
-    actor_login_at     BIGINT NOT NULL,
-    total_items        INTEGER NOT NULL DEFAULT 0 CHECK (total_items >= 0),
-    succeeded_items    INTEGER NOT NULL DEFAULT 0 CHECK (succeeded_items >= 0),
-    failed_items       INTEGER NOT NULL DEFAULT 0 CHECK (failed_items >= 0),
-    summary            TEXT,
-    lease_token        UUID,
-    lease_expires_at   TIMESTAMPTZ,
-    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-    started_at         TIMESTAMPTZ,
-    completed_at       TIMESTAMPTZ
-);
-CREATE INDEX IF NOT EXISTS idx_ozon_sync_runs_status ON ozon_catalog_product_sync_runs (status, created_at);
-
-CREATE TABLE IF NOT EXISTS ozon_catalog_product_sync_run_items (
-    id                  BIGSERIAL PRIMARY KEY,
-    run_id              UUID NOT NULL REFERENCES ozon_catalog_product_sync_runs(id) ON DELETE CASCADE,
-    product_id          INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    product_updated_at  TIMESTAMPTZ,
-    profile_updated_at  TIMESTAMPTZ,
-    desired_stock       INTEGER CHECK (desired_stock IS NULL OR desired_stock >= 0),
-    status              TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','completed','failed','skipped')),
-    attempts            INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
-    error_code          TEXT,
-    error_message       TEXT,
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT uq_ozon_sync_run_item UNIQUE (run_id, product_id)
-);
-CREATE INDEX IF NOT EXISTS idx_ozon_sync_run_items_run ON ozon_catalog_product_sync_run_items (run_id, status);
-
--- Изменение импортируемого контента товара/фото сбрасывает подтверждение скрытия и
--- dirty-флаги профиля (миграция 012). Покрывает все пути записи (PATCH товара,
--- upload/reorder/delete фото). Видимость сайта намеренно НЕ входит (не уходит в Ozon).
-CREATE OR REPLACE FUNCTION ozon_profile_invalidate(pid INTEGER)
-RETURNS void AS $$ BEGIN
-  UPDATE ozon_product_profiles SET content_dirty = true, stock_dirty = true,
-    manual_hidden_confirmed_at = NULL, manual_hidden_confirmed_by_login_at = NULL,
-    hidden_verified_at = NULL, hidden_verification_method = NULL
-  WHERE product_id = pid
-    AND (content_dirty = false OR stock_dirty = false OR manual_hidden_confirmed_at IS NOT NULL OR hidden_verified_at IS NOT NULL);
-END; $$ LANGUAGE plpgsql;
-CREATE OR REPLACE FUNCTION ozon_profile_invalidate_on_product_change()
-RETURNS TRIGGER AS $$ BEGIN PERFORM ozon_profile_invalidate(NEW.id); RETURN NEW; END; $$ LANGUAGE plpgsql;
-DROP TRIGGER IF EXISTS trg_ozon_profile_invalidate_product ON products;
-CREATE TRIGGER trg_ozon_profile_invalidate_product
-AFTER UPDATE OF name, description, price_kopecks, sale_price_kopecks, sale_starts_at, sale_ends_at ON products
-FOR EACH ROW WHEN (
-  OLD.name IS DISTINCT FROM NEW.name OR OLD.description IS DISTINCT FROM NEW.description OR
-  OLD.price_kopecks IS DISTINCT FROM NEW.price_kopecks OR OLD.sale_price_kopecks IS DISTINCT FROM NEW.sale_price_kopecks OR
-  OLD.sale_starts_at IS DISTINCT FROM NEW.sale_starts_at OR OLD.sale_ends_at IS DISTINCT FROM NEW.sale_ends_at
-) EXECUTE FUNCTION ozon_profile_invalidate_on_product_change();
-CREATE OR REPLACE FUNCTION ozon_profile_invalidate_on_image_change()
-RETURNS TRIGGER AS $$ BEGIN PERFORM ozon_profile_invalidate(COALESCE(NEW.product_id, OLD.product_id)); RETURN COALESCE(NEW, OLD); END; $$ LANGUAGE plpgsql;
-DROP TRIGGER IF EXISTS trg_ozon_profile_invalidate_image ON product_images;
-CREATE TRIGGER trg_ozon_profile_invalidate_image
-AFTER INSERT OR UPDATE OR DELETE ON product_images
-FOR EACH ROW EXECUTE FUNCTION ozon_profile_invalidate_on_image_change();
 
 -- Общий лимит попыток «Проверить связь» перевозчика (5 / 10 мин на actor+IP).
 CREATE TABLE IF NOT EXISTS delivery_test_attempts (

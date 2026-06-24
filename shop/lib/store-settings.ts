@@ -1,4 +1,4 @@
-// Настройки доставки: мульти-перевозчик (СДЭК, Ozon). Секреты ключей хранятся
+// Настройки доставки: перевозчик СДЭК. Секреты ключей хранятся
 // ШИФРОВАННЫМИ в БД (lib/secret-box.ts); открытый ключ наружу не уходит.
 //
 // Три уровня доступа к ключам:
@@ -14,14 +14,13 @@ import 'server-only' // расшифровывает секреты перево
 import { createHash } from 'node:crypto'
 import { isDbConfigured, query, withTransaction } from '@/lib/db'
 import { decryptSecret, encryptSecret, maskSecret } from '@/lib/secret-box'
-import { isOzonCatalogFresh } from '@/lib/ozon-catalog'
 
-export type Carrier = 'cdek' | 'ozon'
-export const CARRIERS: Carrier[] = ['cdek', 'ozon']
-export const CARRIER_LABEL: Record<Carrier, string> = { cdek: 'СДЭК', ozon: 'ОЗОН' }
-export const PICKUP_METHOD: Record<Carrier, 'cdek_pickup' | 'ozon_pickup'> = { cdek: 'cdek_pickup', ozon: 'ozon_pickup' }
+export type Carrier = 'cdek'
+export const CARRIERS: Carrier[] = ['cdek']
+export const CARRIER_LABEL: Record<Carrier, string> = { cdek: 'СДЭК' }
+export const PICKUP_METHOD: Record<Carrier, 'cdek_pickup'> = { cdek: 'cdek_pickup' }
 export function carrierFromMethod(method: string): Carrier | undefined {
-  return method === 'cdek_pickup' ? 'cdek' : method === 'ozon_pickup' ? 'ozon' : undefined
+  return method === 'cdek_pickup' ? 'cdek' : undefined
 }
 
 export type CarrierSettings = { enabled: boolean; hasSecret: boolean; secretMask: string | null; clientId: string | null; deliveryKopecks: number | null }
@@ -41,15 +40,13 @@ export class DeliveryConfigurationError extends Error {
 type CarrierDesc = { enabledCol: string; tariffCol: string; idCol: string; encCol: string; aad: string }
 const DESC: Record<Carrier, CarrierDesc> = {
   cdek: { enabledCol: 'cdek_pickup_enabled', tariffCol: 'cdek_pickup_delivery_kopecks', idCol: 'cdek_client_id', encCol: 'cdek_client_secret_enc', aad: 'cdek:client_secret' },
-  ozon: { enabledCol: 'ozon_pickup_enabled', tariffCol: 'ozon_pickup_delivery_kopecks', idCol: 'ozon_client_id', encCol: 'ozon_api_key_enc', aad: 'ozon:api_key' },
 }
 
 type SettingsRow = {
   cdek_pickup_enabled: boolean; cdek_pickup_delivery_kopecks: number | string | null; cdek_client_id: string | null; cdek_client_secret_enc: Buffer | null
-  ozon_pickup_enabled: boolean; ozon_pickup_delivery_kopecks: number | string | null; ozon_client_id: string | null; ozon_api_key_enc: Buffer | null
   updated_at: Date | string; updated_by_actor_login_at: number | string
 }
-const ALL_COLS = 'cdek_pickup_enabled, cdek_pickup_delivery_kopecks, cdek_client_id, cdek_client_secret_enc, ozon_pickup_enabled, ozon_pickup_delivery_kopecks, ozon_client_id, ozon_api_key_enc, updated_at, updated_by_actor_login_at'
+const ALL_COLS = 'cdek_pickup_enabled, cdek_pickup_delivery_kopecks, cdek_client_id, cdek_client_secret_enc, updated_at, updated_by_actor_login_at'
 
 function rawEnabled(row: SettingsRow, c: Carrier): boolean { return Boolean(row[DESC[c].enabledCol as keyof SettingsRow]) }
 function rawClientId(row: SettingsRow, c: Carrier): string | null { const v = row[DESC[c].idCol as keyof SettingsRow]; return typeof v === 'string' ? v : null }
@@ -76,7 +73,7 @@ function carrierDto(row: SettingsRow | null, c: Carrier): CarrierSettings {
 }
 function settingsDto(row: SettingsRow | null): DeliverySettings {
   return {
-    carriers: { cdek: carrierDto(row, 'cdek'), ozon: carrierDto(row, 'ozon') },
+    carriers: { cdek: carrierDto(row, 'cdek') },
     updatedAt: row ? new Date(row.updated_at).toISOString() : null,
     updatedByActorLoginAt: row ? Number(row.updated_by_actor_login_at) : null,
   }
@@ -95,11 +92,6 @@ export async function getDeliverySettings(): Promise<DeliverySettings> {
 // ── Резолвер режима доставки (чистая функция над строкой + аварийный флаг) ────
 function emergencyOff(): boolean { return process.env.DELIVERY_ENABLED === 'false' }
 
-// Жёсткий feature gate оформления отправления Ozon: пока флаг не равен literal
-// 'true', Ozon не предлагается покупателю независимо от ozon_pickup_enabled, ключей
-// и свежести каталога ПВЗ. Эта фаза умеет искать ПВЗ, но не создаёт Ozon-заказ.
-export function ozonOrderFlowEnabled(): boolean { return process.env.OZON_LOGISTICS_ORDER_FLOW_ENABLED === 'true' }
-
 /** Вычислить режим из уже прочитанной строки. error, если включённый перевозчик сломан. */
 function resolveFromRow(row: SettingsRow | null): DeliveryResolution {
   if (emergencyOff()) return { mode: 'disabled', carriers: [] }
@@ -107,9 +99,6 @@ function resolveFromRow(row: SettingsRow | null): DeliveryResolution {
   const active: ActiveCarrier[] = []
   for (const c of CARRIERS) {
     if (!rawEnabled(row, c)) continue
-    // Order-flow gate: даже включённый и валидный Ozon не доходит до checkout,
-    // пока не реализовано оформление отправления. Не error — просто исключаем.
-    if (c === 'ozon' && !ozonOrderFlowEnabled()) continue
     const tariff = rawTariff(row, c)
     if (rawClientId(row, c) == null || rawEnc(row, c) == null || tariff == null) return { mode: 'error', carriers: [] }
     try { decryptCredentials(row, c) } catch { return { mode: 'error', carriers: [] } }
@@ -131,19 +120,7 @@ export async function resolveDeliveryMode(): Promise<DeliveryResolution> {
   if (!isDbConfigured()) return { mode: 'error', carriers: [] }
   let row: SettingsRow | null
   try { row = await readRow() } catch { return { mode: 'error', carriers: [] } }
-  const resolution = resolveFromRow(row)
-  // Ozon предлагаем покупателю, только если каталог ПВЗ свеж (успешная полная
-  // синхронизация в окне). Иначе способ показался бы, но ПВЗ не нашлись бы.
-  // Несвежий каталог не роняет весь checkout — лишь убирает Ozon, СДЭК остаётся.
-  if (resolution.mode === 'pickup_required' && resolution.carriers.some((c) => c.carrier === 'ozon')) {
-    let fresh = false
-    try { fresh = await isOzonCatalogFresh() } catch { fresh = false }
-    if (!fresh) {
-      const carriers = resolution.carriers.filter((c) => c.carrier !== 'ozon')
-      return { mode: carriers.length ? 'pickup_required' : 'disabled', carriers }
-    }
-  }
-  return resolution
+  return resolveFromRow(row)
 }
 
 /**
@@ -177,14 +154,7 @@ export async function getStoredCredentials(carrier: Carrier): Promise<{ clientId
 export type LockedDeliverySnapshot = { mode: DeliveryMode; carrier: (c: Carrier) => { deliveryKopecks: number; credentials: RuntimeCredentials } | undefined }
 export async function getLockedDeliverySnapshot(client: { query: <T>(text: string, params?: unknown[]) => Promise<{ rows: T[] }> }): Promise<LockedDeliverySnapshot> {
   const row = (await client.query<SettingsRow>(`SELECT ${ALL_COLS} FROM store_settings WHERE singleton = true FOR SHARE`)).rows[0] ?? null
-  let resolution = resolveFromRow(row)
-  // Тот же гейт свежести, что и в resolveDeliveryMode: иначе прямой POST в init с
-  // ozon_pickup после протухания каталога создал бы заказ (live re-confirm ≠ свежий
-  // каталог). Снимок — авторитет создания заказа, поэтому проверяем и здесь.
-  if (resolution.mode === 'pickup_required' && resolution.carriers.some((c) => c.carrier === 'ozon') && !(await isOzonCatalogFresh())) {
-    const carriers = resolution.carriers.filter((c) => c.carrier !== 'ozon')
-    resolution = { mode: carriers.length ? 'pickup_required' : 'disabled', carriers }
-  }
+  const resolution = resolveFromRow(row)
   return {
     mode: resolution.mode,
     carrier: (c: Carrier) => {
@@ -210,11 +180,6 @@ export async function saveCarrierSettings(carrier: Carrier, patch: CarrierPatch,
     const tariff = patch.deliveryKopecks !== undefined ? patch.deliveryKopecks : current ? rawTariff(current, carrier) : null
     // Проверяем ИТОГ, а не отдельные поля: секрет+тариф+enabled в одном запросе ОК.
     if (enabled && (!clientId || !enc || tariff == null)) throw new DeliveryConfigurationError('Чтобы включить перевозчика — задайте ключи и тариф')
-    // Ozon включается только при свежей успешной полной синхронизации каталога ПВЗ
-    // (не операторское «N>0»): иначе способ доставки без рабочего поиска ПВЗ.
-    if (enabled && carrier === 'ozon' && !(await isOzonCatalogFresh())) {
-      throw new DeliveryConfigurationError('Включение Ozon требует свежей синхронизации каталога ПВЗ — выполните npm run delivery:sync-ozon')
-    }
     const rows = await client.query<SettingsRow>(
       `INSERT INTO store_settings (singleton, ${d.enabledCol}, ${d.tariffCol}, ${d.idCol}, ${d.encCol}, updated_at, updated_by_actor_login_at)
        VALUES (true, $1, $2, $3, $4, now(), $5)
@@ -228,39 +193,6 @@ export async function saveCarrierSettings(carrier: Carrier, patch: CarrierPatch,
       [enabled, tariff, clientId, enc, actorLoginAt],
     )
     return settingsDto(rows.rows[0])
-  })
-}
-
-// ── Выбранный FBS-склад Ozon (для технического каталога) ─────────────────────
-export type OzonFbsWarehouse = { warehouseId: number; name: string | null }
-
-/** Прочитать выбранный FBS-склад (id + имя) из store_settings. */
-export async function getOzonFbsWarehouse(): Promise<OzonFbsWarehouse | null> {
-  if (!isDbConfigured()) return null
-  const rows = await query<{ ozon_fbs_warehouse_id: string | number | null; ozon_fbs_warehouse_name: string | null }>(
-    'SELECT ozon_fbs_warehouse_id, ozon_fbs_warehouse_name FROM store_settings WHERE singleton = true')
-  const id = rows[0]?.ozon_fbs_warehouse_id
-  return id == null ? null : { warehouseId: Number(id), name: rows[0]?.ozon_fbs_warehouse_name ?? null }
-}
-
-/** id выбранного склада (для worker). */
-export async function getOzonFbsWarehouseId(): Promise<number | null> {
-  return (await getOzonFbsWarehouse())?.warehouseId ?? null
-}
-
-/** Сохранить выбранный существующий FBS-склад. Склад приложением не создаётся. */
-export async function saveOzonFbsWarehouse(warehouseId: number | null, name: string | null, actorLoginAt: number): Promise<OzonFbsWarehouse | null> {
-  if (!isDbConfigured()) throw new Error('DATABASE_URL is not set')
-  return withTransaction(async (client) => {
-    const rows = await client.query<{ ozon_fbs_warehouse_id: string | number | null; ozon_fbs_warehouse_name: string | null }>(
-      `INSERT INTO store_settings (singleton, ozon_fbs_warehouse_id, ozon_fbs_warehouse_name, updated_at, updated_by_actor_login_at)
-       VALUES (true, $1, $2, now(), $3)
-       ON CONFLICT (singleton) DO UPDATE SET ozon_fbs_warehouse_id = EXCLUDED.ozon_fbs_warehouse_id, ozon_fbs_warehouse_name = EXCLUDED.ozon_fbs_warehouse_name, updated_at = now(), updated_by_actor_login_at = EXCLUDED.updated_by_actor_login_at
-       RETURNING ozon_fbs_warehouse_id, ozon_fbs_warehouse_name`,
-      [warehouseId, name, actorLoginAt],
-    )
-    const id = rows.rows[0]?.ozon_fbs_warehouse_id
-    return id == null ? null : { warehouseId: Number(id), name: rows.rows[0]?.ozon_fbs_warehouse_name ?? null }
   })
 }
 

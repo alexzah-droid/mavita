@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     // Доставку принимаем, только если клиент её прислал. createOrder сам решает по
     // режиму доставки (resolveDeliveryMode), обязательна она или нет, и валиден ли способ.
     delivery: body.delivery
-      ? { method: body.delivery.method === 'cdek_pickup' || body.delivery.method === 'ozon_pickup' ? body.delivery.method : 'invalid' as never, pickupPointCode: String(body.delivery.pickupPointCode ?? ''), expectedDeliveryKopecks: Number(body.delivery.expectedDeliveryKopecks) }
+      ? { method: body.delivery.method === 'cdek_pickup' ? body.delivery.method : 'invalid' as never, pickupPointCode: String(body.delivery.pickupPointCode ?? ''), expectedDeliveryKopecks: Number(body.delivery.expectedDeliveryKopecks) }
       : null,
     expectedTotalKopecks: Number(body.expectedTotalKopecks),
     items: Array.isArray(body.items)

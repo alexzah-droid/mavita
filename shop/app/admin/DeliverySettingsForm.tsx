@@ -4,7 +4,6 @@ import type { Carrier, CarrierSettings, DeliverySettings } from '@/lib/store-set
 
 const CARRIERS: { carrier: Carrier; label: string; idLabel: string; secretLabel: string }[] = [
   { carrier: 'cdek', label: 'СДЭК', idLabel: 'Client ID', secretLabel: 'Client Secret' },
-  { carrier: 'ozon', label: 'ОЗОН', idLabel: 'Client-Id', secretLabel: 'Api-Key' },
 ]
 
 function statusLine(c: CarrierSettings): string {

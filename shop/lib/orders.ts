@@ -10,7 +10,7 @@ import { providerFor } from '@/lib/delivery/providers'
 import { carrierFromMethod, getLockedDeliverySnapshot, PICKUP_METHOD, type Carrier } from '@/lib/store-settings'
 import { enqueueOrderNotification } from '@/lib/telegram-notifications'
 
-export type PickupMethod = 'cdek_pickup' | 'ozon_pickup'
+export type PickupMethod = 'cdek_pickup'
 export type OrderInput = {
   customerName: string
   customerEmail: string
@@ -90,7 +90,7 @@ export function validateOrderInput(input: OrderInput, deliveryRequired = true): 
   if (!normalizePhone(input.customerPhone ?? '')) errors.push('Укажите корректный телефон получателя')
   if (deliveryRequired) {
     const method = input.delivery?.method
-    if ((method !== 'cdek_pickup' && method !== 'ozon_pickup') || !input.delivery?.pickupPointCode?.trim()) errors.push('Выберите пункт выдачи')
+    if (method !== 'cdek_pickup' || !input.delivery?.pickupPointCode?.trim()) errors.push('Выберите пункт выдачи')
     if (!Number.isSafeInteger(input.delivery?.expectedDeliveryKopecks) || (input.delivery?.expectedDeliveryKopecks ?? -1) < 0) errors.push('Некорректная сумма доставки')
   }
   if (!Number.isSafeInteger(input.expectedTotalKopecks) || input.expectedTotalKopecks < 0) errors.push('Некорректная сумма заказа')
@@ -225,8 +225,8 @@ export async function createOrder(
     if (snapshot.mode === 'error') throw new DeliveryUnavailableError()
     const deliveryRequired = snapshot.mode === 'pickup_required'
 
-    // Клиент прислал доставку, но снимок её не требует (напр. Ozon выпал из-за
-    // протухшего каталога) — отклоняем, а не молча оформляем заказ без ПВЗ.
+    // Клиент прислал доставку, но снимок её не требует (перевозчик выключен/сломан)
+    // — отклоняем, а не молча оформляем заказ без ПВЗ.
     if (!deliveryRequired && input.delivery) throw new OrderValidationError(['Выбранный способ доставки недоступен'])
 
     const validation = validateOrderInput(input, deliveryRequired)
