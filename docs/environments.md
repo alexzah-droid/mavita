@@ -151,7 +151,9 @@ pm2 show mavita    → script: /usr/bin/npm, args: start, cwd: /var/www/mavita-r
 | `ROBOKASSA_LOGIN` | ✅ `mavita` |
 | `ROBOKASSA_PASSWORD1` | ✅ заполнен |
 | `ROBOKASSA_PASSWORD2` | ✅ заполнен |
-| `ROBOKASSA_TEST_MODE` | состояние проверять после rollout; переключение на `false` — Пауза 1 |
+| `ROBOKASSA_HASH_ALGO` | ✅ `sha256` (выставлен 2026-06-23) — ДОЛЖЕН совпадать с «Хэш-алгоритмом» в ЛК (там SHA-256). Без него код подписывал бы MD5 → Робокасса отвергает редирект на оплату |
+| `ROBOKASSA_TEST_MODE` | ✅ `false` — боевой режим (с 2026-06-21) |
+| `ALLOW_ROBOKASSA_TEST_MODE_IN_PRODUCTION` | удалён 2026-06-23 (был `true` — латентный риск: отключал защиту от тестовых платежей на проде) |
 | `ADMIN_PASSWORD` | ✅ заполнен |
 | `SESSION_SECRET` | ✅ заполнен |
 | `NEXT_PUBLIC_BASE_URL` | `https://mavita.ru` |

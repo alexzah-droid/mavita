@@ -118,3 +118,27 @@ export async function listPickupPoints(creds: DeliveryCredentials, city?: string
 export function cdekProvider(creds: DeliveryCredentials): CarrierProvider {
   return { listPickupPoints: (city) => listPickupPoints(creds, city), getPickupPoint: (code) => getPickupPoint(creds, code) }
 }
+
+export type CdekProxyResult = { status: number; body: string }
+
+// Сырой проксированный вызов СДЭК для виджета `@cdek-it/widget`. Тело ответа СДЭК
+// возвращаем КАК ЕСТЬ (виджет ждёт нативный JSON, без обёртки) — точная калька
+// эталонного dist/service.php: offices → GET /deliverypoints; calculate →
+// POST /calculator/tarifflist (JSON). Авторизация — наш accessToken (вне try,
+// чтобы authFailed не превратился в generic unavailable).
+export async function cdekWidgetProxy(creds: DeliveryCredentials, action: 'offices' | 'calculate', params: Record<string, unknown>): Promise<CdekProxyResult> {
+  const token = await accessToken(creds)
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}`, Accept: 'application/json', 'X-App-Name': 'widget_pvz' }
+  let response: Response
+  try {
+    if (action === 'offices') {
+      const qs = new URLSearchParams()
+      for (const [key, value] of Object.entries(params)) if (value != null) qs.set(key, String(value))
+      response = await fetch(`${baseUrl()}/deliverypoints?${qs}`, { headers, cache: 'no-store' })
+    } else {
+      response = await fetch(`${baseUrl()}/calculator/tarifflist`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(params), cache: 'no-store' })
+    }
+  } catch { throw new CdekValidationError('Доставка временно недоступна', true) }
+  if (response.status === 401 || response.status === 403) throw new CdekValidationError('Доставка временно недоступна', true, true)
+  return { status: response.status, body: await response.text() }
+}
