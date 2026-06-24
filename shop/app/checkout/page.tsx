@@ -57,6 +57,12 @@ export default function CheckoutPage() {
     setEmail(localStorage.getItem('mavita_checkout_email') ?? '')
   }, [])
 
+  // Начинаем качать бандл виджета как только знаем, что он нужен —
+  // параллельно с остальными запросами, не дожидаясь рендера CdekWidget.
+  useEffect(() => {
+    if (isCdek && yandexKey.length > 0) import('@cdek-it/widget').catch(() => {})
+  }, [isCdek, yandexKey])
+
   useEffect(() => { fetch('/api/checkout/delivery').then(async (res) => { const data = await res.json(); if (res.ok) { if (data.mode === 'pickup_required' && Array.isArray(data.carriers) && data.carriers.length) { setDeliveryEnabled(true); setCarriers(data.carriers); setCarrier(data.carriers[0]) } else { setDeliveryEnabled(false) } } else setErrors(data.error?.messages ?? ['Оформление временно недоступно']) }).catch(() => setErrors(['Оформление временно недоступно'])) }, [])
   useEffect(() => { setConfirmedAmounts(null) }, [cart.lines])
   // Смена перевозчика сбрасывает выбор города, ПВЗ и плашку IP-гео.
@@ -69,9 +75,11 @@ export default function CheckoutPage() {
   }
 
   // fromIpPrefill=true — не сбрасываем ipPrefillCity (плашка должна остаться).
+  // В режиме виджета список ПВЗ не нужен — виджет сам загружает точки через /api/cdek/widget.
   function pickCity(c: CdekCity, fromIpPrefill = false) {
     if (!fromIpPrefill) setIpPrefillCity(null)
-    setSelectedCity(c); setCityInput(cityLabel(c)); setCitySuggestions([]); loadPointsByCityCode(c.code)
+    setSelectedCity(c); setCityInput(cityLabel(c)); setCitySuggestions([])
+    if (!useWidget) loadPointsByCityCode(c.code)
   }
 
   // Пользователь нажал «Изменить» в плашке — сбрасываем всё и показываем поле ввода.
@@ -223,7 +231,7 @@ export default function CheckoutPage() {
                       </select>
                     )}
                     {useWidget ? (
-                      <CdekWidget apiKey={yandexKey} onSelect={(point) => setPickupPoint(point)} onUnavailable={() => setWidgetFailed(true)} />
+                      <CdekWidget apiKey={yandexKey} onSelect={(point) => setPickupPoint(point)} onUnavailable={() => setWidgetFailed(true)} defaultLocation={selectedCity?.city} />
                     ) : (
                       <>
                         {showCityBanner ? (

@@ -122,24 +122,40 @@ export function cdekProvider(creds: DeliveryCredentials): CarrierProvider {
 
 export type CdekProxyResult = { status: number; body: string }
 
+// Кэш ПВЗ для виджета: список точек конкретного города меняется редко, кэшируем
+// 10 минут. Ключ — отсортированные параметры запроса (city_code + type).
+// Одна запись Москвы ≈ 300–600 KB JSON; Map в памяти Node.js — приемлемо для VPS.
+const officesCache = new Map<string, { body: string; status: number; expiresAt: number }>()
+const OFFICES_TTL_MS = 10 * 60 * 1000
+
 // Сырой проксированный вызов СДЭК для виджета `@cdek-it/widget`. Тело ответа СДЭК
 // возвращаем КАК ЕСТЬ (виджет ждёт нативный JSON, без обёртки) — точная калька
 // эталонного dist/service.php: offices → GET /deliverypoints; calculate →
 // POST /calculator/tarifflist (JSON). Авторизация — наш accessToken (вне try,
 // чтобы authFailed не превратился в generic unavailable).
 export async function cdekWidgetProxy(creds: DeliveryCredentials, action: 'offices' | 'calculate', params: Record<string, unknown>): Promise<CdekProxyResult> {
+  if (action === 'offices') {
+    const cacheKey = JSON.stringify(Object.fromEntries(Object.entries(params).sort(([a], [b]) => a.localeCompare(b))))
+    const hit = officesCache.get(cacheKey)
+    if (hit && hit.expiresAt > Date.now()) return { status: hit.status, body: hit.body }
+
+    const token = await accessToken(creds)
+    const qs = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) if (value != null) qs.set(key, String(value))
+    let response: Response
+    try { response = await fetch(`${baseUrl()}/deliverypoints?${qs}`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'X-App-Name': 'widget_pvz' }, cache: 'no-store' }) }
+    catch { throw new CdekValidationError('Доставка временно недоступна', true) }
+    if (response.status === 401 || response.status === 403) throw new CdekValidationError('Доставка временно недоступна', true, true)
+    const body = await response.text()
+    if (response.ok) officesCache.set(cacheKey, { body, status: response.status, expiresAt: Date.now() + OFFICES_TTL_MS })
+    return { status: response.status, body }
+  }
+
   const token = await accessToken(creds)
   const headers: Record<string, string> = { Authorization: `Bearer ${token}`, Accept: 'application/json', 'X-App-Name': 'widget_pvz' }
   let response: Response
-  try {
-    if (action === 'offices') {
-      const qs = new URLSearchParams()
-      for (const [key, value] of Object.entries(params)) if (value != null) qs.set(key, String(value))
-      response = await fetch(`${baseUrl()}/deliverypoints?${qs}`, { headers, cache: 'no-store' })
-    } else {
-      response = await fetch(`${baseUrl()}/calculator/tarifflist`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(params), cache: 'no-store' })
-    }
-  } catch { throw new CdekValidationError('Доставка временно недоступна', true) }
+  try { response = await fetch(`${baseUrl()}/calculator/tarifflist`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(params), cache: 'no-store' }) }
+  catch { throw new CdekValidationError('Доставка временно недоступна', true) }
   if (response.status === 401 || response.status === 403) throw new CdekValidationError('Доставка временно недоступна', true, true)
   return { status: response.status, body: await response.text() }
 }

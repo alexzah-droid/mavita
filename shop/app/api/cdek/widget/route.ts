@@ -5,6 +5,9 @@ import { DeliveryConfigurationError, getRuntimeCredentials } from '@/lib/store-s
 import { allowRequest, clientIp } from '@/lib/public-rate-limit'
 
 const noStore = { 'Cache-Control': 'no-store' }
+// Список ПВЗ по городу — публичные данные, меняются редко. Кэшируем 10 мин
+// в браузере; сервер тоже кэширует (lib/cdek.ts officesCache).
+const officesCache = { 'Cache-Control': 'public, max-age=600, stale-while-revalidate=60' }
 const fail = (message: string, status: number) => NextResponse.json({ message }, { status, headers: noStore })
 
 // servicePath виджета СДЭК (`@cdek-it/widget`). Калька эталонного dist/service.php:
@@ -28,7 +31,8 @@ async function handle(request: Request) {
 
   try {
     const { status, body } = await cdekWidgetProxy(creds, action, params)
-    return new NextResponse(body, { status, headers: { 'Content-Type': 'application/json', ...noStore } })
+    const cacheHeaders = action === 'offices' ? officesCache : noStore
+    return new NextResponse(body, { status, headers: { 'Content-Type': 'application/json', ...cacheHeaders } })
   } catch (error) {
     return fail(error instanceof DeliveryProviderError ? error.message : 'Доставка временно недоступна', 503)
   }
