@@ -13,6 +13,7 @@ DROP TRIGGER IF EXISTS trg_ozon_profile_invalidate_image ON product_images;
 DROP FUNCTION IF EXISTS ozon_profile_invalidate_on_product_change();
 DROP FUNCTION IF EXISTS ozon_profile_invalidate_on_image_change();
 DROP FUNCTION IF EXISTS ozon_profile_invalidate(INTEGER);
+DROP TRIGGER IF EXISTS trg_ozon_product_profiles_set_updated_at ON ozon_product_profiles;
 DROP FUNCTION IF EXISTS ozon_product_profiles_set_updated_at();
 
 -- ── Таблицы Ozon (CASCADE снимает FK-зависимости run_items → runs, profiles → products) ──
