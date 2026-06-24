@@ -2,7 +2,7 @@
 // реализации одного интерфейса, чтобы checkout/createOrder/прокси не дублировали
 // логику и новый перевозчик добавлялся как ещё одна реализация.
 
-export type PickupPoint = { code: string; city: string; name: string; address: string }
+export type PickupPoint = { code: string; city: string; name: string; address: string; workTime?: string }
 
 // Credentials передаются провайдеру ЯВНО (он не ходит в БД и не читает env):
 // caller достаёт runtime/draft ключи из store-settings и отдаёт сюда. fingerprint

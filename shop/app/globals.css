@@ -1586,6 +1586,10 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
 .checkout-city-suggest button { display: block; width: 100%; text-align: left; padding: 12px 16px; background: none; border: none; border-bottom: 1px solid var(--rule); color: var(--paper); font-family: var(--f-body); font-size: 15px; cursor: pointer; }
 .checkout-city-suggest button:hover { background: var(--ember); color: var(--ink); }
 .checkout-city-suggest li:last-child button { border-bottom: none; }
+.checkout-city-detected { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: var(--ink-2); border: 1px solid var(--rule); font-size: 15px; color: var(--paper); }
+.checkout-city-detected strong { color: var(--paper); }
+.checkout-city-change { background: none; border: none; padding: 0; font-family: var(--f-body); font-size: 14px; color: var(--ember); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; flex-shrink: 0; }
+.checkout-city-change:hover { color: var(--paper); }
 .checkout-cdek-map { width: 100%; height: 500px; min-height: 420px; }
 .admin-filters { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1rem 0; }
 .admin-filters input, .admin-order-actions input, .admin-order-actions textarea { padding: .65rem; border: 1px solid #c6bba9; background: #fffdf9; }

@@ -36,7 +36,8 @@ function normalize(raw: unknown): PickupPoint | undefined {
   const value = raw as Record<string, unknown>; const location = value.location as Record<string, unknown> | undefined
   const code = String(value.code ?? '').trim(); const city = String(location?.city ?? value.city ?? '').trim()
   const name = String(value.name ?? value.address_full ?? '').trim(); const address = String(location?.address ?? value.address ?? value.address_full ?? '').trim()
-  return code && city && name && address ? { code, city, name, address } : undefined
+  const workTime = value.work_time != null && String(value.work_time).trim() ? String(value.work_time).trim() : undefined
+  return code && city && name && address ? { code, city, name, address, workTime } : undefined
 }
 
 export async function getPickupPoint(creds: DeliveryCredentials, code: string): Promise<PickupPoint> {
