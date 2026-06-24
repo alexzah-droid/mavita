@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   const b = body as Record<string, unknown>
   for (const key of Object.keys(b)) if (!ALLOWED.has(key)) return NextResponse.json({ error: { code: 'VALIDATION_ERROR', messages: [`Неизвестное поле: ${key}`] } }, { status: 400, headers: noStore })
   const invalid = (m: string) => NextResponse.json({ error: { code: 'VALIDATION_ERROR', messages: [m] } }, { status: 400, headers: noStore })
-  if (b.carrier !== 'cdek' && b.carrier !== 'ozon') return invalid('Неизвестный перевозчик')
+  if (b.carrier !== 'cdek') return invalid('Неизвестный перевозчик')
   const carrier = b.carrier as Carrier
 
   // Строгий draft-контракт. Присланное поле должно быть валидным значением, а не

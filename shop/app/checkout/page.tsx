@@ -7,6 +7,7 @@ import { useCart } from '@/app/cart/CartProvider'
 import { formatRub } from '@/lib/price'
 import { parsePriceChangedAmounts } from '@/lib/checkout-amounts'
 import ShopHeader from '@/app/components/ShopHeader'
+import CdekWidget from './CdekWidget'
 
 type CdekCity = { code: number; city: string; region: string | null }
 function cityLabel(c: CdekCity) { return c.region ? `${c.city}, ${c.region}` : c.city }
@@ -15,7 +16,7 @@ export default function CheckoutPage() {
   const router = useRouter()
   const { cart, ready, count, totalKopecks, clear } = useCart()
 
-  type DeliveryCarrier = { carrier: 'cdek' | 'ozon'; label: string; deliveryKopecks: number }
+  type DeliveryCarrier = { carrier: 'cdek'; label: string; deliveryKopecks: number }
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -36,7 +37,12 @@ export default function CheckoutPage() {
   const [consent, setConsent] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [widgetFailed, setWidgetFailed] = useState(false)
   const isCdek = carrier?.carrier === 'cdek'
+  // Виджет-карта СДЭК доступна, если задан клиентский ключ Яндекс.Карт (инлайнится
+  // в бандл на сборке). Нет ключа / виджет упал → ручной автокомплит города (fallback).
+  const yandexKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY ?? ''
+  const useWidget = isCdek && yandexKey.length > 0 && !widgetFailed
 
   const isEmpty = ready && count === 0
   const deliveryKopecks = deliveryEnabled === false ? 0 : carrier?.deliveryKopecks ?? null
@@ -47,7 +53,7 @@ export default function CheckoutPage() {
   useEffect(() => { fetch('/api/checkout/delivery').then(async (res) => { const data = await res.json(); if (res.ok) { if (data.mode === 'pickup_required' && Array.isArray(data.carriers) && data.carriers.length) { setDeliveryEnabled(true); setCarriers(data.carriers); setCarrier(data.carriers[0]) } else { setDeliveryEnabled(false) } } else setErrors(data.error?.messages ?? ['Оформление временно недоступно']) }).catch(() => setErrors(['Оформление временно недоступно'])) }, [])
   useEffect(() => { setConfirmedAmounts(null) }, [cart.lines])
   // Смена перевозчика сбрасывает выбор города и ПВЗ — коды между службами не совпадают.
-  useEffect(() => { setCityInput(''); setCitySuggestions([]); setSelectedCity(null); setPickupPoints([]); setPickupPoint(null); setPointFilter('') }, [carrier?.carrier])
+  useEffect(() => { setCityInput(''); setCitySuggestions([]); setSelectedCity(null); setPickupPoints([]); setPickupPoint(null); setPointFilter(''); setWidgetFailed(false) }, [carrier?.carrier])
 
   async function loadPointsByCityCode(cityCode: number) {
     setErrors([]); setPickupPoints([]); setPickupPoint(null); setPointFilter('')
@@ -76,9 +82,6 @@ export default function CheckoutPage() {
     }, 300)
     return () => clearTimeout(timer)
   }, [cityInput, isCdek, selectedCity])
-
-  // Ozon (и любой не-СДЭК ПВЗ-перевозчик): прежний поиск по названию города.
-  async function findOzonPickupPoints() { if (!carrier) return; setErrors([]); setPickupPoints([]); setPickupPoint(null); setPointFilter(''); try { const res = await fetch(`/api/${carrier.carrier}?city=${encodeURIComponent(cityInput)}`); const data = await res.json(); if (!res.ok) throw new Error(data.error?.messages?.[0]); setPickupPoints(data.pickupPoints) } catch (error) { setErrors([error instanceof Error ? error.message : 'Не удалось получить пункты выдачи']) } }
 
   const filteredPoints = pickupPoints.filter((p) => { const f = pointFilter.trim().toLowerCase(); return !f || p.name.toLowerCase().includes(f) || p.address.toLowerCase().includes(f) })
 
@@ -196,21 +199,23 @@ export default function CheckoutPage() {
                         {carriers.map((c) => <option key={c.carrier} value={c.carrier}>Пункт выдачи {c.label}</option>)}
                       </select>
                     )}
-                    {isCdek ? (
-                      <div className="checkout-pvz-city">
-                        <input type="text" value={cityInput} onChange={(e) => { setSelectedCity(null); setPickupPoints([]); setPickupPoint(null); setCityInput(e.target.value) }} placeholder="Город — начните вводить" autoComplete="off" aria-label="Город доставки" />
-                        {citySuggestions.length > 0 && !selectedCity && (
-                          <ul className="checkout-city-suggest">
-                            {citySuggestions.map((c) => <li key={c.code}><button type="button" onClick={() => pickCity(c)}>{cityLabel(c)}</button></li>)}
-                          </ul>
-                        )}
-                      </div>
+                    {useWidget ? (
+                      <CdekWidget apiKey={yandexKey} onSelect={(point) => setPickupPoint(point)} onUnavailable={() => setWidgetFailed(true)} />
                     ) : (
-                      <div className="checkout-pvz-search"><input type="text" value={cityInput} onChange={(e) => setCityInput(e.target.value)} placeholder="Город" /><button type="button" className="admin-button" onClick={findOzonPickupPoints} disabled={cityInput.trim().length < 2}>Найти пункты</button></div>
+                      <>
+                        <div className="checkout-pvz-city">
+                          <input type="text" value={cityInput} onChange={(e) => { setSelectedCity(null); setPickupPoints([]); setPickupPoint(null); setCityInput(e.target.value) }} placeholder="Город — начните вводить" autoComplete="off" aria-label="Город доставки" />
+                          {citySuggestions.length > 0 && !selectedCity && (
+                            <ul className="checkout-city-suggest">
+                              {citySuggestions.map((c) => <li key={c.code}><button type="button" onClick={() => pickCity(c)}>{cityLabel(c)}</button></li>)}
+                            </ul>
+                          )}
+                        </div>
+                        {pickupPoints.length > 8 && <input type="text" value={pointFilter} onChange={(e) => setPointFilter(e.target.value)} placeholder="Фильтр по адресу или названию" aria-label="Фильтр пунктов выдачи" />}
+                        {pickupPoints.length > 0 && <select value={pickupPoint?.code ?? ''} onChange={(e) => setPickupPoint(pickupPoints.find((point) => point.code === e.target.value) ?? null)} required><option value="">Выберите пункт выдачи ({filteredPoints.length})</option>{filteredPoints.map((point) => <option key={point.code} value={point.code}>{point.name} · {point.address}</option>)}</select>}
+                        {selectedCity && pickupPoints.length === 0 && <p className="checkout-field-hint">В этом городе нет пунктов выдачи {carrier.label}.</p>}
+                      </>
                     )}
-                    {pickupPoints.length > 8 && <input type="text" value={pointFilter} onChange={(e) => setPointFilter(e.target.value)} placeholder="Фильтр по адресу или названию" aria-label="Фильтр пунктов выдачи" />}
-                    {pickupPoints.length > 0 && <select value={pickupPoint?.code ?? ''} onChange={(e) => setPickupPoint(pickupPoints.find((point) => point.code === e.target.value) ?? null)} required><option value="">Выберите пункт выдачи ({filteredPoints.length})</option>{filteredPoints.map((point) => <option key={point.code} value={point.code}>{point.name} · {point.address}</option>)}</select>}
-                    {selectedCity && pickupPoints.length === 0 && <p className="checkout-field-hint">В этом городе нет пунктов выдачи {carrier.label}.</p>}
                     {pickupPoint && <p className="checkout-pvz-selected">{pickupPoint.city} · {pickupPoint.name}<br />{pickupPoint.address}</p>}
                   </div>
                 )}

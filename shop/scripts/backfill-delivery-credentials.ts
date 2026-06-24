@@ -12,7 +12,6 @@ import { assertSettingsEncKey, decryptSecret, encryptSecret } from '@/lib/secret
 
 const CARRIERS = {
   cdek: { enabledCol: 'cdek_pickup_enabled', tariffCol: 'cdek_pickup_delivery_kopecks', idCol: 'cdek_client_id', encCol: 'cdek_client_secret_enc', aad: 'cdek:client_secret', id: process.env.CDEK_CLIENT_ID, secret: process.env.CDEK_CLIENT_SECRET },
-  ozon: { enabledCol: 'ozon_pickup_enabled', tariffCol: 'ozon_pickup_delivery_kopecks', idCol: 'ozon_client_id', encCol: 'ozon_api_key_enc', aad: 'ozon:api_key', id: process.env.OZON_CLIENT_ID, secret: process.env.OZON_API_KEY },
 } as const
 
 async function backfill(name: keyof typeof CARRIERS) {
@@ -36,7 +35,6 @@ async function backfill(name: keyof typeof CARRIERS) {
 async function main() {
   assertSettingsEncKey() // 32 байта, иначе бессмысленно
   await backfill('cdek')
-  await backfill('ozon')
   console.log('Backfill завершён. Проверьте /api/checkout/delivery и тестовый заказ, затем выпускайте новый runtime.')
 }
 

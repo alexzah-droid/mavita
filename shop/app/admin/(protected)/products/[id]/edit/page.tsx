@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getAdminProduct } from '@/lib/admin-products-db'
 import AdminProductForm from '@/app/admin/AdminProductForm'
-import OzonProfilePanel from '@/app/admin/OzonProfilePanel'
 export const dynamic = 'force-dynamic'
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const product = await getAdminProduct(Number((await params).id))
@@ -10,7 +9,6 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     <section className="admin-content">
       <h1>Редактирование</h1>
       <AdminProductForm product={product} />
-      <OzonProfilePanel productId={product.id} />
     </section>
   )
 }

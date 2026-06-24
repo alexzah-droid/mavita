@@ -234,8 +234,7 @@ journalctl -u mavita-notifications.service -n 30 --no-pager
    тариф не заданы — это защита, а не ошибка).
 5. **Снять глобальный гейт** в прод-`.env`: заменить `DELIVERY_ENABLED=false` на
    `DELIVERY_ENABLED=true` (или удалить строку — `emergencyOff` срабатывает только
-   на литерал `'false'`) и `pm2 reload mavita --update-env`. Ozon при этом
-   останется выключенным (отдельный гейт `OZON_LOGISTICS_ORDER_FLOW_ENABLED`).
+   на литерал `'false'`) и `pm2 reload mavita --update-env`.
 6. **Сверить публичные страницы** `/delivery` и `/privacy`: текст про ПВЗ СДЭК и
    передачу данных перевозчику теперь соответствует включённому режиму.
 7. **Тестовая покупка на проде** (Робокасса в боевом режиме с 2026-06-21): поиск
@@ -341,7 +340,7 @@ proxy_set_header X-Forwarded-For $remote_addr;
 
 ---
 
-## Ключи перевозчиков доставки (СДЭК / Ozon)
+## Ключи перевозчиков доставки (СДЭК)
 
 Секреты перевозчиков хранятся в `store_settings` **шифрованными** (AES-256-GCM).
 Мастер-ключ `SETTINGS_ENC_KEY` — только в `.env` (64 hex-символа или canonical
@@ -360,110 +359,14 @@ base64, ровно 32 байта). **Потеря ключа = потеря вс
    - или ввести ключи в админке «Доставка», нажать «Проверить связь», включить.
 4. Проверить `/api/checkout/delivery` и оформить тестовый заказ. Затем выпустить
    новый код (он читает только DB-credentials). Откат возможен, пока env-ключи целы.
-5. После подтверждённого rollout удалить `CDEK_CLIENT_SECRET`, `CDEK_CLIENT_ID`,
-   `OZON_API_KEY`, `OZON_CLIENT_ID` из `.env`.
-6. После заполнения боевых ключей валидировать отложенные CHECK:
+5. После подтверждённого rollout удалить `CDEK_CLIENT_SECRET`, `CDEK_CLIENT_ID` из `.env`.
+6. После заполнения боевых ключей валидировать отложенный CHECK:
    ```sql
    ALTER TABLE store_settings VALIDATE CONSTRAINT store_settings_cdek_complete_check;
-   ALTER TABLE store_settings VALIDATE CONSTRAINT store_settings_ozon_complete_check;
    ```
 
 Если окно требует выключить доставку — выставить `DELIVERY_ENABLED=false` (только
 этот глобальный выключатель легитимно создаёт заказы без ПВЗ).
-
-### Каталог ПВЗ Ozon (обязателен до включения Ozon)
-
-Поиск ПВЗ Ozon у клиента идёт по локальной таблице `ozon_pickup_points`, потому что
-живой `point/list` отдаёт только id+координаты, а город/адрес — отдельным
-`point/info` батчами ≤100. Синхронизация (`scripts/sync-ozon-pickup-points.ts`)
-помечает все id прохода `run_id` и фиксирует состояние в `ozon_catalog_sync`.
-
-**Синхронизация НЕ удаляет точки (защита целостности).** Финализация:
-- считает реальный overlap среди активных точек в одной транзакции под блокировкой;
-- при существенном расхождении (не подтверждено > 2% активных, `MIN_OVERLAP_RATIO`)
-  — статус `failed`, **активная выдача не меняется** (новые точки остаются скрытыми,
-  существующие активные не скрываются), и шлёт **алерт** (Telegram-канал
-  заказов, если настроен; иначе stderr) + ненулевой код выхода для `OnFailure=`;
-- иначе точку, отсутствующую **два полных прохода подряд** (`missed_runs`), лишь
-  **СКРЫВАЕТ** (`active=false`) — это обратимо: вернулась в `point/list` → снова
-  активна. Поиск отдаёт только `active`. Точки не удаляются — потери данных нет.
-
-**Гейт свежести:** успешная полная синхронизация не старше 48 ч — необходимая
-техническая проверка `resolveDeliveryMode` и `saveCarrierSettings`. Она сама по
-себе не разрешает включить Ozon на checkout: действует дополнительный блокер
-FBS-каталога ниже. Несвежий каталог не роняет checkout — Ozon просто перестаёт
-предлагаться, СДЭК остаётся.
-
-Запуск вручную (~90k точек, ~900 вызовов; есть таймаут/ретраи и взаимное исключение):
-
-```bash
-cd /var/www/mavita-repo/shop && set -a && . ./.env && set +a && npm run delivery:sync-ozon
-```
-
-Ежедневно — **через systemd с `EnvironmentFile`** (cron не подхватывает `.env`;
-`$SETTINGS_ENC_KEY`/`$DATABASE_URL` в crontab будут пустыми):
-
-```ini
-# /etc/systemd/system/mavita-ozon-sync.service
-[Unit]
-# Доп. эскалация на падение поверх алерта из скрипта (см. ниже).
-OnFailure=mavita-alert@%n.service
-[Service]
-Type=oneshot
-WorkingDirectory=/var/www/mavita-repo/shop
-EnvironmentFile=/var/www/mavita-repo/shop/.env
-ExecStart=/usr/bin/npm run delivery:sync-ozon
-User=www-data
-```
-Сам скрипт при `low_overlap`/падении шлёт алерт в Telegram-канал заказов и **проверяет
-факт доставки** (`response.ok`): при недоставке (нет Telegram, неверный chat id/токен,
-429/5xx) пишет об этом в лог. Так как Telegram может не сработать, обязательна
-**вторая, независимая линия** через `OnFailure=` — конкретный unit ниже шлёт хвост
-журнала на отдельный webhook (`ALERT_WEBHOOK_URL` из `.env`):
-
-```ini
-# /etc/systemd/system/mavita-alert@.service
-[Service]
-Type=oneshot
-EnvironmentFile=/var/www/mavita-repo/shop/.env
-# %i — имя упавшего юнита; шлём последние строки его журнала на независимый канал.
-ExecStart=/bin/sh -c 'curl -fsS -m 10 -X POST "$ALERT_WEBHOOK_URL" --data-urlencode "text=МАВИТА: юнит %i упал. $(journalctl -u %i -n 20 --no-pager | tail -c 1500)"'
-User=www-data
-```
-`ALERT_WEBHOOK_URL` — независимый от Telegram канал (Slack/Telegram-бот мониторинга/
-почтовый relay). Без него `OnFailure` молча ничего не отправит, поэтому задайте его в
-`.env` до включения Ozon в продакшене.
-```ini
-# /etc/systemd/system/mavita-ozon-sync.timer
-[Timer]
-OnCalendar=*-*-* 15:30:00
-Persistent=true
-[Install]
-WantedBy=timers.target
-```
-`systemctl enable --now mavita-ozon-sync.timer`. Если всё же cron — обязательно
-сорсить `.env`: `cd …/shop && set -a && . ./.env && set +a && npm run delivery:sync-ozon`.
-
-Миграции `005`–`009`, ключи и синхронизация ПВЗ готовят только справочник точек.
-Они **не** разрешают включать Ozon-перевозчика на checkout: до завершения
-[FBS-каталога](specs/ozon-fbs-catalog-sync.md) и отдельной фазы order/create
-оставить его выключенным, даже если «Проверить связь» успешно.
-
-### Блокер: технический FBS-каталог без витрины Ozon (2026-06-21)
-
-Проверка отдельным ключом показала: стандартный import тестовой карточки
-`mavita-9` без отправки остатка создал карточку со статусом `VISIBLE` и
-`MODERATED`; Ozon автоматически выдал ей штрихкод. Нулевой остаток **не скрывает**
-товар от витрины. Карточка сразу переведена обратимым `POST /v1/product/archive`
-в `INVISIBLE`; удаление не использовалось. Архивирование не гарантирует
-недоступность по старой прямой ссылке: Ozon указывает срок до 30 дней в своей
-[документации](https://docs.ozon.com/global/en/products/upload/created-pdp/archive/).
-
-Не импортировать новые товары, не разархивировать `mavita-9` и не отправлять
-FBS-остатки, пока Ozon письменно не подтвердит отдельный режим непубличной
-технической карточки для Ozon Доставки. Archive не является решением для
-синхронизации: товар нельзя держать доступным для FBS-остатка и одновременно
-гарантированно скрытым стандартным import-потоком.
 
 ### Ротация `SETTINGS_ENC_KEY` (офлайн, обязательно с backup)
 

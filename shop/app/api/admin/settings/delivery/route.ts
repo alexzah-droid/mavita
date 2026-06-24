@@ -14,7 +14,7 @@ function parsePatch(body: unknown): { carrier: Carrier; patch: CarrierPatch } | 
   if (!body || typeof body !== 'object' || Array.isArray(body)) return { error: ['Некорректное тело запроса'] }
   const b = body as Record<string, unknown>
   for (const key of Object.keys(b)) if (!ALLOWED.has(key)) return { error: [`Неизвестное поле: ${key}`] }
-  if (b.carrier !== 'cdek' && b.carrier !== 'ozon') return { error: ['Неизвестный перевозчик'] }
+  if (b.carrier !== 'cdek') return { error: ['Неизвестный перевозчик'] }
   const patch: CarrierPatch = {}
   if ('enabled' in b) { if (typeof b.enabled !== 'boolean') return { error: ['enabled должно быть boolean'] }; patch.enabled = b.enabled }
   if ('clientId' in b) {

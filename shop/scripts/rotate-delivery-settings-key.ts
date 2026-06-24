@@ -16,7 +16,6 @@ import { decryptSecret, encryptSecret, parseEncKey } from '@/lib/secret-box-core
 
 const FIELDS: { carrier: string; col: string; aad: string }[] = [
   { carrier: 'cdek', col: 'cdek_client_secret_enc', aad: 'cdek:client_secret' },
-  { carrier: 'ozon', col: 'ozon_api_key_enc', aad: 'ozon:api_key' },
 ]
 
 async function main() {

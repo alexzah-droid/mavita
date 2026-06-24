@@ -13,11 +13,10 @@
     "test:e2e": "playwright test",
     "notifications:drain": "tsx scripts/drain-notifications.ts",
     "delivery:backfill": "tsx scripts/backfill-delivery-credentials.ts",
-    "delivery:rotate-key": "tsx scripts/rotate-delivery-settings-key.ts",
-    "delivery:sync-ozon": "tsx scripts/sync-ozon-pickup-points.ts",
-    "ozon:catalog-worker": "tsx scripts/ozon-catalog-worker.ts"
+    "delivery:rotate-key": "tsx scripts/rotate-delivery-settings-key.ts"
   },
   "dependencies": {
+    "@cdek-it/widget": "^3.11.1",
     "iron-session": "^8.0.4",
     "maxmind": "^4.3.29",
     "next": "^15.3.3",

@@ -7,7 +7,7 @@ vi.mock('@/lib/auth', () => ({ requireAdminApi: mocks.auth, assertSameOrigin: mo
 vi.mock('@/lib/store-settings', () => ({ getDeliverySettings: mocks.get, saveCarrierSettings: mocks.save, DeliveryConfigurationError }))
 
 const admin = { isAdmin: true as const, loginAt: 12 }
-const emptyDto = { carriers: { cdek: { enabled: false, hasSecret: false, secretMask: null, clientId: null, deliveryKopecks: null }, ozon: { enabled: false, hasSecret: false, secretMask: null, clientId: null, deliveryKopecks: null } }, updatedAt: null, updatedByActorLoginAt: null }
+const emptyDto = { carriers: { cdek: { enabled: false, hasSecret: false, secretMask: null, clientId: null, deliveryKopecks: null } }, updatedAt: null, updatedByActorLoginAt: null }
 beforeEach(() => { Object.values(mocks).forEach((m) => m.mockReset()); mocks.auth.mockResolvedValue(admin); mocks.csrf.mockReturnValue(null) })
 const patch = (body: unknown) => new Request('http://localhost/api/admin/settings/delivery', { method: 'PATCH', headers: { origin: 'http://localhost', 'content-type': 'application/json' }, body: JSON.stringify(body) })
 
@@ -54,7 +54,7 @@ describe('delivery settings API', () => {
   it('включение без полного набора → 409', async () => {
     mocks.save.mockRejectedValue(new DeliveryConfigurationError())
     const { PATCH } = await import('@/app/api/admin/settings/delivery/route')
-    expect((await PATCH(patch({ carrier: 'ozon', enabled: true }))).status).toBe(409)
+    expect((await PATCH(patch({ carrier: 'cdek', enabled: true }))).status).toBe(409)
   })
 
   it('CSRF (чужой Origin) → 403', async () => {
