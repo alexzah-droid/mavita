@@ -6,6 +6,8 @@ import type { CarrierProvider, DeliveryCredentials, PickupPoint } from '@/lib/de
 import { DeliveryProviderError } from '@/lib/delivery/types'
 
 export type { PickupPoint }
+// Город СДЭК: code — числовой city_code (им фильтруется /deliverypoints), а НЕ название.
+export type CdekCity = { code: number; city: string; region: string | null }
 // Сохраняем исторический класс ошибки СДЭК (его ловят robokassa/init и /api/cdek),
 // теперь как наследника общего DeliveryProviderError.
 export class CdekValidationError extends DeliveryProviderError {
@@ -51,15 +53,65 @@ export async function getPickupPoint(creds: DeliveryCredentials, code: string): 
   return point
 }
 
-export async function listPickupPoints(creds: DeliveryCredentials, city?: string): Promise<PickupPoint[]> {
-  const params = new URLSearchParams({ is_active: 'true', type: 'PVZ' }); if (city?.trim()) params.set('city', city.trim())
-  const token = await accessToken(creds) // вне try — см. getPickupPoint
+// Аутентифицированный GET к API СДЭК с едиными правилами ошибок списочных
+// методов (auth → authFailed; сеть/не-2xx/не-массив → unavailable). Токен берём
+// ВНЕ try — иначе CdekValidationError(authFailed) из accessToken была бы съедена.
+async function authedGetArray(creds: DeliveryCredentials, path: string, params: URLSearchParams): Promise<unknown[]> {
+  const token = await accessToken(creds)
   let response: Response
-  try { response = await fetch(`${baseUrl()}/deliverypoints?${params}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }) } catch { throw new CdekValidationError('Доставка временно недоступна', true) }
-  const data = await response.json().catch(() => null)
+  try { response = await fetch(`${baseUrl()}${path}?${params}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }) } catch { throw new CdekValidationError('Доставка временно недоступна', true) }
   if (response.status === 401 || response.status === 403) throw new CdekValidationError('Доставка временно недоступна', true, true)
+  const data = await response.json().catch(() => null)
   if (!response.ok || !Array.isArray(data)) throw new CdekValidationError('Доставка временно недоступна', true)
+  return data
+}
+
+function normalizeCity(raw: unknown): CdekCity | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const value = raw as Record<string, unknown>
+  const code = Number(value.code); const city = String(value.city ?? '').trim()
+  if (!Number.isInteger(code) || code <= 0 || !city) return undefined
+  const region = value.region != null && String(value.region).trim() ? String(value.region).trim() : null
+  return { code, city, region }
+}
+
+// Поиск города по названию (/v2/location/cities фильтрует по name, отдаёт числовой code).
+// Используется и автокомплитом, и резолвом IP-города → city_code. Возвращает [] на
+// пустой/слишком длинный ввод, не дёргая API.
+async function fetchCities(creds: DeliveryCredentials, query: string, size: number): Promise<CdekCity[]> {
+  const q = query.trim(); if (!q || q.length > 128) return []
+  const params = new URLSearchParams({ country_codes: 'RU', size: String(size), city: q })
+  const data = await authedGetArray(creds, '/location/cities', params)
+  return data.map(normalizeCity).filter((c): c is CdekCity => Boolean(c))
+}
+
+export async function suggestCities(creds: DeliveryCredentials, query: string): Promise<CdekCity[]> {
+  return fetchCities(creds, query, 20)
+}
+
+// Город → один city_code. Предпочитаем точное совпадение названия (тёзки/префиксы),
+// иначе первый ответ СДЭК. null, если город не найден.
+export async function resolveCity(creds: DeliveryCredentials, name: string): Promise<CdekCity | null> {
+  const cities = await fetchCities(creds, name, 10); if (!cities.length) return null
+  const needle = name.trim().toLowerCase()
+  return cities.find((c) => c.city.toLowerCase() === needle) ?? cities[0]
+}
+
+// ПВЗ по СТАБИЛЬНОМУ city_code — единственный корректный фильтр СДЭК.
+export async function listPickupPointsByCityCode(creds: DeliveryCredentials, cityCode: number): Promise<PickupPoint[]> {
+  if (!Number.isInteger(cityCode) || cityCode <= 0) throw new CdekValidationError()
+  const params = new URLSearchParams({ is_active: 'true', type: 'PVZ', city_code: String(cityCode) })
+  const data = await authedGetArray(creds, '/deliverypoints', params)
   return data.map(normalize).filter((point): point is PickupPoint => Boolean(point))
+}
+
+// Совместимость с CarrierProvider (admin «Проверить связь», name-based вызовы):
+// резолвим название → city_code → ПВЗ. БЕЗ города возвращаем [], а НЕ весь
+// национальный список (прежний баг: `city`-параметр СДЭК игнорировал и отдавал всё).
+export async function listPickupPoints(creds: DeliveryCredentials, city?: string): Promise<PickupPoint[]> {
+  if (!city?.trim()) return []
+  const resolved = await resolveCity(creds, city)
+  return resolved ? listPickupPointsByCityCode(creds, resolved.code) : []
 }
 
 /** Провайдер с привязанными credentials — реализация общего CarrierProvider. */

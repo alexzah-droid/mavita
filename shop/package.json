@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "iron-session": "^8.0.4",
+    "maxmind": "^4.3.29",
     "next": "^15.3.3",
     "pg": "^8.22.0",
     "react": "^19.0.0",
