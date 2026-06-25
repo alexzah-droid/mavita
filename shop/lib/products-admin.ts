@@ -4,10 +4,12 @@ export type SaleInput = { priceKopecks: number; startsAt: string | null; endsAt:
 export type ProductInput = {
   name?: unknown; slug?: unknown; series?: unknown; subtitle?: unknown; description?: unknown
   priceKopecks?: unknown; scent?: unknown; inStock?: unknown; visibility?: unknown; sale?: unknown
+  weightGrams?: unknown
 }
 export type ValidatedProductInput = {
   name?: string; slug?: string; series?: string | null; subtitle?: string | null; description?: string | null
   priceKopecks?: number; scent?: string[]; inStock?: boolean; visibility?: Visibility; sale?: SaleInput
+  weightGrams?: number | null
 }
 
 const SLUG_RE = /^[a-z0-9-]{1,100}$/
@@ -80,6 +82,11 @@ export function validateProductInput(input: unknown, mode: 'create' | 'patch'): 
   if (raw.scent !== undefined) {
     if (!Array.isArray(raw.scent) || raw.scent.length > 20 || raw.scent.some((x) => typeof x !== 'string' || !x.trim() || x.trim().length > 80)) errors.push('Ароматы: до 20 непустых тегов по 80 символов')
     else value.scent = raw.scent.map((x) => (x as string).trim())
+  }
+  if (raw.weightGrams !== undefined) {
+    if (raw.weightGrams === null) value.weightGrams = null
+    else if (!Number.isInteger(raw.weightGrams) || (raw.weightGrams as number) <= 0) errors.push('Вес должен быть положительным целым числом граммов')
+    else value.weightGrams = raw.weightGrams as number
   }
   if (raw.sale !== undefined) {
     if (raw.sale === null) value.sale = null

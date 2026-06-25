@@ -12,6 +12,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "notifications:drain": "tsx scripts/drain-notifications.ts",
+    "cdek:drain": "tsx scripts/drainCdekOutbox.ts",
     "delivery:backfill": "tsx scripts/backfill-delivery-credentials.ts",
     "delivery:rotate-key": "tsx scripts/rotate-delivery-settings-key.ts"
   },
@@ -24,6 +25,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "server-only": "^0.0.1",
+    "sharp": "^0.35.2",
     "tsx": "^4.20.3",
     "undici": "^6.27.0"
   },

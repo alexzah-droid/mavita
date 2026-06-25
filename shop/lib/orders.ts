@@ -316,12 +316,26 @@ export async function markOrderPaid(
   if (!isDbConfigured()) return 'not_found'
 
   return withTransaction(async (client) => {
-    const selected = await client.query<{ status: string; fulfillment_status: string; total_kopecks: number | string }>('SELECT status, fulfillment_status, total_kopecks FROM orders WHERE id = $1 FOR UPDATE', [invId])
+    const selected = await client.query<{ status: string; fulfillment_status: string; total_kopecks: number | string; delivery_method: string | null; pickup_point_code: string | null }>('SELECT status, fulfillment_status, total_kopecks, delivery_method, pickup_point_code FROM orders WHERE id = $1 FOR UPDATE', [invId])
     const order = selected.rows[0]; if (!order) return 'not_found'
     if (order.status === 'paid') return 'already_paid'; if (order.status === 'cancelled') return 'cancelled'; if (Number(order.total_kopecks) !== paidKopecks) return 'amount_mismatch'
     const updated = await client.query<{ id: number }>(`UPDATE orders SET status = 'paid', fulfillment_status = 'new', robokassa_data = $1 WHERE id = $2 AND status = 'pending' AND fulfillment_status = 'awaiting_payment' RETURNING id`, [JSON.stringify(robokassaData), invId])
     if (!updated.rows.length) return 'not_found'
     await enqueueOrderNotification(client, { orderId: invId, eventType: 'payment_paid', eventKey: `order:${invId}:paid` })
+    // Автоотправка СДЭК: ставим задачу только если включено в настройках и это CDEK-заказ
+    if (order.delivery_method === 'cdek_pickup' && order.pickup_point_code) {
+      const autoEnabled = await client.query<{ cdek_auto_shipment_enabled: boolean }>(
+        'SELECT cdek_auto_shipment_enabled FROM store_settings WHERE singleton = true',
+      )
+      if (autoEnabled.rows[0]?.cdek_auto_shipment_enabled) {
+        await client.query(
+          `INSERT INTO cdek_task_outbox (order_id, task_type, event_key)
+           VALUES ($1, 'create_shipment', $2)
+           ON CONFLICT (event_key) DO NOTHING`,
+          [invId, `create_shipment:${invId}`],
+        )
+      }
+    }
     return 'paid'
   })
 }

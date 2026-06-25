@@ -40,15 +40,18 @@ export type AdminProduct = {
   id: number; slug: string; name: string; series: string | null; subtitle: string | null; description: string | null
   priceKopecks: number; scent: string[]; inStock: boolean; visibility: Visibility; sale: SaleInput
   isSaleActive: boolean; sortOrder: number; images: AdminImage[]; createdAt: string; updatedAt: string
+  weightGrams: number | null
 }
 type Row = {
   id: number; slug: string; name: string; series: string | null; subtitle: string | null; description: string | null
   price_kopecks: number | string; scent: string[]; in_stock: boolean; visibility: Visibility
   sale_price_kopecks: number | string | null; sale_starts_at: Date | string | null; sale_ends_at: Date | string | null
   sort_order: number; created_at: Date | string; updated_at: Date | string; images: AdminImage[] | null
+  weight_grams: number | null
 }
 const SELECT = `SELECT p.id, p.slug, p.name, p.series, p.subtitle, p.description, p.price_kopecks, p.scent, p.in_stock,
   p.visibility, p.sale_price_kopecks, p.sale_starts_at, p.sale_ends_at, p.sort_order, p.created_at, p.updated_at,
+  p.weight_grams,
   COALESCE(imgs.images, '[]'::json) AS images
   FROM products p LEFT JOIN LATERAL (
     SELECT json_agg(json_build_object('id', id, 'filename', filename, 'sortOrder', sort_order, 'isCover', is_cover) ORDER BY sort_order, id) AS images
@@ -60,7 +63,8 @@ export function adminProduct(row: Row, now = new Date()): AdminProduct {
   const price = effectivePrice({ priceKopecks: Number(row.price_kopecks), salePriceKopecks: sale?.priceKopecks ?? null, saleStartsAt: sale?.startsAt ?? null, saleEndsAt: sale?.endsAt ?? null }, now)
   return { id: row.id, slug: row.slug, name: row.name, series: row.series, subtitle: row.subtitle, description: row.description,
     priceKopecks: Number(row.price_kopecks), scent: row.scent ?? [], inStock: row.in_stock, visibility: row.visibility, sale,
-    isSaleActive: price.isOnSale, sortOrder: row.sort_order, images: row.images ?? [], createdAt: new Date(row.created_at).toISOString(), updatedAt: new Date(row.updated_at).toISOString() }
+    isSaleActive: price.isOnSale, sortOrder: row.sort_order, images: row.images ?? [], createdAt: new Date(row.created_at).toISOString(), updatedAt: new Date(row.updated_at).toISOString(),
+    weightGrams: row.weight_grams ?? null }
 }
 export async function listAdminProducts(visibility: Visibility | 'all' = 'all'): Promise<AdminProduct[]> {
   const now = new Date()
@@ -76,7 +80,7 @@ function fields(input: ValidatedProductInput, create: boolean) {
   const values: unknown[] = []
   const add = (name: string, value: unknown) => { values.push(value); return `${name} = $${values.length}` }
   const parts: string[] = []
-  for (const [key, column] of Object.entries({ name: 'name', slug: 'slug', series: 'series', subtitle: 'subtitle', description: 'description', priceKopecks: 'price_kopecks', scent: 'scent', inStock: 'in_stock', visibility: 'visibility' })) {
+  for (const [key, column] of Object.entries({ name: 'name', slug: 'slug', series: 'series', subtitle: 'subtitle', description: 'description', priceKopecks: 'price_kopecks', scent: 'scent', inStock: 'in_stock', visibility: 'visibility', weightGrams: 'weight_grams' })) {
     const value = input[key as keyof ValidatedProductInput]
     if (value !== undefined) parts.push(add(column, value))
   }

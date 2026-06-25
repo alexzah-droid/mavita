@@ -23,6 +23,11 @@ CREATE TABLE IF NOT EXISTS products (
     sort_order    INTEGER NOT NULL DEFAULT 0,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- СДЭК: вес и габариты (миграция 015)
+    weight_grams   INTEGER  CONSTRAINT products_weight_positive   CHECK (weight_grams IS NULL OR weight_grams > 0),
+    box_length_cm  SMALLINT CONSTRAINT products_box_length_positive CHECK (box_length_cm IS NULL OR box_length_cm > 0),
+    box_width_cm   SMALLINT CONSTRAINT products_box_width_positive  CHECK (box_width_cm IS NULL OR box_width_cm > 0),
+    box_height_cm  SMALLINT CONSTRAINT products_box_height_positive CHECK (box_height_cm IS NULL OR box_height_cm > 0),
     CONSTRAINT products_sale_below_price CHECK (sale_price_kopecks IS NULL OR sale_price_kopecks < price_kopecks),
     CONSTRAINT products_sale_window CHECK (sale_starts_at IS NULL OR sale_ends_at IS NULL OR sale_ends_at > sale_starts_at)
 );
@@ -79,6 +84,12 @@ CREATE TABLE IF NOT EXISTS orders (
     status         TEXT NOT NULL DEFAULT 'pending'
         CHECK (status IN ('pending', 'paid', 'cancelled')),
     robokassa_data JSONB,                         -- сырой ответ Робокассы
+    -- СДЭК автоотправка (миграции 016/017)
+    cdek_order_uuid  TEXT,
+    cdek_number      TEXT,
+    cdek_waybill_url TEXT,
+    cdek_barcode_url TEXT,
+    cdek_error       TEXT,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT orders_total_components_check CHECK (total_kopecks = items_kopecks + delivery_kopecks),
     CONSTRAINT orders_delivery_method_check CHECK ((delivery_method IS NULL AND delivery_carrier IS NULL AND delivery_kopecks = 0) OR (delivery_method = 'cdek_pickup' AND delivery_carrier = 'cdek')),
@@ -103,7 +114,33 @@ CREATE TABLE IF NOT EXISTS store_settings (
     cdek_client_secret_enc BYTEA,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_by_actor_login_at BIGINT NOT NULL,
-    CONSTRAINT store_settings_cdek_complete_check CHECK (cdek_pickup_enabled = false OR (cdek_client_id IS NOT NULL AND cdek_client_secret_enc IS NOT NULL AND cdek_pickup_delivery_kopecks IS NOT NULL))
+    -- СДЭК автоотправка (миграция 016)
+    cdek_auto_shipment_enabled BOOLEAN NOT NULL DEFAULT false,
+    cdek_shipment_point    TEXT,
+    cdek_sender_name       TEXT,
+    cdek_sender_phone      TEXT,
+    cdek_default_weight_grams INTEGER DEFAULT 500
+      CONSTRAINT store_settings_cdek_weight_positive CHECK (cdek_default_weight_grams IS NULL OR cdek_default_weight_grams > 0),
+    cdek_default_length_cm SMALLINT DEFAULT 11
+      CONSTRAINT store_settings_cdek_length_positive CHECK (cdek_default_length_cm IS NULL OR cdek_default_length_cm > 0),
+    cdek_default_width_cm  SMALLINT DEFAULT 11
+      CONSTRAINT store_settings_cdek_width_positive  CHECK (cdek_default_width_cm IS NULL OR cdek_default_width_cm > 0),
+    cdek_default_height_cm SMALLINT DEFAULT 11
+      CONSTRAINT store_settings_cdek_height_positive CHECK (cdek_default_height_cm IS NULL OR cdek_default_height_cm > 0),
+    cdek_multi_length_cm   SMALLINT DEFAULT 30
+      CONSTRAINT store_settings_cdek_multi_length_positive CHECK (cdek_multi_length_cm IS NULL OR cdek_multi_length_cm > 0),
+    cdek_multi_width_cm    SMALLINT DEFAULT 20
+      CONSTRAINT store_settings_cdek_multi_width_positive  CHECK (cdek_multi_width_cm IS NULL OR cdek_multi_width_cm > 0),
+    cdek_multi_height_cm   SMALLINT DEFAULT 15
+      CONSTRAINT store_settings_cdek_multi_height_positive CHECK (cdek_multi_height_cm IS NULL OR cdek_multi_height_cm > 0),
+    cdek_webhook_uuid      TEXT,
+    CONSTRAINT store_settings_cdek_complete_check CHECK (cdek_pickup_enabled = false OR (cdek_client_id IS NOT NULL AND cdek_client_secret_enc IS NOT NULL AND cdek_pickup_delivery_kopecks IS NOT NULL)),
+    CONSTRAINT store_settings_cdek_auto_shipment_complete_check
+      CHECK (cdek_auto_shipment_enabled = false OR (
+        cdek_shipment_point IS NOT NULL AND char_length(btrim(cdek_shipment_point)) > 0 AND
+        cdek_sender_name    IS NOT NULL AND char_length(btrim(cdek_sender_name))    > 0 AND
+        cdek_sender_phone   IS NOT NULL AND char_length(btrim(cdek_sender_phone))   > 0
+      ))
 );
 
 -- Общий лимит попыток «Проверить связь» перевозчика (5 / 10 мин на actor+IP).
@@ -118,14 +155,29 @@ CREATE INDEX IF NOT EXISTS idx_delivery_test_attempts_window ON delivery_test_at
 CREATE TABLE IF NOT EXISTS order_admin_events (
     id BIGSERIAL PRIMARY KEY,
     order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
-    event_type TEXT NOT NULL CONSTRAINT order_admin_events_type_check CHECK (event_type IN ('cancelled', 'fulfillment_transition')),
+    event_type TEXT NOT NULL CONSTRAINT order_admin_events_type_check
+      CHECK (event_type IN ('cancelled', 'fulfillment_transition', 'cdek_status_update')),
     reason TEXT,
     from_fulfillment_status TEXT,
     to_fulfillment_status TEXT,
     tracking_number TEXT,
     actor_login_at BIGINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT order_admin_events_shape_check CHECK ((event_type = 'cancelled' AND reason IS NOT NULL AND char_length(btrim(reason)) BETWEEN 5 AND 500 AND from_fulfillment_status = 'awaiting_payment' AND to_fulfillment_status = 'cancelled' AND tracking_number IS NULL) OR (event_type = 'fulfillment_transition' AND reason IS NULL AND from_fulfillment_status IS NOT NULL AND to_fulfillment_status IS NOT NULL AND ((from_fulfillment_status = 'new' AND to_fulfillment_status = 'packing' AND tracking_number IS NULL) OR (from_fulfillment_status = 'packing' AND to_fulfillment_status = 'handed_to_carrier' AND tracking_number IS NOT NULL AND char_length(btrim(tracking_number)) BETWEEN 5 AND 64) OR (from_fulfillment_status = 'handed_to_carrier' AND to_fulfillment_status = 'delivered' AND tracking_number IS NULL))))
+    CONSTRAINT order_admin_events_shape_check CHECK (
+      (event_type = 'cancelled'
+        AND reason IS NOT NULL AND char_length(btrim(reason)) BETWEEN 5 AND 500
+        AND from_fulfillment_status = 'awaiting_payment'
+        AND to_fulfillment_status = 'cancelled' AND tracking_number IS NULL)
+      OR (event_type = 'fulfillment_transition'
+        AND reason IS NULL
+        AND from_fulfillment_status IS NOT NULL AND to_fulfillment_status IS NOT NULL
+        AND ((from_fulfillment_status = 'new'              AND to_fulfillment_status = 'packing'           AND tracking_number IS NULL)
+          OR (from_fulfillment_status = 'packing'          AND to_fulfillment_status = 'handed_to_carrier' AND tracking_number IS NOT NULL AND char_length(btrim(tracking_number)) BETWEEN 5 AND 64)
+          OR (from_fulfillment_status = 'handed_to_carrier' AND to_fulfillment_status = 'delivered'        AND tracking_number IS NULL)))
+      OR (event_type = 'cdek_status_update'
+        AND reason IS NULL
+        AND from_fulfillment_status IS NOT NULL AND to_fulfillment_status IS NOT NULL)
+    )
 );
 CREATE INDEX IF NOT EXISTS idx_order_admin_events_order_created ON order_admin_events (order_id, created_at DESC, id DESC);
 
@@ -179,3 +231,21 @@ CREATE TABLE IF NOT EXISTS order_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items (order_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- СДЭК — outbox автосоздания накладных (миграция 016)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS cdek_task_outbox (
+    id           BIGSERIAL PRIMARY KEY,
+    order_id     INTEGER NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+    task_type    TEXT NOT NULL CHECK (task_type IN ('create_shipment', 'poll_waybill')),
+    event_key    TEXT NOT NULL UNIQUE,
+    payload      JSONB NOT NULL DEFAULT '{}'::jsonb,
+    available_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'done', 'failed')),
+    locked_at    TIMESTAMPTZ,
+    done_at      TIMESTAMPTZ,
+    last_error   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_cdek_task_outbox_ready ON cdek_task_outbox (available_at, id) WHERE status = 'pending';

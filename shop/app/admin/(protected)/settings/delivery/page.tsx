@@ -1,13 +1,18 @@
 import DeliverySettingsForm from '@/app/admin/DeliverySettingsForm'
-import { getDeliverySettings } from '@/lib/store-settings'
+import CdekShipmentSettingsForm from '@/app/admin/CdekShipmentSettingsForm'
+import { getDeliverySettings, getCdekShipmentSettingsDto } from '@/lib/store-settings'
 export const dynamic = 'force-dynamic'
 export default async function DeliveryPage() {
-  // В форму уходит только безопасный DTO (маски/статусы), без открытых секретов.
+  const [deliverySettings, cdekShipmentSettings] = await Promise.all([
+    getDeliverySettings(),
+    getCdekShipmentSettingsDto(),
+  ])
   return (
     <section className="admin-content">
       <p className="admin-kicker">НАСТРОЙКИ</p>
       <h1>Доставка</h1>
-      <DeliverySettingsForm initial={await getDeliverySettings()} />
+      <DeliverySettingsForm initial={deliverySettings} />
+      <CdekShipmentSettingsForm initial={cdekShipmentSettings} />
     </section>
   )
 }

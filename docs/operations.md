@@ -1,13 +1,13 @@
 # МАВИТА-ШОП operations runbook
 
-Дата актуализации: 2026-06-21. URL, ключи и запреты — в `docs/environments.md`.
+Дата актуализации: 2026-06-25. URL, ключи и запреты — в `docs/environments.md`.
 
 ---
 
 ## Деплой на production
 
 ```bash
-# 1) синхронизировать код (секреты, node_modules, .next, фото — не трогаем)
+# 1) синхронизировать код (секреты, node_modules, .next, загружаемые фото — не трогаем)
 rsync -avz \
   --exclude='.env' --exclude='node_modules' --exclude='.next' --exclude='public/uploads' \
   shop/ mavita:/var/www/mavita-repo/shop/
@@ -20,6 +20,29 @@ ssh mavita "cd /var/www/mavita-repo/shop && npm run build && pm2 reload mavita -
 ```
 
 Проверка: `curl -s https://mavita.ru/api/products | head -c 50`
+
+> **Примечание:** `public/images/catalog/` (статические фото товаров) синхронизируется
+> штатным rsync и попадает на прод. Это не то же самое, что `public/uploads/` (фото,
+> загружаемые через админку) — тот каталог исключён намеренно.
+
+### Добавление/замена фото каталога
+
+При добавлении новых фотографий в `public/images/catalog/`:
+
+```bash
+# Оптимизировать перед деплоем (ресайз до 1600 px, JPEG 85%, PNG-фото → JPEG):
+cd shop && node scripts/optimize-images.mjs
+
+# Затем стандартный деплой (rsync синхронизирует public/images/)
+```
+
+`logo.png` скрипт пропускает автоматически (прозрачность). Если PNG-файл добавлен
+в `product_images` (БД), после конвертации нужно обновить расширение в БД:
+
+```bash
+ssh mavita "cd /var/www/mavita-repo/shop && export \$(grep DATABASE_URL .env | xargs) && \
+  psql \"\$DATABASE_URL\" -c \"UPDATE product_images SET filename = regexp_replace(filename, '\\.png\$', '.jpg') WHERE filename LIKE '/images/catalog/%.png'\""
+```
 
 ---
 
@@ -162,6 +185,52 @@ systemctl list-timers mavita-notifications.timer
 sudo systemctl start mavita-notifications.service
 journalctl -u mavita-notifications.service -n 30 --no-pager
 ```
+
+### Таймер СДЭК автоотправки (mavita-cdek)
+
+Воркер создаёт отправления в СДЭК и получает PDF-накладные. Аналог mavita-notifications.
+
+Установить `/etc/systemd/system/mavita-cdek.service`:
+
+```ini
+[Unit]
+Description=Mavita CDEK outbox drain
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/mavita-repo/shop
+EnvironmentFile=/var/www/mavita-repo/shop/.env
+ExecStart=/usr/bin/npm run cdek:drain
+```
+
+И `/etc/systemd/system/mavita-cdek.timer`:
+
+```ini
+[Unit]
+Description=Run Mavita CDEK outbox every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Применить и проверить:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now mavita-cdek.timer
+systemctl list-timers mavita-cdek.timer
+sudo systemctl start mavita-cdek.service
+journalctl -u mavita-cdek.service -n 30 --no-pager
+```
+
+После установки: в админке **Настройки → Доставка** заполнить точку сдачи, данные
+отправителя, нажать **«Зарегистрировать вебхук»**, затем **«Сохранить»** и включить
+автосоздание накладных (чекбокс). Вебхук нужен чтобы СДЭК слал статусы обратно:
+URL вебхука `https://mavita.ru/api/cdek/webhook`.
 
 ### Egress-прокси для Telegram (обход РФ-блокировки)
 

@@ -14,6 +14,7 @@ import 'server-only' // расшифровывает секреты перево
 import { createHash } from 'node:crypto'
 import { isDbConfigured, query, withTransaction } from '@/lib/db'
 import { decryptSecret, encryptSecret, maskSecret } from '@/lib/secret-box'
+import type { ShipmentSettings } from '@/lib/cdek-shipment'
 
 export type Carrier = 'cdek'
 export const CARRIERS: Carrier[] = ['cdek']
@@ -45,8 +46,15 @@ const DESC: Record<Carrier, CarrierDesc> = {
 type SettingsRow = {
   cdek_pickup_enabled: boolean; cdek_pickup_delivery_kopecks: number | string | null; cdek_client_id: string | null; cdek_client_secret_enc: Buffer | null
   updated_at: Date | string; updated_by_actor_login_at: number | string
+  // Автоотправка СДЭК
+  cdek_auto_shipment_enabled: boolean
+  cdek_shipment_point: string | null; cdek_sender_name: string | null; cdek_sender_phone: string | null
+  cdek_default_weight_grams: number | string | null
+  cdek_default_length_cm: number | string | null; cdek_default_width_cm: number | string | null; cdek_default_height_cm: number | string | null
+  cdek_multi_length_cm: number | string | null; cdek_multi_width_cm: number | string | null; cdek_multi_height_cm: number | string | null
+  cdek_webhook_uuid: string | null
 }
-const ALL_COLS = 'cdek_pickup_enabled, cdek_pickup_delivery_kopecks, cdek_client_id, cdek_client_secret_enc, updated_at, updated_by_actor_login_at'
+const ALL_COLS = 'cdek_pickup_enabled, cdek_pickup_delivery_kopecks, cdek_client_id, cdek_client_secret_enc, updated_at, updated_by_actor_login_at, cdek_auto_shipment_enabled, cdek_shipment_point, cdek_sender_name, cdek_sender_phone, cdek_default_weight_grams, cdek_default_length_cm, cdek_default_width_cm, cdek_default_height_cm, cdek_multi_length_cm, cdek_multi_width_cm, cdek_multi_height_cm, cdek_webhook_uuid'
 
 function rawEnabled(row: SettingsRow, c: Carrier): boolean { return Boolean(row[DESC[c].enabledCol as keyof SettingsRow]) }
 function rawClientId(row: SettingsRow, c: Carrier): string | null { const v = row[DESC[c].idCol as keyof SettingsRow]; return typeof v === 'string' ? v : null }
@@ -193,6 +201,123 @@ export async function saveCarrierSettings(carrier: Carrier, patch: CarrierPatch,
       [enabled, tariff, clientId, enc, actorLoginAt],
     )
     return settingsDto(rows.rows[0])
+  })
+}
+
+// ── Настройки автоотправки СДЭК ──────────────────────────────────────────────
+
+export type CdekShipmentSettingsDto = {
+  autoShipmentEnabled: boolean
+  shipmentPoint: string | null; senderName: string | null; senderPhone: string | null
+  defaultWeightGrams: number; defaultLengthCm: number; defaultWidthCm: number; defaultHeightCm: number
+  multiLengthCm: number; multiWidthCm: number; multiHeightCm: number
+  webhookUuid: string | null
+}
+
+function cdekShipmentDto(row: SettingsRow | null): CdekShipmentSettingsDto {
+  return {
+    autoShipmentEnabled: row?.cdek_auto_shipment_enabled ?? false,
+    shipmentPoint: row?.cdek_shipment_point ?? null,
+    senderName: row?.cdek_sender_name ?? null,
+    senderPhone: row?.cdek_sender_phone ?? null,
+    defaultWeightGrams: row?.cdek_default_weight_grams != null ? Number(row.cdek_default_weight_grams) : 500,
+    defaultLengthCm: row?.cdek_default_length_cm != null ? Number(row.cdek_default_length_cm) : 11,
+    defaultWidthCm: row?.cdek_default_width_cm != null ? Number(row.cdek_default_width_cm) : 11,
+    defaultHeightCm: row?.cdek_default_height_cm != null ? Number(row.cdek_default_height_cm) : 11,
+    multiLengthCm: row?.cdek_multi_length_cm != null ? Number(row.cdek_multi_length_cm) : 30,
+    multiWidthCm: row?.cdek_multi_width_cm != null ? Number(row.cdek_multi_width_cm) : 20,
+    multiHeightCm: row?.cdek_multi_height_cm != null ? Number(row.cdek_multi_height_cm) : 15,
+    webhookUuid: row?.cdek_webhook_uuid ?? null,
+  }
+}
+
+export async function getCdekShipmentSettingsDto(): Promise<CdekShipmentSettingsDto> {
+  if (!isDbConfigured()) return cdekShipmentDto(null)
+  return cdekShipmentDto(await readRow())
+}
+
+/** Для воркера: возвращает null, если автоотправка выключена или не настроена. */
+export async function getCdekShipmentSettings(): Promise<ShipmentSettings | null> {
+  if (!isDbConfigured()) return null
+  const row = await readRow()
+  if (!row?.cdek_auto_shipment_enabled) return null
+  if (!row.cdek_shipment_point || !row.cdek_sender_name || !row.cdek_sender_phone) return null
+  return {
+    shipmentPoint: row.cdek_shipment_point,
+    senderName: row.cdek_sender_name,
+    senderPhone: row.cdek_sender_phone,
+    defaultWeightGrams: row.cdek_default_weight_grams != null ? Number(row.cdek_default_weight_grams) : 500,
+    defaultLengthCm: row.cdek_default_length_cm != null ? Number(row.cdek_default_length_cm) : 11,
+    defaultWidthCm: row.cdek_default_width_cm != null ? Number(row.cdek_default_width_cm) : 11,
+    defaultHeightCm: row.cdek_default_height_cm != null ? Number(row.cdek_default_height_cm) : 11,
+    multiLengthCm: row.cdek_multi_length_cm != null ? Number(row.cdek_multi_length_cm) : 30,
+    multiWidthCm: row.cdek_multi_width_cm != null ? Number(row.cdek_multi_width_cm) : 20,
+    multiHeightCm: row.cdek_multi_height_cm != null ? Number(row.cdek_multi_height_cm) : 15,
+  }
+}
+
+export type CdekShipmentPatch = {
+  autoShipmentEnabled?: boolean
+  shipmentPoint?: string | null; senderName?: string | null; senderPhone?: string | null
+  defaultWeightGrams?: number; defaultLengthCm?: number; defaultWidthCm?: number; defaultHeightCm?: number
+  multiLengthCm?: number; multiWidthCm?: number; multiHeightCm?: number
+  webhookUuid?: string | null
+}
+
+export class CdekShipmentConfigError extends Error {
+  constructor(message: string) { super(message); this.name = 'CdekShipmentConfigError' }
+}
+
+export async function saveCdekShipmentSettings(patch: CdekShipmentPatch): Promise<CdekShipmentSettingsDto> {
+  if (!isDbConfigured()) throw new Error('DATABASE_URL is not set')
+  return withTransaction(async (client) => {
+    const current = (await client.query<SettingsRow>(
+      `SELECT ${ALL_COLS} FROM store_settings WHERE singleton = true FOR UPDATE`,
+    )).rows[0] ?? null
+
+    const enabled   = patch.autoShipmentEnabled ?? current?.cdek_auto_shipment_enabled ?? false
+    const point     = patch.shipmentPoint   !== undefined ? patch.shipmentPoint  : current?.cdek_shipment_point  ?? null
+    const sender    = patch.senderName      !== undefined ? patch.senderName     : current?.cdek_sender_name     ?? null
+    const phone     = patch.senderPhone     !== undefined ? patch.senderPhone    : current?.cdek_sender_phone    ?? null
+    const wGrams    = patch.defaultWeightGrams !== undefined ? patch.defaultWeightGrams : current?.cdek_default_weight_grams != null ? Number(current.cdek_default_weight_grams) : 500
+    const dLen      = patch.defaultLengthCm !== undefined ? patch.defaultLengthCm : current?.cdek_default_length_cm != null ? Number(current.cdek_default_length_cm) : 11
+    const dWid      = patch.defaultWidthCm  !== undefined ? patch.defaultWidthCm  : current?.cdek_default_width_cm  != null ? Number(current.cdek_default_width_cm)  : 11
+    const dHgt      = patch.defaultHeightCm !== undefined ? patch.defaultHeightCm : current?.cdek_default_height_cm != null ? Number(current.cdek_default_height_cm) : 11
+    const mLen      = patch.multiLengthCm   !== undefined ? patch.multiLengthCm   : current?.cdek_multi_length_cm   != null ? Number(current.cdek_multi_length_cm)   : 30
+    const mWid      = patch.multiWidthCm    !== undefined ? patch.multiWidthCm    : current?.cdek_multi_width_cm    != null ? Number(current.cdek_multi_width_cm)    : 20
+    const mHgt      = patch.multiHeightCm   !== undefined ? patch.multiHeightCm   : current?.cdek_multi_height_cm   != null ? Number(current.cdek_multi_height_cm)   : 15
+    const webhook   = patch.webhookUuid !== undefined ? patch.webhookUuid : current?.cdek_webhook_uuid ?? null
+
+    if (enabled && (!point?.trim() || !sender?.trim() || !phone?.trim())) {
+      throw new CdekShipmentConfigError('Нельзя включить автоотправку без точки сдачи, имени и телефона отправителя')
+    }
+
+    const rows = await client.query<SettingsRow>(
+      `INSERT INTO store_settings
+         (singleton, cdek_pickup_enabled, cdek_auto_shipment_enabled,
+          cdek_shipment_point, cdek_sender_name, cdek_sender_phone,
+          cdek_default_weight_grams, cdek_default_length_cm, cdek_default_width_cm, cdek_default_height_cm,
+          cdek_multi_length_cm, cdek_multi_width_cm, cdek_multi_height_cm, cdek_webhook_uuid,
+          updated_at, updated_by_actor_login_at)
+       VALUES (true, false, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now(), 0)
+       ON CONFLICT (singleton) DO UPDATE SET
+         cdek_auto_shipment_enabled = EXCLUDED.cdek_auto_shipment_enabled,
+         cdek_shipment_point = EXCLUDED.cdek_shipment_point,
+         cdek_sender_name = EXCLUDED.cdek_sender_name,
+         cdek_sender_phone = EXCLUDED.cdek_sender_phone,
+         cdek_default_weight_grams = EXCLUDED.cdek_default_weight_grams,
+         cdek_default_length_cm = EXCLUDED.cdek_default_length_cm,
+         cdek_default_width_cm = EXCLUDED.cdek_default_width_cm,
+         cdek_default_height_cm = EXCLUDED.cdek_default_height_cm,
+         cdek_multi_length_cm = EXCLUDED.cdek_multi_length_cm,
+         cdek_multi_width_cm = EXCLUDED.cdek_multi_width_cm,
+         cdek_multi_height_cm = EXCLUDED.cdek_multi_height_cm,
+         cdek_webhook_uuid = EXCLUDED.cdek_webhook_uuid,
+         updated_at = now()
+       RETURNING ${ALL_COLS}`,
+      [enabled, point, sender, phone, wGrams, dLen, dWid, dHgt, mLen, mWid, mHgt, webhook],
+    )
+    return cdekShipmentDto(rows.rows[0])
   })
 }
 

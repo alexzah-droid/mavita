@@ -48,6 +48,7 @@ export default function AdminProductForm({ product }: { product?: AdminProduct }
   const [salePrice, setSalePrice] = useState(product?.sale ? rubles(product.sale.priceKopecks) : '')
   const [startsAt, setStartsAt] = useState<DateState>(initDate(product?.sale?.startsAt ?? null))
   const [endsAt, setEndsAt] = useState<DateState>(initDate(product?.sale?.endsAt ?? null))
+  const [weightGrams, setWeightGrams] = useState(product?.weightGrams != null ? String(product.weightGrams) : '')
   const [message, setMessage] = useState('')
   const [images, setImages] = useState<AdminImage[]>(product?.images ?? [])
   const [confirmName, setConfirmName] = useState('')
@@ -70,7 +71,9 @@ export default function AdminProductForm({ product }: { product?: AdminProduct }
       if (!ends.ok) return setMessage(ends.message)
       sale = { priceKopecks: kopecks(salePrice), startsAt: starts.value, endsAt: ends.value }
     }
-    const body = { name, slug, priceKopecks: kopecks(price), series: series || null, subtitle: subtitle || null, description: description || null, scent: scent.split(',').map((x) => x.trim()).filter(Boolean), visibility, inStock, sale }
+    const weightGramsNum = weightGrams.trim() ? Number(weightGrams.trim()) : null
+    if (weightGramsNum !== null && (!Number.isInteger(weightGramsNum) || weightGramsNum <= 0)) return setMessage('Вес должен быть положительным целым числом')
+    const body = { name, slug, priceKopecks: kopecks(price), series: series || null, subtitle: subtitle || null, description: description || null, scent: scent.split(',').map((x) => x.trim()).filter(Boolean), visibility, inStock, sale, weightGrams: weightGramsNum }
     const response = await fetch(product ? `/api/admin/products/${product.id}` : '/api/admin/products', { method: product ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     if (response.ok) { const saved = await response.json(); router.replace(`/admin/products/${saved.id}/edit`); router.refresh() }
     else { const error = await response.json().catch(() => null); setMessage(error?.error?.messages?.join('. ') ?? 'Не удалось сохранить') }
@@ -128,6 +131,7 @@ export default function AdminProductForm({ product }: { product?: AdminProduct }
       <label>Серия<input value={series} onChange={(e) => setSeries(e.target.value)} /></label>
       <label>Подзаголовок<input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} /></label>
       <label>Ароматы через запятую<input value={scent} onChange={(e) => setScent(e.target.value)} /></label>
+      <label>Вес, г (для СДЭК)<input inputMode="numeric" value={weightGrams} placeholder="500" onChange={(e) => setWeightGrams(e.target.value)} /></label>
       <label className="admin-wide">Описание<textarea value={description} onChange={(e) => setDescription(e.target.value)} /></label>
     </div>
     <fieldset><legend>Витрина</legend>
