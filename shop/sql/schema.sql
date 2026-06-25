@@ -166,7 +166,7 @@ CREATE TABLE IF NOT EXISTS order_admin_events (
     CONSTRAINT order_admin_events_shape_check CHECK (
       (event_type = 'cancelled'
         AND reason IS NOT NULL AND char_length(btrim(reason)) BETWEEN 5 AND 500
-        AND from_fulfillment_status = 'awaiting_payment'
+        AND from_fulfillment_status IN ('awaiting_payment', 'new', 'packing')
         AND to_fulfillment_status = 'cancelled' AND tracking_number IS NULL)
       OR (event_type = 'fulfillment_transition'
         AND reason IS NULL

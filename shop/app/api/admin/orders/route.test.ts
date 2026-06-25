@@ -33,7 +33,7 @@ describe('admin orders API', () => {
     expect(mocks.cancel).not.toHaveBeenCalled()
     mocks.csrf.mockReturnValue(null)
     expect((await POST(post('http://localhost/api/admin/orders/9/cancel', { reason: 'нет' }), { params: Promise.resolve({ id: '9' }) })).status).toBe(400)
-    mocks.cancel.mockResolvedValue('not_pending')
+    mocks.cancel.mockResolvedValue('not_cancellable')
     expect((await POST(post('http://localhost/api/admin/orders/9/cancel', { reason: 'Оплата уже получена' }), { params: Promise.resolve({ id: '9' }) })).status).toBe(409)
     expect(mocks.cancel).toHaveBeenCalledWith(9, 'Оплата уже получена', 7)
   })

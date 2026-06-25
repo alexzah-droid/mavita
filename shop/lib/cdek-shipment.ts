@@ -338,6 +338,20 @@ export async function unregisterWebhook(
   }
 }
 
+export async function annulCdekShipment(
+  creds: DeliveryCredentials,
+  uuid: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const result = await cdekDelete(creds, `/orders/${uuid}`)
+    // 404 = уже удалено на стороне СДЭК — считаем успехом
+    if (result.ok || result.status === 404) return { ok: true }
+    return { ok: false, error: `СДЭК HTTP ${result.status}` }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Ошибка аннулирования СДЭК' }
+  }
+}
+
 // ── Обновление протухших URL накладной и штрихкода ───────────────────────────
 
 export async function refreshWaybillUrls(

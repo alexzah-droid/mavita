@@ -41,14 +41,53 @@ export async function getAdminOrderById(id: number): Promise<AdminOrderDetail | 
   const base = listDto(row); return { ...base, customerPhone: row.customer_phone, invId: row.inv_id, itemsKopecks: Number(row.items_kopecks), deliveryKopecks: Number(row.delivery_kopecks), deliveryCarrier: row.delivery_carrier, deliveryMethod: row.delivery_method, pickupPoint: row.pickup_point_code && row.pickup_point_city && row.pickup_point_name && row.pickup_point_address ? { code: row.pickup_point_code, city: row.pickup_point_city, name: row.pickup_point_name, address: row.pickup_point_address } : null, trackingNumber: row.tracking_number, cdekOrderUuid: row.cdek_order_uuid, cdekNumber: row.cdek_number, cdekWaybillUrl: row.cdek_waybill_url, cdekBarcodeUrl: row.cdek_barcode_url, cdekError: row.cdek_error, items: items.map((item) => ({ productName: item.product_name, priceKopecks: Number(item.price_kopecks), quantity: item.quantity })), adminEvents: events.map((event) => ({ id: event.id, eventType: event.event_type, reason: event.reason, fromFulfillmentStatus: event.from_fulfillment_status, toFulfillmentStatus: event.to_fulfillment_status, trackingNumber: event.tracking_number, actorLoginAt: Number(event.actor_login_at), createdAt: new Date(event.created_at).toISOString() })) }
 }
 
-export async function cancelAdminOrder(id: number, reason: string, actorLoginAt: number): Promise<'not_found' | 'not_pending' | AdminOrderDetail> {
+export type CancelAdminOrderResult =
+  | 'not_found'
+  | 'not_cancellable'  // уже передан перевозчику, выдан или сам pending-ой нет
+  | { order: AdminOrderDetail; cdekOrderUuid: string | null }
+
+export async function cancelAdminOrder(id: number, reason: string, actorLoginAt: number): Promise<CancelAdminOrderResult> {
   if (!isDbConfigured()) return 'not_found'
   const outcome = await withTransaction(async (client) => {
-    const changed = await client.query<{ id: number }>(`UPDATE orders SET status = 'cancelled', fulfillment_status = 'cancelled' WHERE id = $1 AND status = 'pending' AND fulfillment_status = 'awaiting_payment' RETURNING id`, [id])
-    if (changed.rows[0]) { await client.query(`INSERT INTO order_admin_events (order_id, event_type, reason, from_fulfillment_status, to_fulfillment_status, actor_login_at) VALUES ($1, 'cancelled', $2, 'awaiting_payment', 'cancelled', $3)`, [id, reason, actorLoginAt]); await enqueueOrderNotification(client, { orderId: id, eventType: 'order_cancelled', eventKey: `order:${id}:cancelled`, reason }); return 'changed' as const }
-    const exists = await client.query<{ id: number }>('SELECT id FROM orders WHERE id = $1', [id]); return exists.rows[0] ? 'not_pending' as const : 'not_found' as const
+    const sel = await client.query<{ status: string; fulfillment_status: string; cdek_order_uuid: string | null }>(
+      'SELECT status, fulfillment_status, cdek_order_uuid FROM orders WHERE id = $1 FOR UPDATE',
+      [id],
+    )
+    const row = sel.rows[0]
+    if (!row) return 'not_found' as const
+
+    const isPending = row.status === 'pending' && row.fulfillment_status === 'awaiting_payment'
+    const isPaidCancellable = row.status === 'paid' && (row.fulfillment_status === 'new' || row.fulfillment_status === 'packing')
+    if (!isPending && !isPaidCancellable) return 'not_cancellable' as const
+
+    await client.query(
+      `UPDATE orders SET status = 'cancelled', fulfillment_status = 'cancelled' WHERE id = $1`,
+      [id],
+    )
+
+    if (isPaidCancellable) {
+      // Отменяем pending/processing/failed задачи outbox — чтобы воркер не создал отправление
+      // after the order is already cancelled. Задачи в состоянии done трогать не нужно.
+      await client.query(
+        `UPDATE cdek_task_outbox
+         SET status = 'failed', last_error = 'Заказ отменён администратором', locked_at = NULL
+         WHERE order_id = $1 AND status IN ('pending', 'processing', 'failed')`,
+        [id],
+      )
+    }
+
+    await client.query(
+      `INSERT INTO order_admin_events
+         (order_id, event_type, reason, from_fulfillment_status, to_fulfillment_status, actor_login_at)
+       VALUES ($1, 'cancelled', $2, $3, 'cancelled', $4)`,
+      [id, reason, row.fulfillment_status, actorLoginAt],
+    )
+    await enqueueOrderNotification(client, { orderId: id, eventType: 'order_cancelled', eventKey: `order:${id}:cancelled`, reason })
+    return { cdekOrderUuid: isPaidCancellable ? (row.cdek_order_uuid ?? null) : null }
   })
-  return outcome === 'changed' ? (await getAdminOrderById(id))! : outcome
+
+  if (outcome === 'not_found' || outcome === 'not_cancellable') return outcome
+  return { order: (await getAdminOrderById(id))!, cdekOrderUuid: outcome.cdekOrderUuid }
 }
 
 export async function transitionFulfillment(id: number, next: 'packing' | 'handed_to_carrier' | 'delivered', trackingNumber: string | undefined, actorLoginAt: number): Promise<'not_found' | 'invalid' | AdminOrderDetail> {
