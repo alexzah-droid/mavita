@@ -1,11 +1,14 @@
 import type { Metadata } from 'next'
 import ShopHeader from '@/app/components/ShopHeader'
 import SiteFooter from '@/app/components/SiteFooter'
+import { buildPageMetadata } from '@/lib/seo'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Политика конфиденциальности — МАВИТА',
-  description: 'Политика обработки персональных данных интернет-магазина МАВИТА.',
-}
+  description:
+    'Политика обработки персональных данных интернет-магазина МАВИТА.',
+  path: '/privacy',
+})
 
 export default function PrivacyPage() {
   return (

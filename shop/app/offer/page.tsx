@@ -1,11 +1,14 @@
 import type { Metadata } from 'next'
 import ShopHeader from '@/app/components/ShopHeader'
 import SiteFooter from '@/app/components/SiteFooter'
+import { buildPageMetadata } from '@/lib/seo'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Публичная оферта — МАВИТА',
-  description: 'Публичная оферта о заключении договора купли-продажи в интернет-магазине МАВИТА.',
-}
+  description:
+    'Публичная оферта о заключении договора купли-продажи в интернет-магазине МАВИТА.',
+  path: '/offer',
+})
 
 // Текст оферты сгенерирован конструктором Robokassa и заполнен реквизитами
 // продавца (самозанятый). Источник: docs/source/oferta_783903348620.docx.

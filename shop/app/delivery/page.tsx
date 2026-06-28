@@ -4,11 +4,15 @@ import ShopHeader from '@/app/components/ShopHeader'
 import SiteFooter from '@/app/components/SiteFooter'
 import { CARRIER_LABEL, resolveDeliveryMode } from '@/lib/store-settings'
 import { formatRub } from '@/lib/price'
+import { buildPageMetadata } from '@/lib/seo'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Доставка — МАВИТА',
-  description: 'Доставка заказов МАВИТА в пункты выдачи СДЭК. Стоимость, сроки и порядок оплаты.',
-}
+  description:
+    'Доставка заказов МАВИТА в пункты выдачи СДЭК. Стоимость, сроки и порядок оплаты.',
+  path: '/delivery',
+  keywords: ['доставка свечей', 'СДЭК', 'ПВЗ', 'доставка МАВИТА'],
+})
 
 // Динамическая страница: активные перевозчики и тарифы берутся из настроек
 // магазина (store_settings), 0 означает бесплатную доставку. Контент — из раздела

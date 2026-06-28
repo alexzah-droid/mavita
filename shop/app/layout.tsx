@@ -1,11 +1,17 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { CartProvider } from '@/app/cart/CartProvider'
+import {
+  SITE_DESCRIPTION,
+  buildPageMetadata,
+} from '@/lib/seo'
 
 export const metadata: Metadata = {
-  title: 'МАВИТА — Тишина, которую можно зажечь',
-  description:
-    'Ароматические свечи ручной работы. Ритуал восстановления через аромат природы.',
+  ...buildPageMetadata({
+    title: 'МАВИТА — Тишина, которую можно зажечь',
+    description: SITE_DESCRIPTION,
+    path: '/',
+  }),
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

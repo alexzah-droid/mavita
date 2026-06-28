@@ -7,6 +7,11 @@ import ShopHeader from '@/app/components/ShopHeader'
 import PriceDisplay from '@/app/components/PriceDisplay'
 import ProductGallery from '@/app/components/ProductGallery'
 import SiteFooter from '@/app/components/SiteFooter'
+import { productPath } from '@/lib/product-url'
+import {
+  buildPageMetadata,
+  buildProductJsonLd,
+} from '@/lib/seo'
 
 // Карточка товара рендерится на запрос — данные берутся из БД в рантайме.
 export const dynamic = 'force-dynamic'
@@ -19,9 +24,20 @@ export async function generateMetadata({
   const { slug } = await params
   const product = await getProductBySlug(slug)
   if (!product) return {}
+
   return {
-    title: `${product.name} — МАВИТА`,
-    description: product.description,
+    ...buildPageMetadata({
+      title: `${product.name} — МАВИТА`,
+      description: product.description,
+      path: productPath(product.slug),
+      imagePath: product.image,
+      keywords: [
+        product.name,
+        product.series,
+        product.category ?? '',
+        ...product.scent,
+      ].filter(Boolean),
+    }),
   }
 }
 
@@ -33,9 +49,14 @@ export default async function ProductPage({
   const { slug } = await params
   const product = await getProductBySlug(slug)
   if (!product) notFound()
+  const productJsonLd = buildProductJsonLd(product)
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
       <ShopHeader />
 
       <div className="product-page">

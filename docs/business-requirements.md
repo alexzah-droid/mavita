@@ -109,6 +109,12 @@
 | FR-PAGE-2 | Политика конфиденциальности | `app/privacy/page.tsx` |
 | FR-PAGE-3 | Доставка | `app/delivery/page.tsx` — публичная страница с описанием доставки через ПВЗ СДЭК |
 
+### 3.7 Technical SEO
+
+| ID | Функция | Правила | Код |
+| --- | --- | --- | --- |
+| FR-SEO-1 | Базовый technical SEO | Есть `robots.txt`, `sitemap.xml`, canonical/Open Graph/Twitter metadata на ключевых публичных страницах, JSON-LD `Organization` на витрине и `Product` на карточке; служебные страницы (`/admin`, `/cart`, `/checkout`, `/order/<token>`) закрыты от индексации | `app/robots.ts`, `app/sitemap.ts`, `lib/seo.ts`, `app/layout.tsx`, `app/page.tsx`, `app/product/[slug]/page.tsx`, `app/{admin,cart,checkout}/layout.tsx`, `app/order/[token]/page.tsx` |
+
 ---
 
 ## 4. Функции — администрирование

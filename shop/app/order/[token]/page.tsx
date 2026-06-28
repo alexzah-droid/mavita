@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getOrderByToken } from '@/lib/orders'
@@ -6,8 +7,24 @@ import { formatRub } from '@/lib/price'
 import { CARRIER_LABEL } from '@/lib/store-settings'
 import ShopHeader from '@/app/components/ShopHeader'
 import SiteFooter from '@/app/components/SiteFooter'
+import { buildPageMetadata } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>
+}): Promise<Metadata> {
+  const { token } = await params
+
+  return buildPageMetadata({
+    title: 'Статус заказа — МАВИТА',
+    description: 'Персональная страница статуса заказа в интернет-магазине МАВИТА.',
+    path: `/order/${token}`,
+    noIndex: true,
+  })
+}
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Ожидает оплаты',

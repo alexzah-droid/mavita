@@ -9,7 +9,7 @@
 
 ## Статус
 
-> 245 тестов в 47 файлах зелёные (`npm test`, 2026-06-28). Покрыты Ф0–Ф3,
+> 255 тестов в 49 файлах зелёные (`npm test`, 2026-06-28). Покрыты Ф0–Ф3,
 > оба текущих компонента Ф4; `npm run typecheck` упомянут как release gate.
 > I5/I8/I9/I10 покрыты unit/mock-интеграционными тестами. Прогон с реальной
 > PostgreSQL/ФС, CDEK и Робокассой остаётся отдельной проверкой стенда.
@@ -49,6 +49,7 @@ Live-прогон PostgreSQL `SKIP LOCKED` и реальных ответов Te
 | FR-CAT-2 URL по slug | — | `lib/slug.test.ts`, `lib/product-url.test.ts` | ✅ |
 | FR-CAT-4 эффективная цена/скидка на витрине | I2 | `lib/pricing.test.ts`, `lib/price.test.ts` | ✅ |
 | FR-CAT-3/6 галерея, атрибуты, ароматы | — | — (UI) | ⬜ |
+| FR-SEO-1 robots/sitemap/metadata/JSON-LD | — | `lib/seo.test.ts` + структурная проверка app routes | ✅ |
 | FR-CART-1…4 корзина, количество, итог | — | `lib/cart.test.ts` | ✅ |
 | FR-CHK-1/2 валидация формы и контактов | — | `lib/orders.test.ts` | ✅ |
 | FR-CHK-4/5/7 создание заказа, snapshot цены, дубли | I9 | `lib/orders.test.ts` | ✅ (live PostgreSQL открыт) |

@@ -301,11 +301,13 @@ rate limiting”, а усилить текущую реализацию.
 
 ### P4 — SEO-техническая база
 
-9. **Закрыть базовый technical SEO.**
-   - `robots`, `sitemap`, Open Graph, JSON-LD (`Product`/`Organization`),
-     расширение metadata на ключевых страницах.
-   - Причина: это полезнее и дешевле, чем ранний “контент-маркетинг”, и не
-     мешает основному checkout/ops-контуру.
+9. **✅ Закрыт базовый technical SEO.**
+   - Добавлены `robots`, `sitemap`, canonical/Open Graph/Twitter metadata на
+     ключевых публичных страницах, JSON-LD (`Organization`/`WebSite` на
+     витрине, `Product` на карточке товара).
+   - Служебные страницы (`/admin`, `/cart`, `/checkout`, `/order/<token>`)
+     закрыты от индексации.
+   - Проверка: `lib/seo.test.ts`, `npm run typecheck`, `npm test`.
 
 10. **Усилить карточки товара контентом.**
    - Характеристики, более полное описание, usage hints, при наличии —
