@@ -89,6 +89,23 @@ describe('credentials access', () => {
     const { getStoredCredentials } = await import('@/lib/store-settings')
     expect((await getStoredCredentials('cdek'))?.secret).toBe('cdek-secret')
   })
+  it('getCdekShipmentSettings не зависит от autoShipmentEnabled для уже поставленных задач', async () => {
+    mocks.query.mockResolvedValue([cdekConfigured({
+      cdek_auto_shipment_enabled: false,
+      cdek_shipment_point: 'SPB116',
+      cdek_sender_name: 'МАВИТА',
+      cdek_sender_phone: '+79211899008',
+      cdek_default_weight_grams: 500,
+      cdek_default_length_cm: 11,
+      cdek_default_width_cm: 11,
+      cdek_default_height_cm: 11,
+      cdek_multi_length_cm: 30,
+      cdek_multi_width_cm: 20,
+      cdek_multi_height_cm: 15,
+    })])
+    const { getCdekShipmentSettings } = await import('@/lib/store-settings')
+    expect(await getCdekShipmentSettings()).toMatchObject({ shipmentPoint: 'SPB116', senderName: 'МАВИТА' })
+  })
 })
 
 describe('getDeliverySettings (admin DTO)', () => {

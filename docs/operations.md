@@ -227,6 +227,32 @@ sudo systemctl start mavita-cdek.service
 journalctl -u mavita-cdek.service -n 30 --no-pager
 ```
 
+### Read-only readiness check перед следующим реальным заказом
+
+Без создания тестового заказа можно прогнать сводную проверку готовности
+пост-синхронизационного контура СДЭК:
+
+```bash
+cd /var/www/mavita-repo/shop
+npm run cdek:readiness
+# или машинно-читаемый вывод
+npm run cdek:readiness -- --json
+```
+
+Скрипт проверяет:
+- env-гейты (`DATABASE_URL`, `SETTINGS_ENC_KEY`, `NEXT_PUBLIC_BASE_URL`, `DELIVERY_ENABLED`);
+- текущий delivery-mode checkout;
+- сохранённые credentials СДЭК + live probe `Москва → city_code → pickup points`;
+- настройки автоотправки (`shipmentPoint`, отправитель, `cdek_auto_shipment_enabled`);
+- наличие `webhookUuid` в БД и достижимость публичного `/api/cdek/webhook`;
+- systemd-таймеры `mavita-cdek.timer` и `mavita-notifications.timer`;
+- health БД: `cdek_task_outbox`, следы `cdek_status_update`, исторические `cdek_order_uuid/waybill/barcode`.
+
+`READY` означает, что контур готов конфигурационно; `WARN` по блоку evidence
+ожидаем, если автоотправка включена после исторических заказов и следующий
+реальный заказ должен стать первым боевым подтверждением `auto-shipment → webhook
+→ waybill/barcode`.
+
 После установки: в админке **Настройки → Доставка** заполнить точку сдачи, данные
 отправителя, нажать **«Зарегистрировать вебхук»**, затем **«Сохранить»** и включить
 автосоздание накладных (чекбокс). Вебхук нужен чтобы СДЭК слал статусы обратно:

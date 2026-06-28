@@ -6,7 +6,9 @@ const config: NextConfig = {
   // родительский package-lock.json вне репозитория и пишет предупреждение.
   outputFileTracingRoot: import.meta.dirname,
   images: {
-    unoptimized: true,
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [640, 828, 1080, 1200, 1600],
+    imageSizes: [64, 128, 256, 384, 600],
   },
 }
 

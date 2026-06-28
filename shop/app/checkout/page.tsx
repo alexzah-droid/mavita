@@ -13,6 +13,10 @@ import type { PickupPoint } from '@/lib/delivery/types'
 type CdekCity = { code: number; city: string; region: string | null }
 function cityLabel(c: CdekCity) { return c.region ? `${c.city}, ${c.region}` : c.city }
 
+const MOSCOW: CdekCity = { code: 423, city: 'Москва', region: null }
+const CITY_CACHE_KEY = 'mavita_cdek_city'
+const CITY_CACHE_TTL = 3_600_000 // 1 час
+
 export default function CheckoutPage() {
   const router = useRouter()
   const { cart, ready, count, totalKopecks, clear } = useCart()
@@ -57,11 +61,11 @@ export default function CheckoutPage() {
     setEmail(localStorage.getItem('mavita_checkout_email') ?? '')
   }, [])
 
-  // Начинаем качать бандл виджета как только знаем, что он нужен —
-  // параллельно с остальными запросами, не дожидаясь рендера CdekWidget.
+  // Начинаем качать бандл виджета сразу при открытии страницы — параллельно
+  // с запросом delivery API, не дожидаясь подтверждения isCdek.
   useEffect(() => {
-    if (isCdek && yandexKey.length > 0) import('@cdek-it/widget').catch(() => {})
-  }, [isCdek, yandexKey])
+    if (yandexKey.length > 0) import('@cdek-it/widget').catch(() => {})
+  }, [])
 
   useEffect(() => { fetch('/api/checkout/delivery').then(async (res) => { const data = await res.json(); if (res.ok) { if (data.mode === 'pickup_required' && Array.isArray(data.carriers) && data.carriers.length) { setDeliveryEnabled(true); setCarriers(data.carriers); setCarrier(data.carriers[0]) } else { setDeliveryEnabled(false) } } else setErrors(data.error?.messages ?? ['Оформление временно недоступно']) }).catch(() => setErrors(['Оформление временно недоступно'])) }, [])
   useEffect(() => { setConfirmedAmounts(null) }, [cart.lines])
@@ -87,13 +91,32 @@ export default function CheckoutPage() {
     setIpPrefillCity(null); setSelectedCity(null); setCityInput(''); setPickupPoints([]); setPickupPoint(null); setCitySuggestions([])
   }
 
-  // Префилл города по IP (СДЭК): один раз при активной доставке, пока город не выбран.
+  // Префилл города по IP (СДЭК): один раз при активной доставке.
+  // Порядок: localStorage-кэш → сразу ставим Москву → уточняем по IP.
   const prefillDone = useRef(false)
   useEffect(() => {
     if (!deliveryEnabled || !isCdek || prefillDone.current) return
     prefillDone.current = true
+
+    // Кэш города в localStorage (TTL 1 час) — при повторном визите мгновенно.
+    try {
+      const raw = localStorage.getItem(CITY_CACHE_KEY)
+      if (raw) {
+        const { city: cached, ts } = JSON.parse(raw) as { city: CdekCity; ts: number }
+        if (Date.now() - ts < CITY_CACHE_TTL && typeof cached?.code === 'number') {
+          setIpPrefillCity(cached); pickCity(cached, true); return
+        }
+      }
+    } catch { /* corrupt cache — ignore */ }
+
+    // По умолчанию сразу показываем Москву, не дожидаясь ответа API.
+    setIpPrefillCity(MOSCOW); pickCity(MOSCOW, true)
+
+    // Уточняем по IP и обновляем, если город отличается.
     fetch('/api/checkout/city').then((r) => r.json()).then((data) => {
-      if (data?.city) { setIpPrefillCity(data.city); pickCity(data.city, true) }
+      const city: CdekCity = data?.city ?? MOSCOW
+      localStorage.setItem(CITY_CACHE_KEY, JSON.stringify({ city, ts: Date.now() }))
+      if (city.code !== MOSCOW.code) { setIpPrefillCity(city); pickCity(city, true) }
     }).catch(() => {})
   }, [deliveryEnabled, isCdek])
 

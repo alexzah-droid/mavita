@@ -3,7 +3,7 @@ import { assertSameOrigin, requireAdminApi } from '@/lib/auth'
 import { parseCancelBody, parseOrderId } from '@/lib/admin-orders'
 import { cancelAdminOrder } from '@/lib/admin-orders-db'
 import { annulCdekShipment } from '@/lib/cdek-shipment'
-import { getRuntimeCredentials } from '@/lib/store-settings'
+import { getStoredCredentials } from '@/lib/store-settings'
 
 function ok(value: Awaited<ReturnType<typeof requireAdminApi>>): value is { isAdmin: true; loginAt: number } { return !(value instanceof NextResponse) }
 
@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // Если у отменённого заказа было отправление в СДЭК — аннулируем (best-effort).
   let cdekAnnulError: string | null = null
   if (result.cdekOrderUuid) {
-    const creds = await getRuntimeCredentials('cdek').catch(() => null)
+    const creds = await getStoredCredentials('cdek').catch(() => null)
     if (creds) {
       const annul = await annulCdekShipment(creds, result.cdekOrderUuid)
       if (!annul.ok) cdekAnnulError = annul.error

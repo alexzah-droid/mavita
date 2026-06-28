@@ -236,11 +236,11 @@ export async function getCdekShipmentSettingsDto(): Promise<CdekShipmentSettings
   return cdekShipmentDto(await readRow())
 }
 
-/** Для воркера: возвращает null, если автоотправка выключена или не настроена. */
+/** Для фоновых/ручных служебных операций: только факт заполнения полей. */
 export async function getCdekShipmentSettings(): Promise<ShipmentSettings | null> {
   if (!isDbConfigured()) return null
   const row = await readRow()
-  if (!row?.cdek_auto_shipment_enabled) return null
+  if (!row) return null
   if (!row.cdek_shipment_point || !row.cdek_sender_name || !row.cdek_sender_phone) return null
   return {
     shipmentPoint: row.cdek_shipment_point,

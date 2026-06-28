@@ -20,4 +20,13 @@ describe('validateProductInput', () => {
   it('принимает 29 февраля високосного года', () => {
     expect(validateProductInput({ ...product, sale: { priceKopecks: 5000, startsAt: '2024-02-29T12:00:00Z', endsAt: null } }, 'create').errors).toHaveLength(0)
   })
+  it('принимает валидные вес и габариты коробки товара', () => {
+    expect(validateProductInput({ ...product, weightGrams: 500, boxLengthCm: 11, boxWidthCm: 12, boxHeightCm: 13 }, 'create').value)
+      .toMatchObject({ weightGrams: 500, boxLengthCm: 11, boxWidthCm: 12, boxHeightCm: 13 })
+  })
+  it('отвергает невалидные габариты коробки', () => {
+    expect(validateProductInput({ ...product, boxLengthCm: 0 }, 'create').errors).not.toHaveLength(0)
+    expect(validateProductInput({ ...product, boxWidthCm: -1 }, 'create').errors).not.toHaveLength(0)
+    expect(validateProductInput({ ...product, boxHeightCm: 1.5 }, 'create').errors).not.toHaveLength(0)
+  })
 })

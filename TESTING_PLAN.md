@@ -1,6 +1,6 @@
 # TESTING_PLAN — МАВИТА-ШОП
 
-Дата актуализации: 2026-06-21
+Дата актуализации: 2026-06-28
 
 Трассировка тестов по инвариантам и по требованиям. Каждый инвариант из
 `PROJECT_CORE.md` должен получить тест до перехода в следующую фазу; требования
@@ -9,8 +9,8 @@
 
 ## Статус
 
-> 141 тест в 32 файлах зелёные (`npm test`, 2026-06-21). Покрыты Ф0–Ф3,
-> оба компонента Ф4; `npm run typecheck` также проходит.
+> 245 тестов в 47 файлах зелёные (`npm test`, 2026-06-28). Покрыты Ф0–Ф3,
+> оба текущих компонента Ф4; `npm run typecheck` упомянут как release gate.
 > I5/I8/I9/I10 покрыты unit/mock-интеграционными тестами. Прогон с реальной
 > PostgreSQL/ФС, CDEK и Робокассой остаётся отдельной проверкой стенда.
 
@@ -71,8 +71,9 @@ Live-прогон PostgreSQL `SKIP LOCKED` и реальных ответов Te
 | FR-ADMORD-1/2/3 список, маска PII, карточка | — | `lib/admin-orders.test.ts`, `lib/admin-orders-db.test.ts`, `app/api/admin/orders/route.test.ts` | 🟡 |
 | FR-ADMORD-4 отмена pending + причина | I4 | `lib/admin-orders.test.ts`, `lib/admin-orders-db.test.ts` | 🟡 |
 | FR-ADMORD-5/6/7 переходы исполнения, запрет paid, аудит | I10 | `lib/admin-orders.test.ts`, `lib/admin-orders-db.test.ts` | 🟡 |
-| FR-SET-1 тариф доставки | I10 | `app/api/admin/settings/delivery/route.test.ts` | ✅ |
-| FR-SET-2, FR-NOTE-5 настройки/шифрование токена | BR-SEC-4 | `lib/telegram-settings.test.ts`, `app/api/admin/settings/notifications/route.test.ts` | ✅ |
+| FR-SET-1 настройки перевозчика СДЭК | I10 | `app/api/admin/settings/delivery/route.test.ts`, `app/api/admin/settings/delivery/test/route.test.ts`, `app/api/checkout/delivery/route.test.ts` | ✅ |
+| FR-SET-2 автоотправка СДЭК | I10 | — | ⬜ |
+| FR-SET-3, FR-NOTE-5 настройки/шифрование токена | BR-SEC-4 | `lib/telegram-settings.test.ts`, `app/api/admin/settings/notifications/route.test.ts` | ✅ |
 | FR-NOTE-1…4 события, outbox, ретраи, формат | — | `lib/telegram-notifications.test.ts`, `lib/telegram-notifications.sender.test.ts` | 🟡 (live SKIP LOCKED/Telegram) |
 
 ### Сквозные правила
@@ -84,7 +85,7 @@ Live-прогон PostgreSQL `SKIP LOCKED` и реальных ответов Te
 | BR-MONEY-5 подпись на сервере | I1 | `lib/robokassa.test.ts` | ✅ |
 | BR-SALE-1/2/3 окно скидки и snapshot | I2, I9 | `lib/pricing.test.ts`, `lib/orders.test.ts` | ✅ |
 | BR-STATUS-1…5 статусы и переходы | I4, I10 | `lib/admin-orders-db.test.ts`, `app/api/robokassa/result.test.ts`, `sql/migrations/003_orders_delivery_and_admin_events.test.ts` | 🟡 |
-| BR-DELIV-1…5 режим доставки и snapshot ПВЗ | I10 | `lib/orders.test.ts`, `sql/migrations/003_orders_delivery_and_admin_events.test.ts` | 🟡 |
+| BR-DELIV-1…6 режим доставки и snapshot ПВЗ | I10 | `lib/orders.test.ts`, `app/api/checkout/delivery/route.test.ts`, `sql/migrations/003_orders_delivery_and_admin_events.test.ts` | 🟡 |
 | BR-SEC-1 анти-IDOR token | — | `lib/orders.test.ts` | 🟡 |
 | BR-SEC-2/3 гард + секреты в .env | I7, I8 | `lib/auth.test.ts`, `.gitignore` | 🟡 |
 | BR-SEC-5 index.html не редактируется | I6 | — | ⬜ ручная |

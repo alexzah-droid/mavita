@@ -4,12 +4,12 @@ export type SaleInput = { priceKopecks: number; startsAt: string | null; endsAt:
 export type ProductInput = {
   name?: unknown; slug?: unknown; series?: unknown; subtitle?: unknown; description?: unknown
   priceKopecks?: unknown; scent?: unknown; inStock?: unknown; visibility?: unknown; sale?: unknown
-  weightGrams?: unknown
+  weightGrams?: unknown; boxLengthCm?: unknown; boxWidthCm?: unknown; boxHeightCm?: unknown
 }
 export type ValidatedProductInput = {
   name?: string; slug?: string; series?: string | null; subtitle?: string | null; description?: string | null
   priceKopecks?: number; scent?: string[]; inStock?: boolean; visibility?: Visibility; sale?: SaleInput
-  weightGrams?: number | null
+  weightGrams?: number | null; boxLengthCm?: number | null; boxWidthCm?: number | null; boxHeightCm?: number | null
 }
 
 const SLUG_RE = /^[a-z0-9-]{1,100}$/
@@ -87,6 +87,17 @@ export function validateProductInput(input: unknown, mode: 'create' | 'patch'): 
     if (raw.weightGrams === null) value.weightGrams = null
     else if (!Number.isInteger(raw.weightGrams) || (raw.weightGrams as number) <= 0) errors.push('Вес должен быть положительным целым числом граммов')
     else value.weightGrams = raw.weightGrams as number
+  }
+  for (const [key, label] of [
+    ['boxLengthCm', 'Длина коробки'],
+    ['boxWidthCm', 'Ширина коробки'],
+    ['boxHeightCm', 'Высота коробки'],
+  ] as const) {
+    const rawValue = raw[key]
+    if (rawValue === undefined) continue
+    if (rawValue === null) value[key] = null
+    else if (!Number.isInteger(rawValue) || (rawValue as number) <= 0) errors.push(`${label} должна быть положительным целым числом сантиметров`)
+    else value[key] = rawValue as number
   }
   if (raw.sale !== undefined) {
     if (raw.sale === null) value.sale = null

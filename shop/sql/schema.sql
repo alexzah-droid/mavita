@@ -241,11 +241,15 @@ CREATE TABLE IF NOT EXISTS cdek_task_outbox (
     task_type    TEXT NOT NULL CHECK (task_type IN ('create_shipment', 'poll_waybill')),
     event_key    TEXT NOT NULL UNIQUE,
     payload      JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     available_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
     status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'done', 'failed')),
     locked_at    TIMESTAMPTZ,
     done_at      TIMESTAMPTZ,
-    last_error   TEXT
+    last_error   TEXT,
+    CONSTRAINT cdek_task_outbox_state_check
+      CHECK ((status = 'done' AND done_at IS NOT NULL)
+          OR (status IN ('pending', 'processing', 'failed') AND done_at IS NULL))
 );
 CREATE INDEX IF NOT EXISTS idx_cdek_task_outbox_ready ON cdek_task_outbox (available_at, id) WHERE status = 'pending';

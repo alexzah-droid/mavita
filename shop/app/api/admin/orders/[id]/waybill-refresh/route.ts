@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSession } from '@/lib/auth'
 import { parseOrderId } from '@/lib/admin-orders'
-import { getRuntimeCredentials } from '@/lib/store-settings'
+import { getStoredCredentials } from '@/lib/store-settings'
 import { refreshWaybillUrls } from '@/lib/cdek-shipment'
 import { query } from '@/lib/db'
 
@@ -21,7 +21,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const orderUuid = rows[0].cdek_order_uuid
   if (!orderUuid) return NextResponse.json({ error: { messages: ['Отправление в СДЭК ещё не создано'] } }, { status: 409 })
 
-  const creds = await getRuntimeCredentials('cdek')
+  const creds = await getStoredCredentials('cdek')
   if (!creds) return NextResponse.json({ error: { messages: ['Ключи СДЭК не настроены'] } }, { status: 503 })
 
   const { waybillUrl, barcodeUrl } = await refreshWaybillUrls(orderUuid, creds)

@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "notifications:drain": "tsx scripts/drain-notifications.ts",
     "cdek:drain": "tsx --conditions react-server scripts/drainCdekOutbox.ts",
+    "cdek:readiness": "tsx --conditions react-server scripts/checkCdekReadiness.ts",
     "delivery:backfill": "tsx scripts/backfill-delivery-credentials.ts",
     "delivery:rotate-key": "tsx scripts/rotate-delivery-settings-key.ts"
   },

@@ -67,7 +67,7 @@ sequenceDiagram
 | # | Кто → Кто | Метод / тип | Входные данные | Выходные данные | Примечание |
 |---|---|---|---|---|---|
 | 1 | Покупатель → `/checkout` | UI-событие | Форма: ФИО, email, телефон, корзина из localStorage | — | Корзина читается из `CartProvider` (localStorage) |
-| 2 | `/checkout` → `/api/robokassa/init` | `POST JSON` | `{customerName, customerEmail, customerPhone, expectedTotalKopecks, items}`; при включённом СДЭК ещё ПВЗ и expected delivery | — | Клиентские суммы — только optimistic-ожидание; сервер их сверяет |
+| 2 | `/checkout` → `/api/robokassa/init` | `POST JSON` | `{customerName, customerEmail, customerPhone, expectedTotalKopecks, items}`; в режиме `pickup_required` ещё `delivery.{method,pickupPointCode,expectedDeliveryKopecks}` | — | Клиентские суммы — только optimistic-ожидание; сервер их сверяет |
 | 3 | `/api/robokassa/init` → PostgreSQL | транзакция | `slug[]`, при включённой доставке — тариф | заблокированный snapshot | Авторитетный каталог и тариф; цена клиента игнорируется |
 | 4 | `/api/robokassa/init` → PostgreSQL | SQL INSERT | customer, items/delivery/total, `pending/awaiting_payment` | `order.id` | Заказ создаётся до редиректа в платёжку |
 | 5 | `/api/robokassa/init` → PostgreSQL | SQL INSERT × N | `order_id, product_id, product_name, price_kopecks, quantity` | — | Snapshot цены и названия на момент покупки |
@@ -178,7 +178,7 @@ graph TD
 |---|---|---|
 | **Browser / Client** | `CartProvider`, `CartButton`, `AddToCartButton`, `ShopHeader` | Состояние корзины в localStorage, UI |
 | **Pages (RSC)** | `page.tsx` × 5 | Server-side рендер, получение данных через `lib/` |
-| **API Routes** | `/api/products`, `/api/robokassa/*`, `/api/checkout/delivery`, `/api/cdek` | HTTP-граница, валидация ввода, роутинг |
+| **API Routes** | `/api/products`, `/api/robokassa/*`, `/api/checkout/delivery`, `/api/cdek`, `/api/cdek/cities`, `/api/cdek/widget` | HTTP-граница, валидация ввода, роутинг |
 | **Lib** | `orders.ts`, `robokassa.ts`, `catalog.ts`, `products.ts`, `price.ts`, `store-settings.ts` | Бизнес-логика, без HTTP-зависимостей, покрыта тестами |
 | **DB** | `db.ts` → PostgreSQL | Персистентность; цены только в копейках (`INTEGER`) |
 
@@ -203,7 +203,10 @@ graph TD
 **I9** (серверная эффективная цена в snapshot заказа), **I5** (атомарная загрузка фото).
 
 Компонент 2 (заказы, delivery snapshot, **I10**) реализован в репозитории:
-`/admin/orders`, `/admin/settings/delivery`, admin API и миграция `003`.
-Текущий rollout держит `DELIVERY_ENABLED=false`, поэтому платёжный флоу проверяется
-без ПВЗ. Включение СДЭК и OAuth-ключей — отдельный следующий этап:
-[docs/specs/done/admin-orders.md](docs/specs/done/admin-orders.md).
+`/admin/orders`, `/admin/settings/delivery`, блок автоотправки СДЭК, admin API и
+миграции `003`, `015`–`018`.
+СДЭК уже интегрирован в checkout и админку. `DELIVERY_ENABLED=false` следует
+трактовать как аварийный global off, а не как базовый rollout-сценарий.
+Фактическую готовность production-flow всё ещё нужно подтверждать отдельно:
+[docs/specs/done/admin-orders.md](docs/specs/done/admin-orders.md),
+[docs/specs/cdek-auto-shipment.md](docs/specs/cdek-auto-shipment.md).

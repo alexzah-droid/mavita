@@ -49,6 +49,9 @@ export default function AdminProductForm({ product }: { product?: AdminProduct }
   const [startsAt, setStartsAt] = useState<DateState>(initDate(product?.sale?.startsAt ?? null))
   const [endsAt, setEndsAt] = useState<DateState>(initDate(product?.sale?.endsAt ?? null))
   const [weightGrams, setWeightGrams] = useState(product?.weightGrams != null ? String(product.weightGrams) : '')
+  const [boxLengthCm, setBoxLengthCm] = useState(product?.boxLengthCm != null ? String(product.boxLengthCm) : '')
+  const [boxWidthCm, setBoxWidthCm] = useState(product?.boxWidthCm != null ? String(product.boxWidthCm) : '')
+  const [boxHeightCm, setBoxHeightCm] = useState(product?.boxHeightCm != null ? String(product.boxHeightCm) : '')
   const [message, setMessage] = useState('')
   const [images, setImages] = useState<AdminImage[]>(product?.images ?? [])
   const [confirmName, setConfirmName] = useState('')
@@ -73,7 +76,28 @@ export default function AdminProductForm({ product }: { product?: AdminProduct }
     }
     const weightGramsNum = weightGrams.trim() ? Number(weightGrams.trim()) : null
     if (weightGramsNum !== null && (!Number.isInteger(weightGramsNum) || weightGramsNum <= 0)) return setMessage('Вес должен быть положительным целым числом')
-    const body = { name, slug, priceKopecks: kopecks(price), series: series || null, subtitle: subtitle || null, description: description || null, scent: scent.split(',').map((x) => x.trim()).filter(Boolean), visibility, inStock, sale, weightGrams: weightGramsNum }
+    const boxLengthCmNum = boxLengthCm.trim() ? Number(boxLengthCm.trim()) : null
+    const boxWidthCmNum = boxWidthCm.trim() ? Number(boxWidthCm.trim()) : null
+    const boxHeightCmNum = boxHeightCm.trim() ? Number(boxHeightCm.trim()) : null
+    if (boxLengthCmNum !== null && (!Number.isInteger(boxLengthCmNum) || boxLengthCmNum <= 0)) return setMessage('Длина коробки должна быть положительным целым числом')
+    if (boxWidthCmNum !== null && (!Number.isInteger(boxWidthCmNum) || boxWidthCmNum <= 0)) return setMessage('Ширина коробки должна быть положительным целым числом')
+    if (boxHeightCmNum !== null && (!Number.isInteger(boxHeightCmNum) || boxHeightCmNum <= 0)) return setMessage('Высота коробки должна быть положительным целым числом')
+    const body = {
+      name,
+      slug,
+      priceKopecks: kopecks(price),
+      series: series || null,
+      subtitle: subtitle || null,
+      description: description || null,
+      scent: scent.split(',').map((x) => x.trim()).filter(Boolean),
+      visibility,
+      inStock,
+      sale,
+      weightGrams: weightGramsNum,
+      boxLengthCm: boxLengthCmNum,
+      boxWidthCm: boxWidthCmNum,
+      boxHeightCm: boxHeightCmNum,
+    }
     const response = await fetch(product ? `/api/admin/products/${product.id}` : '/api/admin/products', { method: product ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     if (response.ok) { const saved = await response.json(); router.replace(`/admin/products/${saved.id}/edit`); router.refresh() }
     else { const error = await response.json().catch(() => null); setMessage(error?.error?.messages?.join('. ') ?? 'Не удалось сохранить') }
@@ -132,6 +156,9 @@ export default function AdminProductForm({ product }: { product?: AdminProduct }
       <label>Подзаголовок<input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} /></label>
       <label>Ароматы через запятую<input value={scent} onChange={(e) => setScent(e.target.value)} /></label>
       <label>Вес, г (для СДЭК)<input inputMode="numeric" value={weightGrams} placeholder="500" onChange={(e) => setWeightGrams(e.target.value)} /></label>
+      <label>Коробка: длина, см<input inputMode="numeric" value={boxLengthCm} placeholder="11" onChange={(e) => setBoxLengthCm(e.target.value)} /></label>
+      <label>Коробка: ширина, см<input inputMode="numeric" value={boxWidthCm} placeholder="11" onChange={(e) => setBoxWidthCm(e.target.value)} /></label>
+      <label>Коробка: высота, см<input inputMode="numeric" value={boxHeightCm} placeholder="11" onChange={(e) => setBoxHeightCm(e.target.value)} /></label>
       <label className="admin-wide">Описание<textarea value={description} onChange={(e) => setDescription(e.target.value)} /></label>
     </div>
     <fieldset><legend>Витрина</legend>

@@ -3,7 +3,7 @@
 import { isDbConfigured, query, withTransaction } from '@/lib/db'
 import { sendOpsAlert } from '@/lib/ops-alert'
 import { createShipment, loadOrderForShipment, pollWaybill } from '@/lib/cdek-shipment'
-import { getCdekShipmentSettings, getRuntimeCredentials } from '@/lib/store-settings'
+import { getCdekShipmentSettings, getStoredCredentials } from '@/lib/store-settings'
 
 const MAX_CREATE_ATTEMPTS = 5
 // Backoff в секундах для create_shipment: 30 → 120 → 600 → 3600 → failed
@@ -89,7 +89,7 @@ async function enqueueWaybill(orderId: number): Promise<void> {
 }
 
 async function processCreateShipment(row: OutboxRow): Promise<void> {
-  const creds = await getRuntimeCredentials('cdek')
+  const creds = await getStoredCredentials('cdek')
   if (!creds) {
     await reschedule(row.id, 60, 'CDEK credentials not configured')
     return
@@ -147,7 +147,7 @@ async function processCreateShipment(row: OutboxRow): Promise<void> {
 }
 
 async function processPollWaybill(row: OutboxRow): Promise<void> {
-  const creds = await getRuntimeCredentials('cdek')
+  const creds = await getStoredCredentials('cdek')
   if (!creds) { await reschedule(row.id, 60); return }
 
   const orderRows = await query<{ cdek_order_uuid: string | null }>(
