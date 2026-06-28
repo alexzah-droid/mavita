@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/app/cart/CartProvider'
@@ -8,13 +8,10 @@ import { formatRub } from '@/lib/price'
 import { parsePriceChangedAmounts } from '@/lib/checkout-amounts'
 import ShopHeader from '@/app/components/ShopHeader'
 import CdekWidget from './CdekWidget'
+import { MOSCOW, cityLabel, localCitySuggestions, mergeCitySuggestions, type CdekCity } from './cdek-city-suggestions'
 import type { PickupPoint } from '@/lib/delivery/types'
 
-type CdekCity = { code: number; city: string; region: string | null }
-function cityLabel(c: CdekCity) { return c.region ? `${c.city}, ${c.region}` : c.city }
-
-const MOSCOW: CdekCity = { code: 423, city: 'Москва', region: null }
-const CITY_CACHE_KEY = 'mavita_cdek_city'
+const CITY_CACHE_KEY = 'mavita_cdek_city_v2'
 const CITY_CACHE_TTL = 3_600_000 // 1 час
 
 export default function CheckoutPage() {
@@ -44,6 +41,7 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [widgetFailed, setWidgetFailed] = useState(false)
+  const citySuggestCache = useRef(new Map<string, CdekCity[]>())
   const isCdek = carrier?.carrier === 'cdek'
   const yandexKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY ?? ''
   const useWidget = isCdek && yandexKey.length > 0 && !widgetFailed
@@ -71,6 +69,9 @@ export default function CheckoutPage() {
   useEffect(() => { setConfirmedAmounts(null) }, [cart.lines])
   // Смена перевозчика сбрасывает выбор города, ПВЗ и плашку IP-гео.
   useEffect(() => { setCityInput(''); setCitySuggestions([]); setSelectedCity(null); setIpPrefillCity(null); setPickupPoints([]); setPickupPoint(null); setPointFilter(''); setWidgetFailed(false) }, [carrier?.carrier])
+  useEffect(() => {
+    if (deliveryEnabled && isCdek && widgetFailed && selectedCity && pickupPoints.length === 0) loadPointsByCityCode(selectedCity.code)
+  }, [deliveryEnabled, isCdek, widgetFailed, selectedCity?.code])
 
   async function loadPointsByCityCode(cityCode: number) {
     setErrors([]); setPickupPoints([]); setPickupPoint(null); setPointFilter('')
@@ -82,13 +83,24 @@ export default function CheckoutPage() {
   // В режиме виджета список ПВЗ не нужен — виджет сам загружает точки через /api/cdek/widget.
   function pickCity(c: CdekCity, fromIpPrefill = false) {
     if (!fromIpPrefill) setIpPrefillCity(null)
-    setSelectedCity(c); setCityInput(cityLabel(c)); setCitySuggestions([])
+    setSelectedCity(c); setCityInput(cityLabel(c)); setCitySuggestions([]); setPickupPoints([]); setPickupPoint(null); setPointFilter('')
     if (!useWidget) loadPointsByCityCode(c.code)
   }
 
   // Пользователь нажал «Изменить» в плашке — сбрасываем всё и показываем поле ввода.
   function resetCity() {
     setIpPrefillCity(null); setSelectedCity(null); setCityInput(''); setPickupPoints([]); setPickupPoint(null); setCitySuggestions([])
+  }
+
+  function changeCityInput(value: string) {
+    setSelectedCity(null); setPickupPoints([]); setPickupPoint(null); setCityInput(value)
+    setCitySuggestions(localCitySuggestions(value))
+  }
+
+  function handleCityKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter' || citySuggestions.length === 0) return
+    e.preventDefault()
+    pickCity(citySuggestions[0])
   }
 
   // Префилл города по IP (СДЭК): один раз при активной доставке.
@@ -127,17 +139,28 @@ export default function CheckoutPage() {
     const q = cityInput.trim()
     if (selectedCity && cityInput === cityLabel(selectedCity)) { setCitySuggestions([]); return }
     if (q.length < 2) { setCitySuggestions([]); return }
+    const localSuggestions = localCitySuggestions(q)
+    setCitySuggestions(localSuggestions)
+    const cacheKey = q.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е')
+    const cached = citySuggestCache.current.get(cacheKey)
+    if (cached) { setCitySuggestions(mergeCitySuggestions(localSuggestions, cached)); return }
     const timer = setTimeout(async () => {
-      try { const res = await fetch(`/api/cdek/cities?q=${encodeURIComponent(q)}`); const data = await res.json(); if (res.ok) setCitySuggestions(Array.isArray(data.cities) ? data.cities : []) } catch { /* подсказки — необязательны */ }
-    }, 300)
+      try {
+        const res = await fetch(`/api/cdek/cities?q=${encodeURIComponent(q)}`)
+        const data = await res.json()
+        if (res.ok) {
+          const remoteSuggestions = Array.isArray(data.cities) ? data.cities : []
+          citySuggestCache.current.set(cacheKey, remoteSuggestions)
+          setCitySuggestions(mergeCitySuggestions(localSuggestions, remoteSuggestions))
+        }
+      } catch { /* подсказки — необязательны */ }
+    }, localSuggestions.length > 0 ? 80 : 180)
     return () => clearTimeout(timer)
   }, [cityInput, isCdek, selectedCity])
 
   const filteredPoints = pickupPoints.filter((p) => { const f = pointFilter.trim().toLowerCase(); return !f || p.name.toLowerCase().includes(f) || p.address.toLowerCase().includes(f) })
 
-  // Плашка «Ваш город — X» видна только в режиме списка (без виджета):
-  // виджет сам отображает выбранный город.
-  const showCityBanner = !useWidget && ipPrefillCity !== null && selectedCity !== null && selectedCity.code === ipPrefillCity.code
+  const showCityBanner = selectedCity !== null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -254,17 +277,38 @@ export default function CheckoutPage() {
                       </select>
                     )}
                     {useWidget ? (
-                      <CdekWidget apiKey={yandexKey} onSelect={(point) => setPickupPoint(point)} onUnavailable={() => setWidgetFailed(true)} defaultLocation={selectedCity?.city} />
-                    ) : (
                       <>
                         {showCityBanner ? (
                           <div className="checkout-city-detected">
-                            <span>Ваш город — <strong>{selectedCity!.city}</strong></span>
+                            <span>Город — <strong>{selectedCity!.city}</strong></span>
                             <button type="button" className="checkout-city-change" onClick={resetCity}>Изменить</button>
                           </div>
                         ) : (
                           <div className="checkout-pvz-city">
-                            <input type="text" value={cityInput} onChange={(e) => { setSelectedCity(null); setPickupPoints([]); setPickupPoint(null); setCityInput(e.target.value) }} placeholder="Город — начните вводить" autoComplete="off" aria-label="Город доставки" />
+                            <input type="text" value={cityInput} onChange={(e) => changeCityInput(e.target.value)} onKeyDown={handleCityKeyDown} placeholder="Город — начните вводить" autoComplete="off" aria-label="Город доставки" />
+                            {citySuggestions.length > 0 && !selectedCity && (
+                              <ul className="checkout-city-suggest">
+                                {citySuggestions.map((c) => <li key={c.code}><button type="button" onClick={() => pickCity(c)}>{cityLabel(c)}</button></li>)}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                        {selectedCity ? (
+                          <CdekWidget key={selectedCity.code} apiKey={yandexKey} cityCode={selectedCity.code} onSelect={(point) => setPickupPoint(point)} onUnavailable={() => setWidgetFailed(true)} defaultLocation={selectedCity.city} />
+                        ) : (
+                          <p className="checkout-field-hint">Выберите город, чтобы открыть карту пунктов выдачи {carrier.label}.</p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {showCityBanner ? (
+                          <div className="checkout-city-detected">
+                            <span>Город — <strong>{selectedCity!.city}</strong></span>
+                            <button type="button" className="checkout-city-change" onClick={resetCity}>Изменить</button>
+                          </div>
+                        ) : (
+                          <div className="checkout-pvz-city">
+                            <input type="text" value={cityInput} onChange={(e) => changeCityInput(e.target.value)} onKeyDown={handleCityKeyDown} placeholder="Город — начните вводить" autoComplete="off" aria-label="Город доставки" />
                             {citySuggestions.length > 0 && !selectedCity && (
                               <ul className="checkout-city-suggest">
                                 {citySuggestions.map((c) => <li key={c.code}><button type="button" onClick={() => pickCity(c)}>{cityLabel(c)}</button></li>)}

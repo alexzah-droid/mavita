@@ -13,11 +13,12 @@ type ChosenOffice = { code?: string; city?: string; name?: string; address?: str
 // трогает window/DOM — нельзя на этапе SSR). servicePath = наш прокси /api/cdek/widget
 // (ключи СДЭК на клиент не уходят). Любой сбой инициализации → onUnavailable,
 // и чекаут откатывается на ручной автокомплит города. Только ПВЗ (door скрыт).
-export default function CdekWidget({ apiKey, onSelect, onUnavailable, defaultLocation }: {
+export default function CdekWidget({ apiKey, onSelect, onUnavailable, defaultLocation, cityCode }: {
   apiKey: string
   onSelect: (point: CdekPickupPoint) => void
   onUnavailable: () => void
   defaultLocation?: string
+  cityCode: number
 }) {
   const onSelectRef = useRef(onSelect); onSelectRef.current = onSelect
   const onUnavailableRef = useRef(onUnavailable); onUnavailableRef.current = onUnavailable
@@ -34,7 +35,7 @@ export default function CdekWidget({ apiKey, onSelect, onUnavailable, defaultLoc
         widget = new WidgetCtor({
           root: 'cdek-map',
           apiKey,
-          servicePath: '/api/cdek/widget',
+          servicePath: `/api/cdek/widget?city_code=${encodeURIComponent(String(cityCode))}`,
           defaultLocation: defaultLocation && defaultLocation.trim() ? defaultLocation : 'Москва',
           hideDeliveryOptions: { door: true, office: false },
           forceFilters: { type: 'PVZ' },
@@ -49,7 +50,7 @@ export default function CdekWidget({ apiKey, onSelect, onUnavailable, defaultLoc
       }
     })()
     return () => { cancelled = true; try { widget?.destroy?.() } catch { /* виджет мог не иметь destroy */ } }
-  }, [apiKey, defaultLocation])
+  }, [apiKey, defaultLocation, cityCode])
 
   return <div id="cdek-map" className="checkout-cdek-map" />
 }

@@ -1,6 +1,6 @@
 # МАВИТА-ШОП operations runbook
 
-Дата актуализации: 2026-06-25. URL, ключи и запреты — в `docs/environments.md`.
+Дата актуализации: 2026-06-29. URL, ключи и запреты — в `docs/environments.md`.
 
 ---
 
@@ -24,6 +24,24 @@ ssh mavita "cd /var/www/mavita-repo/shop && npm run build && pm2 reload mavita -
 > **Примечание:** `public/images/catalog/` (статические фото товаров) синхронизируется
 > штатным rsync и попадает на прод. Это не то же самое, что `public/uploads/` (фото,
 > загружаемые через админку) — тот каталог исключён намеренно.
+
+### Nginx gzip для JSON
+
+На production в `/etc/nginx/nginx.conf` включено gzip-сжатие для JSON/JS:
+
+```nginx
+gzip on;
+gzip_vary on;
+gzip_proxied any;
+gzip_comp_level 6;
+gzip_buffers 16 8k;
+gzip_http_version 1.1;
+gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+```
+
+Это важно для карты СДЭК: городской ответ `/api/cdek/widget?...city_code=44`
+остаётся около 1 МБ в JSON, но по сети уходит примерно 140 КБ gzip. После
+изменений конфигурации обязательно выполнять `nginx -t && systemctl reload nginx`.
 
 ### Добавление/замена фото каталога
 

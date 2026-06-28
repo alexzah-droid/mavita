@@ -26,8 +26,14 @@ async function handle(request: Request) {
   delete params.action
   if (action !== 'offices' && action !== 'calculate') return fail('Unknown action', 400)
 
-  // Разрешаем только ПВЗ — постаматы исключены на уровне данных.
-  if (action === 'offices') params.type = 'PVZ'
+  // Разрешаем только ПВЗ и только в выбранном городе. Без city_code виджет СДЭК
+  // запрашивает весь национальный каталог ПВЗ, что неприемлемо для checkout.
+  if (action === 'offices') {
+    const cityCode = Number(params.city_code)
+    if (!Number.isInteger(cityCode) || cityCode <= 0) return fail('City code required', 400)
+    params.city_code = String(cityCode)
+    params.type = 'PVZ'
+  }
 
   try {
     const { status, body } = await cdekWidgetProxy(creds, action, params)

@@ -32,6 +32,13 @@ describe('GET/POST /api/cdek/widget (servicePath)', () => {
     expect((await GET(req('/api/cdek/widget?action=bogus'))).status).toBe(400)
   })
 
+  it('offices без city_code → 400 и не ходит в СДЭК', async () => {
+    const { GET } = await import('@/app/api/cdek/widget/route')
+    const res = await GET(req('/api/cdek/widget?action=offices'))
+    expect(res.status).toBe(400)
+    expect(mocks.proxy).not.toHaveBeenCalled()
+  })
+
   it('offices → GET-параметры (без action) в прокси, тело verbatim', async () => {
     mocks.proxy.mockResolvedValue({ status: 200, body: '[{"code":"SPB116"}]' })
     const { GET } = await import('@/app/api/cdek/widget/route')
