@@ -26,6 +26,28 @@ describe('markOrderPaid', () => {
     expect(enqueueOrderNotification).toHaveBeenCalledWith(expect.anything(), { orderId: 5, eventType: 'payment_paid', eventKey: 'order:5:paid' })
   })
 
+  it('оплаченный CDEK-заказ при включённой автоотправке ставит задачу create_shipment', async () => {
+    q.mockResolvedValueOnce([{ status: 'pending', total_kopecks: 180000, delivery_method: 'cdek_pickup', pickup_point_code: 'MSK65' }]) // SELECT order
+    q.mockResolvedValueOnce([{ id: 5 }]) // UPDATE … RETURNING
+    q.mockResolvedValueOnce([{ cdek_auto_shipment_enabled: true }]) // SELECT store_settings
+    q.mockResolvedValueOnce([]) // INSERT cdek_task_outbox
+
+    expect(await markOrderPaid(5, 180000, RAW)).toBe('paid')
+    expect(q).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO cdek_task_outbox'),
+      [5, 'create_shipment:5'],
+    )
+  })
+
+  it('оплаченный CDEK-заказ не ставит задачу, когда автоотправка выключена', async () => {
+    q.mockResolvedValueOnce([{ status: 'pending', total_kopecks: 180000, delivery_method: 'cdek_pickup', pickup_point_code: 'MSK65' }]) // SELECT order
+    q.mockResolvedValueOnce([{ id: 5 }]) // UPDATE … RETURNING
+    q.mockResolvedValueOnce([{ cdek_auto_shipment_enabled: false }]) // SELECT store_settings
+
+    expect(await markOrderPaid(5, 180000, RAW)).toBe('paid')
+    expect(q.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO cdek_task_outbox'))).toBe(false)
+  })
+
   it('уже оплачен → already_paid, без UPDATE (идемпотентность)', async () => {
     q.mockResolvedValueOnce([{ status: 'paid', total_kopecks: 180000 }])
     expect(await markOrderPaid(5, 180000, RAW)).toBe('already_paid')

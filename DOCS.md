@@ -33,7 +33,7 @@
 | `docs/specs/delivery-options.md` | Исследование: карта способов доставки, последовательность перевозчиков | исследование (2026-06-21) |
 | `docs/specs/cdek-manual-launch.md` | Переходный план ручного запуска СДЭК без API | исторический / reference после полной интеграции |
 | `docs/specs/done/admin-delivery-settings.md` | Админ-модуль настроек СДЭК: шифрованные ключи в БД, тариф, «Проверить связь», семантика включения | ✅ реализована (2026-06-21) |
-| `docs/specs/cdek-auto-shipment.md` | Автосоздание отправлений СДЭК, outbox, webhook, waybill/barcode | реализовано в коде; rollout и тестовое покрытие ещё доводятся |
+| `docs/specs/done/cdek-auto-shipment.md` | Автосоздание отправлений СДЭК, outbox, webhook, waybill/barcode | ✅ реализовано; sandbox пройден, prod readiness OK |
 | `docs/specs/yandex-delivery-pvz.md` | Яндекс Доставка: организационный gate, ПВЗ/постаматы по РФ и план безопасной интеграции | подготовка к подключению (2026-06-22) |
 | `docs/environments.md` | стенды, SSH, VPS, запреты | актуален |
 | `docs/operations.md` | runbook деплоя, backup, откат | актуален (создан 2026-06-20) |

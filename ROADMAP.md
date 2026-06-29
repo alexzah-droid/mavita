@@ -163,7 +163,7 @@ ResultURL Робокассы и сценарий СДЭК на стенде/пр
 **Компонент 3 — доставка СДЭК и серверные настройки перевозчика** 🚧:
 спеки [docs/specs/done/admin-delivery-settings.md](docs/specs/done/admin-delivery-settings.md),
 [docs/specs/done/cdek-pvz.md](docs/specs/done/cdek-pvz.md),
-[docs/specs/cdek-auto-shipment.md](docs/specs/cdek-auto-shipment.md). Текущее
+[docs/specs/done/cdek-auto-shipment.md](docs/specs/done/cdek-auto-shipment.md). Текущее
 состояние репозитория уже без Ozon в рантайме: интеграция снята миграцией
 `013_drop_ozon.sql`, а схема и код снова сфокусированы на одном перевозчике.
 - ✅ `lib/secret-box{,-core}.ts` — AES-256-GCM (версия+AAD), секреты СДЭК в БД

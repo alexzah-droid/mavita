@@ -1,6 +1,6 @@
 # МАВИТА-ШОП operations runbook
 
-Дата актуализации: 2026-06-29. URL, ключи и запреты — в `docs/environments.md`.
+Дата актуализации: 2026-06-30. URL, ключи и запреты — в `docs/environments.md`.
 
 ---
 
@@ -245,6 +245,41 @@ sudo systemctl start mavita-cdek.service
 journalctl -u mavita-cdek.service -n 30 --no-pager
 ```
 
+#### Печатные формы СДЭК
+
+`poll_waybill` получает две PDF-ссылки: накладную и штрихкод. Правильные вызовы:
+
+- накладная: `POST /v2/print/orders` с `type='tpl_russia'`, затем
+  `GET /v2/print/orders/{print_task_uuid}`;
+- штрихкод: `POST /v2/print/barcodes` с `format='A4'`, `lang='RUS'`, затем
+  `GET /v2/print/barcodes/{print_task_uuid}`;
+- готовность формы определяется по `entity.statuses[].code == 'READY'`, URL лежит
+  в `entity.url`.
+
+Не использовать `type='waybill'` или `type='barcode'` в `/print/orders`: sandbox
+СДЭК 2026-06-29 вернул на это `v2_invalid_format`. После деплоя фикса на prod,
+если в `cdek_task_outbox` остались failed-задачи `poll_waybill` со старой ошибкой
+`Накладная не была сгенерирована за 3 часа`, их можно вернуть в очередь:
+
+```sql
+UPDATE cdek_task_outbox
+SET status='pending',
+    available_at=now(),
+    locked_at=NULL,
+    done_at=NULL,
+    last_error=NULL
+WHERE task_type='poll_waybill'
+  AND status='failed'
+  AND last_error='Накладная не была сгенерирована за 3 часа';
+```
+
+Затем разово запустить воркер и проверить журнал:
+
+```bash
+sudo systemctl start mavita-cdek.service
+journalctl -u mavita-cdek.service -n 30 --no-pager
+```
+
 ### Read-only readiness check перед следующим реальным заказом
 
 Без создания тестового заказа можно прогнать сводную проверку готовности
@@ -296,22 +331,27 @@ URL вебхука `https://mavita.ru/api/cdek/webhook`.
 
 В первом релизе Telegram-сообщения не содержат персональных данных покупателя.
 
-## Текущий rollout: заказы без СДЭК
+## Текущий rollout: СДЭК-ПВЗ и автосоздание накладных
 
-В релизе Ф4-К2 код доставки уже присутствует, но до отдельного решения по СДЭК
-на VPS должна быть строка `DELIVERY_ENABLED=false`. При этом checkout создаёт
-заказ без ПВЗ, `delivery_kopecks=0`, а проверять можно обычный платёжный флоу.
-Не добавлять `CDEK_CLIENT_ID`/`CDEK_CLIENT_SECRET` и не включать доставку в рамках
-этого rollout: это отдельная внешняя интеграция (Пауза 2).
+На production доставка СДЭК-ПВЗ включена: `DELIVERY_ENABLED=true`, Робокасса в
+боевом режиме, ключи СДЭК хранятся зашифрованными в настройках БД, а
+`cdek_auto_shipment_enabled` управляет только постановкой новых `create_shipment`
+задач после оплаты.
 
-> Перед открытием checkout покупателям сверить публичные `/delivery` и `/privacy`:
-> текущий текст страниц описывает ПВЗ СДЭК и передачу данных перевозчику, тогда
-> как выключенный режим этого не делает. Либо обновить/скрыть этот текст отдельным
-> изменением кода, либо не публиковать его как действующее условие до включения СДЭК.
+Инварианты текущего режима:
+
+- в прод-`.env` не задавать `CDEK_API_BASE`: код должен ходить в боевой
+  `https://api.cdek.ru/v2`;
+- не возвращать `CDEK_CLIENT_ID`/`CDEK_CLIENT_SECRET` в `.env`, если ключи уже
+  перенесены в encrypted settings;
+- после правок в CDEK worker выполнять `npm run build`, `pm2 reload mavita
+  --update-env`, затем `sudo systemctl start mavita-cdek.service`;
+- если были failed-задачи `poll_waybill` со старой ошибкой генерации PDF, вернуть
+  их в очередь SQL-командой из раздела «Печатные формы СДЭК».
 
 ---
 
-## Включение СДЭК-ПВЗ (боевой запуск, живой API)
+## Включение СДЭК-ПВЗ с нуля (боевой запуск, живой API)
 
 Сценарий: договор с СДЭК заключён, на руках **боевые** ключи (`client_id` +
 `client_secret`), которых раньше **не было** в `.env`. Тогда первичный rollout
@@ -322,8 +362,8 @@ URL вебхука `https://mavita.ru/api/cdek/webhook`.
 > ⚠️ **Главный гейт — `DELIVERY_ENABLED`.** `resolveDeliveryMode()` сначала
 > проверяет `process.env.DELIVERY_ENABLED === 'false'` (`emergencyOff`) и при нём
 > возвращает `disabled` **независимо** от ключей и `cdek_pickup_enabled` в БД.
-> Сейчас на проде он стоит `false` (раздел «Текущий rollout»). Пока он не снят,
-> любые настройки в админке не появятся на checkout.
+> Для активного СДЭК-режима на prod должно быть `DELIVERY_ENABLED=true` или строка
+> должна отсутствовать.
 
 > ⚠️ **Боевой vs тестовый хост.** `lib/cdek.ts` по умолчанию ходит на боевой
 > `https://api.cdek.ru/v2`. В прод-`.env` **не должно быть** `CDEK_API_BASE`,

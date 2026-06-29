@@ -209,4 +209,4 @@ graph TD
 трактовать как аварийный global off, а не как базовый rollout-сценарий.
 Фактическую готовность production-flow всё ещё нужно подтверждать отдельно:
 [docs/specs/done/admin-orders.md](docs/specs/done/admin-orders.md),
-[docs/specs/cdek-auto-shipment.md](docs/specs/cdek-auto-shipment.md).
+[docs/specs/done/cdek-auto-shipment.md](docs/specs/done/cdek-auto-shipment.md).

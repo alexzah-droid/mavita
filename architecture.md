@@ -215,7 +215,7 @@ same-origin проверку (инвариант **I8**): сверяется **�
 [docs/specs/done/admin-products-hardening.md](docs/specs/done/admin-products-hardening.md),
 [docs/specs/done/admin-delivery-settings.md](docs/specs/done/admin-delivery-settings.md),
 [docs/specs/done/cdek-pvz.md](docs/specs/done/cdek-pvz.md),
-[docs/specs/cdek-auto-shipment.md](docs/specs/cdek-auto-shipment.md).
+[docs/specs/done/cdek-auto-shipment.md](docs/specs/done/cdek-auto-shipment.md).
 
 ---
 

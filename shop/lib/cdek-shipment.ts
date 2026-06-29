@@ -241,19 +241,35 @@ async function requestPrint(
   type: 'waybill' | 'barcode',
 ): Promise<string | null> {
   try {
-    const printRes = await cdekPost(creds, '/print/orders', { orders: [{ order_uuid: orderUuid }], type })
+    const path = type === 'waybill' ? '/print/orders' : '/print/barcodes'
+    const body = type === 'waybill'
+      ? { orders: [{ order_uuid: orderUuid }], copy_count: 2, type: 'tpl_russia' }
+      : { orders: [{ order_uuid: orderUuid }], copy_count: 1, format: 'A4', lang: 'RUS' }
+
+    const printRes = await cdekPost(creds, path, body)
     if (!printRes.ok) return null
     const printData = printRes.data as Record<string, unknown> | null
     const taskUuid = (printData?.entity as Record<string, unknown> | undefined)?.uuid
     if (typeof taskUuid !== 'string') return null
 
-    const taskRes = await cdekGet(creds, `/print/orders/${taskUuid}`)
+    // CDEK creates print forms asynchronously. In sandbox and production the file is
+    // often ready within a couple of seconds, but an immediate GET commonly returns
+    // PROCESSING and the next poll would create a fresh task again.
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+
+    const taskRes = await cdekGet(creds, `${path}/${taskUuid}`)
     if (!taskRes.ok) return null
     const taskData = taskRes.data as Record<string, unknown> | null
-    const taskState = (taskData?.entity as Record<string, unknown> | undefined)?.status
-    if (taskState !== 'SUCCESSFUL') return null
+    const entity = taskData?.entity as Record<string, unknown> | undefined
+    const statuses = Array.isArray(entity?.statuses) ? entity.statuses : []
+    const ready = statuses.some((status) => (
+      typeof status === 'object' &&
+      status !== null &&
+      (status as Record<string, unknown>).code === 'READY'
+    ))
+    if (!ready) return null
 
-    const url = (taskData?.entity as Record<string, unknown> | undefined)?.url
+    const url = entity?.url
     return typeof url === 'string' ? url : null
   } catch {
     return null

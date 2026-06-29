@@ -1,13 +1,13 @@
 # МАВИТА-ШОП environments
 
-Дата актуализации: 2026-06-21.
+Дата актуализации: 2026-06-30.
 
 ## Стенды
 
 | Термин | URL | Где живёт | Деплой |
 | --- | --- | --- | --- |
 | **локальный** | `http://localhost:3000` | машина разработчика | `npm run dev` |
-| **тестовый** | `http://147.45.72.20:4000` (работает) | VPS `147.45.72.20` | Docker, rsync + rebuild |
+| **тестовый legacy** | `http://147.45.72.20:4000` (работает) | VPS `147.45.72.20` | Docker, rsync + rebuild |
 | **production** | `https://mavita.ru` | выделенный VPS `45.130.147.108` | rsync → `npm run build` → `pm2 reload mavita` |
 
 ---
@@ -87,6 +87,26 @@ Vhost `/etc/nginx/sites-enabled/mavita` — заглушка под `mavita.alex
 
 ---
 
+## Историческая проверка CДЭК на `rezerv`
+
+2026-06-29 на `rezerv` (`45.145.14.166`) временно поднимался изолированный
+Docker-стенд для sandbox-проверки СДЭК (`CDEK_API_BASE=https://api.edu.cdek.ru/v2`).
+2026-06-30 стенд удалён; на `rezerv` должен остаться только `tinyproxy:8888`
+для Telegram egress production. Docker-пакеты также удалены.
+
+Что было подтверждено перед удалением:
+
+- checkout в режиме `pickup_required`, CДЭК города и ПВЗ отвечают на sandbox;
+- ResultURL Робокассы переводит заказ в `paid` и ставит `create_shipment`;
+- `cdek:drain` создаёт отправление и пишет `cdek_order_uuid`;
+- после фикса печатных форм `poll_waybill` сохраняет и `cdek_waybill_url`, и
+  `cdek_barcode_url`;
+- регистрация нового `ORDER_STATUS` webhook через общие sandbox-ключи СДЭК
+  заблокирована лимитом общей учётки: `v2_too_many_webhooks` (2 активных webhook
+  уже заняты чужими URL). Чужие webhook не удалялись.
+
+---
+
 ## Production-стенд — выделенный VPS `45.130.147.108`
 
 Отдельный VPS под продакшн `mavita.ru` (домен и хостинг куплены 2026-06-20).
@@ -157,8 +177,9 @@ pm2 show mavita    → script: /usr/bin/npm, args: start, cwd: /var/www/mavita-r
 | `ADMIN_PASSWORD` | ✅ заполнен |
 | `SESSION_SECRET` | ✅ заполнен |
 | `NEXT_PUBLIC_BASE_URL` | `https://mavita.ru` |
-| `DELIVERY_ENABLED` | `false` для текущего rollout: заказ без ПВЗ/доставки |
-| `CDEK_CLIENT_ID` / `CDEK_CLIENT_SECRET` | не требуются и не заполняются, пока доставка выключена |
+| `DELIVERY_ENABLED` | `true` — СДЭК-ПВЗ включён на checkout |
+| `CDEK_API_BASE` | не задан — production ходит в боевой `https://api.cdek.ru/v2` |
+| `CDEK_CLIENT_ID` / `CDEK_CLIENT_SECRET` | не хранятся в `.env`, ключи СДЭК зашифрованы в настройках БД |
 
 ### Деплой (текущий процесс)
 
