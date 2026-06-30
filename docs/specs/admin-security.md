@@ -1,276 +1,131 @@
 # Безопасность админки МАВИТА
 
-**Статус:** Предложение вариантов (решение позже)  
-**Дата:** 2026-06-27  
-**Автор:** Claude Code
+**Статус:** основа планирования roadmap, не реализационная спека одной задачи.  
+**Актуализировано:** 2026-06-30.  
+**Источник статуса:** код + `ROADMAP.md`; этот файл фиксирует backlog и
+требования к следующим security-задачам.
 
 ---
 
 ## Текущее состояние
 
-- **Система:** `iron-session` + SHA256 хеширование пароля
-- **Session TTL:** 8 часов
-- **Защита:** Secure cookie (HTTPS), HttpOnly, SameSite=lax, Same-Origin check
-- **Уязвимости:** 
-  - Нет rate limiting → brute-force возможен
-  - Нет 2FA → украденный пароль = доступ в админку
-  - Нет логирования входов → не видно неудачные попытки
-  - Длинная сессия (8 часов) → риск при краже cookie
+- **Сессии:** `iron-session`, cookie `HttpOnly`, `Secure` в production,
+  `SameSite=lax`.
+- **Session TTL:** 8 часов в `shop/lib/auth.ts`.
+- **Вход:** один пароль из `ADMIN_PASSWORD`, сравнение через SHA-256 +
+  `timingSafeEqual`.
+- **CSRF для мутаций:** same-origin check по `Origin` и `Host`.
+- **Rate limit:** уже есть в `app/api/auth/login/route.ts`, но только
+  process-local `Map`: 5 ошибок за 60 секунд на IP.
+- **Нет пока:** общего PG-backed login limiter, аудита входов, MFA, просмотра
+  попыток входа, trusted-device/trusted-IP логики.
+
+### Что уже неактуально
+
+Старое утверждение «нет rate limiting» неверно. Правильная формулировка:
+rate limit есть, но он не production-grade для нескольких PM2/Node-процессов и
+прокси. Следующий шаг — усилить существующую реализацию, а не добавлять
+`express-rate-limit`.
 
 ---
 
-## ВАРИАНТ 1: Минимальные улучшения (быстро, низкий риск)
+## Roadmap-решение
 
-**Трудоёмкость:** 2-3 часа  
-**Безопасность:** 6/10  
-**Рекомендуется для:** Текущего уровня продаж
+### P1. Усилить существующий вход
 
-### Что добавить:
+1. **PG-backed login rate limit**
+   - Таблица `admin_login_attempts` или переиспользуемый server-side limiter по
+     паттерну `delivery_test_attempts`, но без `actor_login_at`.
+   - Ключ: нормализованный trusted IP + optional session/browser key.
+   - Лимит: 5 ошибок / 15 минут, `Retry-After`, общий для всех процессов.
+   - IP брать только из доверенного proxy-контракта Nginx (`X-Real-IP` /
+     первый `X-Forwarded-For` после настройки прокси), не из произвольной цепочки.
 
-1. **Rate limiting на POST /admin/login**
-   - Макс 5 попыток в 15 минут (на IP)
-   - Задержка 1 сек после ошибки
-   - Блокировка IP на 1 час после 5 ошибок
-   - **Библиотека:** `express-rate-limit`
+2. **Сократить риск украденной cookie**
+   - Уменьшить TTL/idle timeout с 8 часов до 30-60 минут.
+   - При активной работе с админкой продлевать сессию штатным механизмом
+     `iron-session`; при бездействии требовать новый вход.
 
-2. **Сокращение session TTL**
-   - С 8 часов → 30 минут неактивности
-   - При неактивности 30 мин → автоматический выход
-   - **Файл для правки:** `lib/auth.ts` (строка 10)
-
-3. **Логирование входов в БД**
+3. **Аудит входов**
    - Таблица `admin_login_log`:
      ```sql
-     id, ip, user_agent, status (success|failed), error_reason, created_at
+     id BIGSERIAL PRIMARY KEY,
+     ip TEXT NOT NULL,
+     user_agent TEXT,
+     status TEXT NOT NULL CHECK (status IN ('success', 'failed', 'rate_limited')),
+     error_reason TEXT,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
      ```
-   - Логировать каждую попытку (успешную и неудачную)
-   - Просмотр в админке (для Виктории)
+   - Логировать успешные входы, неверный пароль, rate-limit, ошибку конфигурации.
+   - Добавить минимальную страницу/блок в админке: последние 50 попыток.
 
-4. **Email-уведомление при входе**
-   - Только для **новых IP** (требует IP-отслеживания)
-   - Таблица `admin_trusted_ips`: (ip, last_login_at, trusted_at)
-   - При входе с нового IP: письмо на `mavitasvechi@mail.ru`
-   - **Библиотека:** `nodemailer` (уже используется?)
+### P2. MFA владельца
 
-### Примерный SQL:
+Основной вариант — TOTP.
+
+- Секрет TOTP хранить зашифрованным через существующий механизм
+  `SETTINGS_ENC_KEY` / `secret-box`, а не открытым текстом.
+- Backup codes хранить только хешами; одноразовое использование.
+- Вход: пароль → при включённом MFA проверка TOTP/backup code → создание сессии.
+- Отключение/перегенерация backup codes требует актуального пароля и TOTP.
+
+Минимальная схема:
 
 ```sql
-CREATE TABLE admin_login_log (
-  id BIGSERIAL PRIMARY KEY,
-  ip TEXT NOT NULL,
-  user_agent TEXT,
-  status TEXT NOT NULL CHECK (status IN ('success', 'failed')),
-  error_reason TEXT,
+CREATE TABLE admin_mfa (
+  singleton BOOLEAN PRIMARY KEY DEFAULT true CHECK (singleton),
+  secret_enc BYTEA,
+  enabled BOOLEAN NOT NULL DEFAULT false,
+  activated_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_admin_login_log_ip_created ON admin_login_log (ip, created_at DESC);
 
-CREATE TABLE admin_trusted_ips (
-  id SERIAL PRIMARY KEY,
-  ip TEXT UNIQUE NOT NULL,
-  last_login_at TIMESTAMPTZ,
-  trusted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+CREATE TABLE admin_mfa_backup_codes (
+  id BIGSERIAL PRIMARY KEY,
+  code_hash TEXT NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
 
-### Плюсы:
-- ✅ Быстро реализуется
-- ✅ Защита от brute-force
-- ✅ Видна история входов
-- ✅ Email-алерт при подозрительной активности
+### P3. Уведомления и trusted IP
 
-### Минусы:
-- ❌ Нет 2FA → пароль остаётся единственной защитой
-- ❌ Нет аппаратной защиты (WebAuthn)
-- ❌ Если пароль украден, доступ открыт
+Email-OTP не берём как основной MFA: он слабее TOTP и зависит от почты. Email
+или Telegram-уведомление о новом IP полезно после появления аудита входов.
 
----
+Возможная схема:
 
-## ВАРИАНТ 2: TOTP (Google Authenticator) — Средний уровень
-
-**Трудоёмкость:** 6-8 часов  
-**Безопасность:** 8/10  
-**Рекомендуется для:** Когда начнутся регулярные продажи
-
-### Что добавить:
-
-1. **TOTP (Time-based One-Time Password)**
-   - Пользователь генерирует 6-значный код в Google Authenticator / Authy
-   - Код действует 30 секунд
-   - Требуется при каждом входе
-
-2. **Таблица для TOTP**
-   ```sql
-   CREATE TABLE admin_mfa (
-     id SERIAL PRIMARY KEY,
-     secret_enc BYTEA NOT NULL,  -- зашифрованный secret (AES-256-GCM)
-     backup_codes TEXT[] NOT NULL, -- 10 одноразовых кодов на случай потери телефона
-     enabled BOOLEAN NOT NULL DEFAULT false,
-     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-     activated_at TIMESTAMPTZ
-   );
-   ```
-
-3. **API endpoints**
-   - `POST /api/admin/mfa/setup` — генерирует QR-код, возвращает secret
-   - `POST /api/admin/mfa/confirm` — верификация кода TOTP для активации
-   - `POST /api/admin/mfa/disable` — отключение (требует пароля)
-   - `POST /api/admin/mfa/backup-codes` — генерирует новые backup codes
-
-4. **Поток входа**
-   - Шаг 1: Пользователь вводит пароль
-   - Шаг 2: Если TOTP активна → требуется 6-значный код
-   - Шаг 3: Сессия создаётся только после обоих
-
-5. **Backup codes**
-   - 10 кодов выдаются при первой настройке TOTP
-   - Каждый код одноразовый
-   - Хранятся в БД в хешированном виде
-   - Для случая если потеря/кража телефона
-
-### Библиотеки:
-- `speakeasy` — генерация TOTP secret и верификация кодов
-- `qrcode` — генерация QR-кода для Google Authenticator
-
-### Плюсы:
-- ✅ Максимальная безопасность для пароля
-- ✅ Не требует интернета на телефоне (TOTP работает offline)
-- ✅ Google Authenticator / Authy — уже установлены у людей
-- ✅ Не зависит от SMS/Email доступности
-- ✅ Backup codes для восстановления
-
-### Минусы:
-- ❌ Требует установки приложения
-- ❌ Если потеря телефона + потеря backup codes → нужна помощь
-- ❌ Может быть неудобно (требует доступ к телефону каждый раз)
-- ❌ Долгая реализация (6-8 часов)
-
----
-
-## ВАРИАНТ 3: OTP по Email — Простой вариант
-
-**Трудоёмкость:** 4-5 часов  
-**Безопасность:** 7/10  
-**Рекомендуется для:** Если Виктория часто теряет телефон
-
-### Что добавить:
-
-1. **OTP по Email**
-   - При входе: отправляется 6-значный код на `mavitasvechi@mail.ru`
-   - Код действует 10 минут
-   - Требуется ввод на странице входа
-
-2. **Таблица для OTP**
-   ```sql
-   CREATE TABLE admin_otp_tokens (
-     id SERIAL PRIMARY KEY,
-     token_hash TEXT UNIQUE NOT NULL,  -- хеш кода
-     attempts_left INTEGER NOT NULL DEFAULT 3,
-     expires_at TIMESTAMPTZ NOT NULL,
-     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-   );
-   ```
-
-3. **API endpoints**
-   - `POST /api/admin/otp/send` — генерирует и отправляет код по email
-   - `POST /api/admin/otp/verify` — проверяет код, создаёт сессию
-
-### Плюсы:
-- ✅ Простая реализация
-- ✅ Не требует установки приложения
-- ✅ Хороша для забывчивых
-- ✅ Быстро кодировать
-
-### Минусы:
-- ❌ Зависит от доступности email
-- ❌ Медленнее (нужно ждать письма)
-- ❌ Может попасть в spam
-- ❌ Меньше безопасность (email может быть скомпрометирован)
-
----
-
-## ВАРИАНТ 4: Комбинированный подход (максимум)
-
-**Трудоёмкость:** 10-12 часов  
-**Безопасность:** 9/10  
-**Рекомендуется для:** Когда бизнес растёт и хочется максимум защиты
-
-### Что добавить:
-
-- **Rate limiting + session timeout** (из варианта 1)
-- **TOTP** (из варианта 2) — основной способ
-- **Email OTP** (из варианта 3) — backup если потеря телефона
-- **WebAuthn / FIDO2** (опционально) — для максимума: YubiKey, Windows Hello
-- **IP-check** — алерт при смене IP
-- **Device fingerprint** — отслеживание устройств
-
----
-
-## 📋 Рекомендация
-
-### **На сейчас (ВАРИАНТ 1): Минимум за 2-3 часа**
-
-```
-[ ] Rate limiting на /admin/login
-[ ] Session timeout → 30 минут
-[ ] Логирование входов в БД
-[ ] Email-уведомление при новом IP
-[ ] Просмотр истории входов в админке
+```sql
+CREATE TABLE admin_trusted_ips (
+  id BIGSERIAL PRIMARY KEY,
+  ip TEXT UNIQUE NOT NULL,
+  first_login_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_login_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 ```
 
-**Аргумент:** Защита от brute-force + видимость попыток взлома. Быстро, даёт результат.
+Уведомление отправлять только после успешного входа с нового IP. Не блокировать
+вход только из-за недоставленного уведомления.
 
 ---
 
-### **На Q3 2026 (ВАРИАНТ 2): TOTP**
+## Не брать в ближайший цикл
 
-```
-[ ] TOTP (Google Authenticator)
-[ ] Backup codes
-[ ] Настройка в админке
-[ ] QR-код при первой настройке
-```
-
-**Аргумент:** Когда начнутся регулярные заказы, нужна серьёзная защита. TOTP — стандарт для критичных систем.
+- **WebAuthn/FIDO2**: хороший future option, но избыточен до появления аудита,
+  общего rate limit и TOTP.
+- **Email OTP как основной MFA**: повышает трение и зависит от компрометации
+  почтового ящика.
+- **Общие чеклисты CSP/HSTS/CORS вместо конкретных задач**: делать отдельным
+  hardening-заходом после P1/P2.
 
 ---
 
-### **Не делать (пока)**
+## Критерии готовности ближайшей задачи
 
-- ❌ WebAuthn (слишком сложно, нишевое)
-- ❌ SMS OTP (ненадёжно в России, дорого)
-- ❌ Биометрия (не нужна для единственного админа)
-
----
-
-## Текущие параметры в коде
-
-**Файл:** `shop/lib/auth.ts`
-
-```typescript
-// Текущие настройки:
-ttl: 60 * 60 * 8,  // 8 часов — СЛИШКОМ ДОЛГО
-cookieOptions: { 
-  httpOnly: true,      // ✅ хорошо
-  secure: true,        // ✅ хорошо (HTTPS)
-  sameSite: 'lax',     // ✅ хорошо
-  maxAge: 60 * 60 * 8 - 60  // ✅ синхро с ttl
-}
-```
-
-**Рекомендация:** При любом варианте сначала изменить `ttl` на 30 минут:
-
-```typescript
-ttl: 30 * 60,  // 30 минут неактивности
-```
-
----
-
-## Решение принимаешь ты
-
-**Напиши:**
-- Вариант 1, 2, 3 или 4?
-- Когда реализовать?
-- Виктория согласна с TOTP (скачивать Google Authenticator)?
-
-**По умолчанию рекомендую:** Вариант 1 (быстро) + Вариант 2 (в Q3).
+- [ ] Login limiter хранит попытки в БД и работает одинаково при нескольких
+      Node/PM2-процессах.
+- [ ] Rate-limit ответ содержит `429` и корректный `Retry-After`.
+- [ ] Успешный вход сбрасывает счётчик ошибок для ключа.
+- [ ] Входы и ошибки пишутся в `admin_login_log`.
+- [ ] В админке видна история входов без раскрытия лишних персональных данных.
+- [ ] TTL админ-сессии сокращён и покрыт тестом.

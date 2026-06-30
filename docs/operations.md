@@ -401,8 +401,9 @@ URL вебхука `https://mavita.ru/api/cdek/webhook`.
    ALTER TABLE store_settings VALIDATE CONSTRAINT store_settings_cdek_complete_check;
    ```
 10. **Калибровка:** зафиксировать первые 20–30 отправок (город/вес/габариты/
-    факт-счёт СДЭК/доплаты/срок) → решение по зонам и курьеру (следующая фаза,
-    `docs/specs/cdek-manual-launch.md`).
+    факт-счёт СДЭК/доплаты/срок) → решение по зонам, курьеру или следующему
+    перевозчику на базе `docs/specs/delivery-options.md`. Старый ручной план
+    СДЭК сохранён как `docs/specs/done/cdek-manual-launch.md`.
 
 ### Выбор города и ПВЗ на чекауте
 

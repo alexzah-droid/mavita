@@ -232,12 +232,15 @@ ResultURL Робокассы и сценарий СДЭК на стенде/пр
 ## Реализационный план после критического ревью
 
 Ниже — приоритеты по итогам критического чтения
-`docs/specs/admin-security.md`, `docs/tech-debt.md` и `mavita-audit.md`.
-Источник release-gate и статусов — этот `ROADMAP.md` + `docs/tech-debt.md`;
+`docs/specs/admin-security.md`, `docs/specs/delivery-options.md`,
+`docs/specs/yandex-delivery-pvz.md`, `docs/specs/rupost-integration.md`,
+`docs/tech-debt.md` и `mavita-audit.md`.
+Источник release-gate и статусов — этот `ROADMAP.md`, `docs/tech-debt.md` и
+актуализированные planning specs из `docs/specs/`;
 `mavita-audit.md` используем как источник UX/SEO-гипотез, но не как источник
-security- или rollout-статуса. В частности, `admin-security` частично устарел:
-login rate-limit уже реализован в коде, поэтому следующий шаг — не “добавить
-rate limiting”, а усилить текущую реализацию.
+security- или rollout-статуса. `admin-security` уже обновлён под текущий код:
+login rate-limit реализован process-local, поэтому следующий шаг — усилить его
+до PG-backed limiter, добавить audit и затем TOTP.
 
 ### P0 — До приёма реальных денег
 
@@ -320,6 +323,15 @@ rate limiting”, а усилить текущую реализацию.
    - GA4 / Яндекс.Метрика, затем отзывы и дальнейшие growth-задачи.
    - Причина: полезно, но не должно обгонять безопасность админки, платежи,
      delivery-rollout и антиабуз checkout.
+
+12. **Планировать расширение доставки только через актуальные specs.**
+   - База: `docs/specs/delivery-options.md`.
+   - Яндекс Доставка: сначала Gate 0 из `docs/specs/yandex-delivery-pvz.md`,
+     затем отдельная реализационная спека.
+   - Почта России: сначала `docs/specs/rupost-api-revalidation.md`, затем
+     `rupost-address-checkout.md`, затем `rupost-batches-admin.md`.
+   - `docs/specs/done/cdek-manual-launch.md` — historical/reference: ручной
+     СДЭК был реализован иначе и не является текущим ТЗ.
 
 ### Не брать в ближайший цикл
 

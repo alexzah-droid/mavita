@@ -6,7 +6,7 @@ fallback, server re-validation). Production rollout выполнен; UX уск�
 **Дата:** 2026-06-24. Обновлено: 2026-06-29.
 **Предшествующее:** СДЭК-ПВЗ уже живой на проде через кастомный автокомплит
 города + список ПВЗ (фикс `city_code`, заказ №13 проверен). Это путь C из
-[delivery-options.md](delivery-options.md): «список сейчас → виджет потом».
+[../delivery-options.md](../delivery-options.md): «список сейчас → виджет потом».
 **Источники:** [cdek-it/widget](https://github.com/cdek-it/widget),
 [типы виджета 3.x](https://cdn.jsdelivr.net/gh/cdek-it/widget@3.11.1/dist/cdek-widget.es.d.ts),
 [Next.js-интеграция (disa4148)](https://github.com/disa4148/cdek-widget-3.0),
