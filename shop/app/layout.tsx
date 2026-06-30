@@ -5,6 +5,7 @@ import {
   SITE_DESCRIPTION,
   buildPageMetadata,
 } from '@/lib/seo'
+import YandexMetrika from '@/app/components/YandexMetrika'
 
 export const metadata: Metadata = {
   ...buildPageMetadata({
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <CartProvider>{children}</CartProvider>
+        <YandexMetrika />
       </body>
     </html>
   )
