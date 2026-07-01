@@ -3,6 +3,7 @@ import { getIronSession, type SessionOptions } from 'iron-session'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { NextResponse } from 'next/server'
+import { authConfigProblems } from '@/lib/config-checks'
 
 export type AdminSession = { isAdmin: true; loginAt: number }
 export const sessionOptions: SessionOptions = {
@@ -12,8 +13,8 @@ export const sessionOptions: SessionOptions = {
 }
 
 export function assertAuthConfig(): void {
-  if (!process.env.ADMIN_PASSWORD?.trim()) throw new Error('ADMIN_PASSWORD must be set')
-  if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) throw new Error('SESSION_SECRET must contain at least 32 characters')
+  const problems = authConfigProblems() // общий источник правды с instrumentation.ts
+  if (problems.length) throw new Error(problems[0])
 }
 export function verifyPassword(input: string, expected: string): boolean {
   const a = createHash('sha256').update(input, 'utf8').digest()

@@ -16,6 +16,11 @@ function getPool(): Pool {
       throw new Error('DATABASE_URL is not set')
     }
     pool = new Pool({ connectionString: process.env.DATABASE_URL })
+    // pg эмитит 'error' на простаивающих клиентах (рестарт PostgreSQL, обрыв сети).
+    // Без слушателя это unhandled 'error' → падение всего процесса Node.
+    pool.on('error', (err) => {
+      console.error('[db] idle client error:', err)
+    })
   }
   return pool
 }

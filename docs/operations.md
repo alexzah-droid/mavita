@@ -129,6 +129,8 @@ ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/see
 ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/003_orders_delivery_and_admin_events.sql"
 # После rollout Telegram-уведомлений:
 ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/004_telegram_order_notifications.sql"
+# Секрет вебхука СДЭК + индекс cdek_order_uuid (применена на prod 2026-07-01):
+ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/019_cdek_webhook_secret_and_uuid_index.sql"
 ```
 
 Перед миграцией `003` обязательно сделать `pg_dump` из раздела выше. После неё
@@ -309,7 +311,14 @@ npm run cdek:readiness -- --json
 После установки: в админке **Настройки → Доставка** заполнить точку сдачи, данные
 отправителя, нажать **«Зарегистрировать вебхук»**, затем **«Сохранить»** и включить
 автосоздание накладных (чекбокс). Вебхук нужен чтобы СДЭК слал статусы обратно:
-URL вебхука `https://mavita.ru/api/cdek/webhook`.
+URL вебхука `https://mavita.ru/api/cdek/webhook?secret=<случайный uuid>`.
+
+> С миграции 019 регистрация вебхука вшивает в URL случайный секрет (СДЭК не
+> подписывает вебхуки HMAC — секрет в URL единственная аутентификация). Секрет
+> хранится в `store_settings.cdek_webhook_secret`; события без него/с чужим
+> игнорируются (в лог пишется предупреждение). Если вебхук регистрировался ДО
+> миграции — просто нажать «Зарегистрировать вебхук» ещё раз: старая регистрация
+> в СДЭК заменится URL-ом с секретом.
 
 ### Egress-прокси для Telegram (обход РФ-блокировки)
 

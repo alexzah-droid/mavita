@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
+import { paymentConfigProblems, robokassaHashAlgo } from '@/lib/config-checks'
 
 export function isRobokassaConfigured(): boolean {
   return !!(
@@ -8,56 +9,17 @@ export function isRobokassaConfigured(): boolean {
   )
 }
 
-// Node поддерживает эти алгоритмы; должны совпадать с настройкой «Хэш-алгоритм»
-// в ЛК Робокассы (TD-20). MD5 — дефолт Робокассы, но кабинет можно перевести на
-// SHA-256/512 — тогда выставить ROBOKASSA_HASH_ALGO ОДНОВРЕМЕННО с настройкой в ЛК.
-const ALLOWED_HASH_ALGOS = new Set(['md5', 'sha1', 'sha256', 'sha384', 'sha512'])
-
-function hashAlgo(): string {
-  const algo = (process.env.ROBOKASSA_HASH_ALGO ?? 'md5').toLowerCase()
-  if (!ALLOWED_HASH_ALGOS.has(algo)) {
-    throw new Error(
-      `ROBOKASSA_HASH_ALGO="${algo}" не поддерживается (допустимо: ${[...ALLOWED_HASH_ALGOS].join(', ')})`,
-    )
-  }
-  return algo
-}
-
 /** Подпись Робокассы в верхнем регистре hex выбранным алгоритмом (по умолчанию MD5). */
 function signHex(s: string): string {
-  return createHash(hashAlgo()).update(s, 'utf8').digest('hex').toUpperCase()
+  return createHash(robokassaHashAlgo()).update(s, 'utf8').digest('hex').toUpperCase()
 }
 
 /**
- * Проверка безопасности конфигурации платежей (TD-21.1). Возвращает список
- * проблем (пусто = всё ок). Главное: в production ROBOKASSA_TEST_MODE='true'
- * означал бы оплату с IsTest=1 — заказы помечались бы paid без реального движения
- * денег. Также ловим опечатку в ROBOKASSA_HASH_ALGO до первого платежа.
+ * Проверка безопасности конфигурации платежей (TD-21.1). Возвращает список проблем
+ * (пусто = всё ок). Сами проверки — в lib/config-checks, общем с instrumentation.ts.
  */
 export function checkPaymentConfig(): string[] {
-  const problems: string[] = []
-  const isProd = process.env.NODE_ENV === 'production'
-
-  // Тестовый платёж на production допустим только с отдельным явным opt-in.
-  // Это позволяет подготовить витрину до старта продаж, не превращая test mode
-  // в молчаливую небезопасную настройку.
-  if (
-    isProd &&
-    process.env.ROBOKASSA_TEST_MODE === 'true' &&
-    process.env.ALLOW_ROBOKASSA_TEST_MODE_IN_PRODUCTION !== 'true'
-  ) {
-    problems.push(
-      'ROBOKASSA_TEST_MODE=true в production без ALLOW_ROBOKASSA_TEST_MODE_IN_PRODUCTION=true: платежи уходили бы с IsTest=1 и помечались оплаченными без реальных денег',
-    )
-  }
-  if (isRobokassaConfigured()) {
-    try {
-      hashAlgo() // бросит при недопустимом ROBOKASSA_HASH_ALGO
-    } catch (e) {
-      problems.push((e as Error).message)
-    }
-  }
-  return problems
+  return paymentConfigProblems()
 }
 
 /** Бросает, если конфигурация платежей небезопасна — вызывается при старте сервера. */
@@ -151,6 +113,25 @@ export function verifyResultSignature(
   const password2 = process.env.ROBOKASSA_PASSWORD2!
   const expected = signHex(`${outSum}:${invId}:${password2}`)
   // Постоянное по времени сравнение (TD-12): не утекаем длину/совпадение префикса.
+  const a = Buffer.from(expected)
+  const b = Buffer.from(signature.toUpperCase())
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+
+/**
+ * Проверить подпись редиректа покупателя на SuccessURL:
+ * HASH(OutSum:InvId:Password1) — success-возврат Робокасса подписывает Паролем#1
+ * (FailURL приходит вовсе без подписи — там работает только order-ref cookie).
+ * Не настроенная Робокасса / пустые параметры → false, никогда не бросает.
+ */
+export function verifySuccessSignature(
+  outSum: string,
+  invId: string,
+  signature: string,
+): boolean {
+  const password1 = process.env.ROBOKASSA_PASSWORD1
+  if (!password1 || !outSum || !invId || !signature) return false
+  const expected = signHex(`${outSum}:${invId}:${password1}`)
   const a = Buffer.from(expected)
   const b = Buffer.from(signature.toUpperCase())
   return a.length === b.length && timingSafeEqual(a, b)

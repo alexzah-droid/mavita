@@ -1,10 +1,14 @@
+import { timingSafeEqual } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { isDbConfigured, query, withTransaction } from '@/lib/db'
+import { getCdekWebhookSecret } from '@/lib/store-settings'
 import { enqueueOrderNotification } from '@/lib/telegram-notifications'
 import { sendOpsAlert } from '@/lib/ops-alert'
 
-// СДЭК не подписывает вебхуки HMAC. Верификация — проверка cdek_order_uuid в нашей БД.
-// Неизвестный UUID → 200 OK без действий (не 4xx, иначе СДЭК будет ретраить).
+// СДЭК не подписывает вебхуки HMAC. Аутентификация — секрет в URL (?secret=…,
+// вшивается при регистрации вебхука) + проверка cdek_order_uuid в нашей БД.
+// Неизвестный UUID / неверный секрет → 200 OK без действий (не 4xx, иначе СДЭК
+// будет ретраить; для неверного секрета — лог, чтобы заметить рассинхрон регистрации).
 
 // Актор для событий вебхука (не admin-сессия)
 const ACTOR_CDEK_WEBHOOK = 0
@@ -40,8 +44,22 @@ function mapCdekStatus(cdekCode: string): string | null {
   }
 }
 
+function secretMatches(provided: string | null, expected: string): boolean {
+  if (!provided) return false
+  const a = Buffer.from(provided); const b = Buffer.from(expected)
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!isDbConfigured()) return NextResponse.json({ ok: true })
+
+  // Секрет обязателен, только когда сохранён (вебхук регистрировался с ним).
+  // Пустой в БД = старая регистрация без секрета — принимаем как раньше.
+  const expectedSecret = await getCdekWebhookSecret()
+  if (expectedSecret && !secretMatches(req.nextUrl.searchParams.get('secret'), expectedSecret)) {
+    console.warn('[cdek/webhook] событие с неверным/отсутствующим secret — игнор (перерегистрируйте вебхук в админке)')
+    return NextResponse.json({ ok: true })
+  }
 
   let body: unknown
   try { body = await req.json() } catch { return NextResponse.json({ ok: true }) }

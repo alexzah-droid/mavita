@@ -1,12 +1,9 @@
 import { markOrderPaid } from '@/lib/orders'
 import { isAllowedResultIp, verifyResultSignature } from '@/lib/robokassa'
-
-// За Nginx реальный IP — в X-Forwarded-For (первый хоп) либо X-Real-IP.
-function clientIp(req: Request): string | null {
-  const xff = req.headers.get('x-forwarded-for')
-  if (xff) return xff.split(',')[0].trim()
-  return req.headers.get('x-real-ip')
-}
+// Доверенный IP за Nginx: X-Real-IP, иначе ПОСЛЕДНИЙ элемент X-Forwarded-For.
+// Первый элемент XFF клиент может подделать — с ним allowlist обходился бы
+// заголовком X-Forwarded-For: <IP Робокассы>.
+import { clientIp } from '@/lib/public-rate-limit'
 
 // Робокасса в тестовом режиме может слать GET вместо POST.
 // Оба метода обрабатываем одинаково.

@@ -3,6 +3,7 @@ import { createOrder, DeliveryUnavailableError, OrderValidationError, PriceChang
 import { buildPaymentUrl, isRobokassaConfigured } from '@/lib/robokassa'
 import { DeliveryProviderError } from '@/lib/delivery/types'
 import { CARRIER_LABEL } from '@/lib/store-settings'
+import { ORDER_REF_COOKIE, orderRefCookieOptions, orderRefValue } from '@/lib/order-ref-cookie'
 
 // POST /api/robokassa/init
 // Создаёт заказ (pending), при наличии конфига Робокассы — возвращает URL оплаты.
@@ -32,8 +33,15 @@ export async function POST(req: Request) {
   try {
     const { id, token, totalKopecks, lines, deliveryKopecks, deliveryCarrier } = await createOrder(input)
 
+    // order-ref cookie доказывает success/fail-роутам, что этот браузер оформил
+    // заказ (см. lib/order-ref-cookie) — только ему можно отдать /order/<token>.
+    const withOrderRef = (res: NextResponse) => {
+      res.cookies.set(ORDER_REF_COOKIE, orderRefValue(id, token), orderRefCookieOptions())
+      return res
+    }
+
     if (!isRobokassaConfigured()) {
-      return NextResponse.json({ id, token, paymentUrl: null }, { status: 201 })
+      return withOrderRef(NextResponse.json({ id, token, paymentUrl: null }, { status: 201 }))
     }
 
     const deliveryName = deliveryCarrier ? `Доставка ${CARRIER_LABEL[deliveryCarrier]} до ПВЗ` : 'Доставка до ПВЗ'
@@ -45,7 +53,7 @@ export async function POST(req: Request) {
       `Заказ №${id} — МАВИТА`,
     )
 
-    return NextResponse.json({ id, token, paymentUrl }, { status: 201 })
+    return withOrderRef(NextResponse.json({ id, token, paymentUrl }, { status: 201 }))
   } catch (err) {
     if (err instanceof DeliveryUnavailableError) {
       return NextResponse.json({ error: { code: 'DELIVERY_UNAVAILABLE', messages: [err.message] } }, { status: 503 })

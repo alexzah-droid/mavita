@@ -70,7 +70,8 @@ describe('seo helpers', () => {
   })
 
   it('собирает Product JSON-LD с актуальной ценой и availability', () => {
-    const jsonLd = buildProductJsonLd(baseProduct)
+    // Фиксированные часы внутри окна скидки фикстуры — тест не зависит от wall clock.
+    const jsonLd = buildProductJsonLd(baseProduct, new Date('2026-06-15T12:00:00.000Z'))
 
     expect(jsonLd['@type']).toBe('Product')
     expect(jsonLd.url).toBe('https://mavita.ru/product/gornaya-vershina')

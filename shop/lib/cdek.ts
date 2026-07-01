@@ -4,6 +4,7 @@
 // воркере, без pm2 reload.
 import type { CarrierProvider, DeliveryCredentials, PickupPoint } from '@/lib/delivery/types'
 import { DeliveryProviderError } from '@/lib/delivery/types'
+import { pruneTtlMap } from '@/lib/bounded-map'
 
 export type { PickupPoint }
 // Город СДЭК: code — числовой city_code (им фильтруется /deliverypoints), а НЕ название.
@@ -124,9 +125,11 @@ export type CdekProxyResult = { status: number; body: string }
 
 // Кэш ПВЗ для виджета: список точек конкретного города меняется редко, кэшируем
 // 10 минут. Ключ — отсортированные параметры запроса (city_code + type).
-// Одна запись Москвы ≈ 300–600 KB JSON; Map в памяти Node.js — приемлемо для VPS.
+// Одна запись Москвы ≈ 300–600 KB JSON, поэтому кэш ЖЁСТКО ограничен по числу
+// записей (перебор city_code иначе раздувал бы Map до OOM) — см. pruneTtlMap.
 const officesCache = new Map<string, { body: string; status: number; expiresAt: number }>()
 const OFFICES_TTL_MS = 10 * 60 * 1000
+const OFFICES_CACHE_MAX = 50
 
 // Сырой проксированный вызов СДЭК для виджета `@cdek-it/widget`. Тело ответа СДЭК
 // возвращаем КАК ЕСТЬ (виджет ждёт нативный JSON, без обёртки) — точная калька
@@ -147,7 +150,10 @@ export async function cdekWidgetProxy(creds: DeliveryCredentials, action: 'offic
     catch { throw new CdekValidationError('Доставка временно недоступна', true) }
     if (response.status === 401 || response.status === 403) throw new CdekValidationError('Доставка временно недоступна', true, true)
     const body = await response.text()
-    if (response.ok) officesCache.set(cacheKey, { body, status: response.status, expiresAt: Date.now() + OFFICES_TTL_MS })
+    if (response.ok) {
+      pruneTtlMap(officesCache, OFFICES_CACHE_MAX)
+      officesCache.set(cacheKey, { body, status: response.status, expiresAt: Date.now() + OFFICES_TTL_MS })
+    }
     return { status: response.status, body }
   }
 

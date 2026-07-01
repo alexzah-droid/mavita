@@ -17,8 +17,13 @@
 // Runtime-страховка: если этот модуль случайно окажется в клиентском бандле и
 // выполнится в браузере — падаем сразу, а не молча расшифровываем на клиенте.
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
+import { parseEncKey } from '@/lib/config-checks'
 
 if (typeof window !== 'undefined') throw new Error('secret-box-core нельзя импортировать в клиентский код')
+
+// Разбор мастер-ключа переехал в config-checks (общий с instrumentation.ts);
+// реэкспорт сохраняет исторический импорт CLI-скриптов (backfill/rotate).
+export { parseEncKey }
 
 const VERSION = 0x01
 const IV_LEN = 12
@@ -60,18 +65,6 @@ export function decryptSecret(buf: Buffer, aad: string, key: Buffer = settingsEn
   decipher.setAAD(Buffer.from(aad, 'utf8'))
   decipher.setAuthTag(tag)
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8')
-}
-
-/** Разобрать мастер-ключ из произвольной строки (для ротации: OLD/NEW из env). */
-export function parseEncKey(raw: string | undefined, label = 'key'): Buffer {
-  const value = raw?.trim()
-  if (!value) throw new Error(`${label} must be set`)
-  if (/^[0-9a-f]{64}$/i.test(value)) return Buffer.from(value, 'hex')
-  const buf = Buffer.from(value, 'base64')
-  if (buf.toString('base64').replace(/=+$/, '') !== value.replace(/=+$/, '') || buf.length !== 32) {
-    throw new Error(`${label} must decode to exactly 32 bytes (64 hex chars or canonical base64)`)
-  }
-  return buf
 }
 
 /** Маска для UI: '••••' + последние 4 символа. Открытый секрет не показываем. */

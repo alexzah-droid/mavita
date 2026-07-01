@@ -145,7 +145,9 @@ function kopecksToRubString(value: number): string {
   return (value / 100).toFixed(2)
 }
 
-export function buildProductJsonLd(product: Product) {
+// now — инжектируемые часы: тесты передают фиксированную дату, чтобы окно скидки
+// в фикстуре не превращало тест в бомбу замедленного действия.
+export function buildProductJsonLd(product: Product, now: Date = new Date()) {
   const offer = effectivePrice(
     {
       priceKopecks: product.priceKopecks,
@@ -153,7 +155,7 @@ export function buildProductJsonLd(product: Product) {
       saleStartsAt: product.sale?.startsAt ?? null,
       saleEndsAt: product.sale?.endsAt ?? null,
     },
-    new Date(),
+    now,
   )
   const url = absoluteUrl(productPath(product.slug))
   const images = (product.images.length ? product.images : [product.image]).filter(Boolean)

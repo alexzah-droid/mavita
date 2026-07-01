@@ -3,11 +3,15 @@ import { suggestCities, type CdekCity } from '@/lib/cdek'
 import { DeliveryProviderError } from '@/lib/delivery/types'
 import { DeliveryConfigurationError, getRuntimeCredentials } from '@/lib/store-settings'
 import { allowRequest, clientIp } from '@/lib/public-rate-limit'
+import { pruneTtlMap } from '@/lib/bounded-map'
 
 const noStore = { 'Cache-Control': 'no-store' }
 const cityCacheHeaders = { 'Cache-Control': 'public, max-age=600, stale-while-revalidate=3600' }
+// Кэш подсказок ограничен по числу записей: уникальные q — новые ключи навсегда,
+// иначе перебор строк раздувал бы Map (см. pruneTtlMap).
 const suggestCache = new Map<string, { cities: CdekCity[]; expiresAt: number }>()
 const SUGGEST_TTL_MS = 10 * 60 * 1000
+const SUGGEST_CACHE_MAX = 1000
 const unavailable = () => NextResponse.json({ error: { code: 'DELIVERY_UNAVAILABLE', messages: ['Доставка временно недоступна'] } }, { status: 503, headers: noStore })
 
 // Автокомплит города СДЭК: q (≥2 символа) → [{ code, city, region }]. code —
@@ -25,6 +29,7 @@ export async function GET(request: Request) {
   if (!creds) return unavailable()
   try {
     const cities = await suggestCities(creds, q)
+    pruneTtlMap(suggestCache, SUGGEST_CACHE_MAX)
     suggestCache.set(cacheKey, { cities, expiresAt: Date.now() + SUGGEST_TTL_MS })
     return NextResponse.json({ cities }, { headers: cityCacheHeaders })
   } catch (error) {

@@ -80,11 +80,15 @@ public/uploads/      — загружаемые фото товаров (Nginx �
 ### Флоу оплаты
 
 ```
-POST /api/robokassa/init     — создаёт заказ (pending), считает MD5, редирект в Робокассу
-POST /api/robokassa/result   — сервер→сервер: проверяет MD5(Password2), ставит paid, отвечает "OK{InvId}"
-GET  /api/robokassa/success  — редирект покупателя после успешной оплаты
-GET  /api/robokassa/fail     — редирект при отмене/ошибке
+POST /api/robokassa/init     — создаёт заказ (pending), считает подпись, ставит order-ref cookie, отдаёт paymentUrl
+GET  /api/robokassa/pay      — повторная оплата pending-заказа: строит paymentUrl, ставит cookie, редирект в Робокассу
+POST /api/robokassa/result   — сервер→сервер: проверяет подпись (Password2), ставит paid, отвечает "OK{InvId}"
+GET  /api/robokassa/success  — редирект покупателя на /order/<token> ТОЛЬКО при order-ref cookie или валидной подписи (Password1)
+GET  /api/robokassa/fail     — редирект при отмене/ошибке; только по order-ref cookie (FailURL Робокасса не подписывает)
 ```
+
+Success/fail не отдают токен заказа по голому InvId: InvId — перебираемое число, а
+/order/<token> содержит PII. Владельца доказывает order-ref cookie (`lib/order-ref-cookie.ts`).
 
 ### Переменные окружения
 

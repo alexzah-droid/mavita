@@ -80,11 +80,12 @@ sequenceDiagram
 | 12 | `/api/robokassa/result` внутри | MD5 verify | `OutSum:InvId:Password2` | `bool` | `Password2` ≠ `Password1` — разные секреты для разных сторон |
 | 13 | `/api/robokassa/result` → PostgreSQL | транзакционный UPDATE | `paid/new`, `robokassa_data`, id | — | Переход из `pending/awaiting_payment` идемпотентен и не смешивает оплату с отгрузкой |
 | 14 | `/api/robokassa/result` → Робокасса | `200 text/plain` | — | `«OK{InvId}»` | Робокасса ждёт именно эту строку; иначе будет повторять колбэк |
-| 15 | Робокасса → `/api/robokassa/success` | `GET` | `InvId, OutSum, SignatureValue` | — | Параллельно с #11, но уже для браузера покупателя |
-| 16 | `/api/robokassa/success` → браузер | `302 redirect` | — | `/order/{token}?paid=1` | `?paid=1` — только UX-флаг, не источник правды о статусе |
+| 15 | Робокасса → `/api/robokassa/success` | `GET` | `InvId, OutSum, SignatureValue` + order-ref cookie браузера | — | Параллельно с #11, но уже для браузера покупателя |
+| 16 | `/api/robokassa/success` → браузер | `302 redirect` | — | `/order/{token}?paid=1` | Токен отдаётся только при order-ref cookie ЛИБО валидной подписи `OutSum:InvId:Password1` (иначе `/`) — InvId перебираем, токен защищает PII. `?paid=1` — только UX-флаг |
 | 17 | Покупатель → `/order/[token]` | `GET` (RSC) | `id` из URL | — | Страница SSR-читает заказ из БД |
 | 18 | `/order/[token]` → PostgreSQL | SQL SELECT | `order.id` | `order + order_items` | Статус отображается из БД — `paid` уже проставлен на шаге #13 |
-| — | Робокасса → `/api/robokassa/fail` | `GET` | `InvId` | `302 → /order/{token}?failed=1` | Только при отмене или ошибке оплаты; `status` в БД остаётся `pending` |
+| — | Робокасса → `/api/robokassa/fail` | `GET` | `InvId` + order-ref cookie | `302 → /order/{token}?failed=1` | FailURL приходит БЕЗ подписи — токен отдаётся только по order-ref cookie (иначе `/`); `status` в БД остаётся `pending` |
+| — | Покупатель → `/api/robokassa/pay?token=…` | `GET` | `token` | `302 →` Робокасса | Повторная оплата pending-заказа: строит paymentUrl со свежим чеком и ставит order-ref cookie |
 
 ---
 

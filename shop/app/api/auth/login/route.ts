@@ -2,14 +2,16 @@ import { getIronSession } from 'iron-session'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { assertAuthConfig, assertSameOrigin, sessionOptions, verifyPassword, type AdminSession } from '@/lib/auth'
+// Ключ лимитера — доверенный IP (X-Real-IP / последний элемент XFF): первый элемент
+// XFF клиент подделывает произвольно, что обнуляло бы лимит на перебор пароля.
+import { clientIp } from '@/lib/public-rate-limit'
 
 const WINDOW_MS = 60_000; const MAX_FAILURES = 5; const LIMIT = 10_000
 const attempts = new Map<string, { count: number; started: number }>()
-function ip(request: Request) { return request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'local' }
 function prune(now: number) { for (const [key, item] of attempts) if (now - item.started >= WINDOW_MS) attempts.delete(key); while (attempts.size > LIMIT) attempts.delete(attempts.keys().next().value!) }
 export async function POST(request: Request) {
   const csrf = assertSameOrigin(request); if (csrf) return csrf
-  const now = Date.now(); prune(now); const key = ip(request); const current = attempts.get(key)
+  const now = Date.now(); prune(now); const key = clientIp(request); const current = attempts.get(key)
   if (current && current.count >= MAX_FAILURES) return NextResponse.json({ error: { code: 'RATE_LIMITED', messages: ['Попробуйте позже'] } }, { status: 429, headers: { 'Retry-After': String(Math.ceil((WINDOW_MS - (now - current.started)) / 1000)) } })
   try {
     assertAuthConfig(); const body = await request.json().catch(() => null)

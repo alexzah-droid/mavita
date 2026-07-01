@@ -101,6 +101,9 @@ CREATE TABLE IF NOT EXISTS orders (
 
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_created_id_desc ON orders (created_at DESC, id DESC);
+-- Вебхук СДЭК ищет заказ по cdek_order_uuid на каждое событие (миграция 019).
+CREATE INDEX IF NOT EXISTS idx_orders_cdek_order_uuid
+    ON orders (cdek_order_uuid) WHERE cdek_order_uuid IS NOT NULL;
 
 -- Настройки перевозчика доставки (СДЭК). Тарифы nullable (выключенный перевозчик
 -- может не иметь тарифа); секреты ключей хранятся ШИФРОВАННЫМИ (*_enc, AES-256-GCM,
@@ -134,6 +137,8 @@ CREATE TABLE IF NOT EXISTS store_settings (
     cdek_multi_height_cm   SMALLINT DEFAULT 15
       CONSTRAINT store_settings_cdek_multi_height_positive CHECK (cdek_multi_height_cm IS NULL OR cdek_multi_height_cm > 0),
     cdek_webhook_uuid      TEXT,
+    -- Секрет в URL вебхука (?secret=…) — СДЭК не подписывает вебхуки (миграция 019).
+    cdek_webhook_secret    TEXT,
     CONSTRAINT store_settings_cdek_complete_check CHECK (cdek_pickup_enabled = false OR (cdek_client_id IS NOT NULL AND cdek_client_secret_enc IS NOT NULL AND cdek_pickup_delivery_kopecks IS NOT NULL)),
     CONSTRAINT store_settings_cdek_auto_shipment_complete_check
       CHECK (cdek_auto_shipment_enabled = false OR (

@@ -53,8 +53,9 @@ type SettingsRow = {
   cdek_default_length_cm: number | string | null; cdek_default_width_cm: number | string | null; cdek_default_height_cm: number | string | null
   cdek_multi_length_cm: number | string | null; cdek_multi_width_cm: number | string | null; cdek_multi_height_cm: number | string | null
   cdek_webhook_uuid: string | null
+  cdek_webhook_secret: string | null
 }
-const ALL_COLS = 'cdek_pickup_enabled, cdek_pickup_delivery_kopecks, cdek_client_id, cdek_client_secret_enc, updated_at, updated_by_actor_login_at, cdek_auto_shipment_enabled, cdek_shipment_point, cdek_sender_name, cdek_sender_phone, cdek_default_weight_grams, cdek_default_length_cm, cdek_default_width_cm, cdek_default_height_cm, cdek_multi_length_cm, cdek_multi_width_cm, cdek_multi_height_cm, cdek_webhook_uuid'
+const ALL_COLS = 'cdek_pickup_enabled, cdek_pickup_delivery_kopecks, cdek_client_id, cdek_client_secret_enc, updated_at, updated_by_actor_login_at, cdek_auto_shipment_enabled, cdek_shipment_point, cdek_sender_name, cdek_sender_phone, cdek_default_weight_grams, cdek_default_length_cm, cdek_default_width_cm, cdek_default_height_cm, cdek_multi_length_cm, cdek_multi_width_cm, cdek_multi_height_cm, cdek_webhook_uuid, cdek_webhook_secret'
 
 function rawEnabled(row: SettingsRow, c: Carrier): boolean { return Boolean(row[DESC[c].enabledCol as keyof SettingsRow]) }
 function rawClientId(row: SettingsRow, c: Carrier): string | null { const v = row[DESC[c].idCol as keyof SettingsRow]; return typeof v === 'string' ? v : null }
@@ -262,6 +263,9 @@ export type CdekShipmentPatch = {
   defaultWeightGrams?: number; defaultLengthCm?: number; defaultWidthCm?: number; defaultHeightCm?: number
   multiLengthCm?: number; multiWidthCm?: number; multiHeightCm?: number
   webhookUuid?: string | null
+  // Секрет URL вебхука. В DTO для админ-UI НЕ отдаётся — только регистрация
+  // вебхука (запись) и /api/cdek/webhook (сверка, см. getCdekWebhookSecret).
+  webhookSecret?: string | null
 }
 
 export class CdekShipmentConfigError extends Error {
@@ -287,6 +291,7 @@ export async function saveCdekShipmentSettings(patch: CdekShipmentPatch): Promis
     const mWid      = patch.multiWidthCm    !== undefined ? patch.multiWidthCm    : current?.cdek_multi_width_cm    != null ? Number(current.cdek_multi_width_cm)    : 20
     const mHgt      = patch.multiHeightCm   !== undefined ? patch.multiHeightCm   : current?.cdek_multi_height_cm   != null ? Number(current.cdek_multi_height_cm)   : 15
     const webhook   = patch.webhookUuid !== undefined ? patch.webhookUuid : current?.cdek_webhook_uuid ?? null
+    const whSecret  = patch.webhookSecret !== undefined ? patch.webhookSecret : current?.cdek_webhook_secret ?? null
 
     if (enabled && (!point?.trim() || !sender?.trim() || !phone?.trim())) {
       throw new CdekShipmentConfigError('Нельзя включить автоотправку без точки сдачи, имени и телефона отправителя')
@@ -297,9 +302,9 @@ export async function saveCdekShipmentSettings(patch: CdekShipmentPatch): Promis
          (singleton, cdek_pickup_enabled, cdek_auto_shipment_enabled,
           cdek_shipment_point, cdek_sender_name, cdek_sender_phone,
           cdek_default_weight_grams, cdek_default_length_cm, cdek_default_width_cm, cdek_default_height_cm,
-          cdek_multi_length_cm, cdek_multi_width_cm, cdek_multi_height_cm, cdek_webhook_uuid,
+          cdek_multi_length_cm, cdek_multi_width_cm, cdek_multi_height_cm, cdek_webhook_uuid, cdek_webhook_secret,
           updated_at, updated_by_actor_login_at)
-       VALUES (true, false, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now(), 0)
+       VALUES (true, false, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now(), 0)
        ON CONFLICT (singleton) DO UPDATE SET
          cdek_auto_shipment_enabled = EXCLUDED.cdek_auto_shipment_enabled,
          cdek_shipment_point = EXCLUDED.cdek_shipment_point,
@@ -313,12 +318,25 @@ export async function saveCdekShipmentSettings(patch: CdekShipmentPatch): Promis
          cdek_multi_width_cm = EXCLUDED.cdek_multi_width_cm,
          cdek_multi_height_cm = EXCLUDED.cdek_multi_height_cm,
          cdek_webhook_uuid = EXCLUDED.cdek_webhook_uuid,
+         cdek_webhook_secret = EXCLUDED.cdek_webhook_secret,
          updated_at = now()
        RETURNING ${ALL_COLS}`,
-      [enabled, point, sender, phone, wGrams, dLen, dWid, dHgt, mLen, mWid, mHgt, webhook],
+      [enabled, point, sender, phone, wGrams, dLen, dWid, dHgt, mLen, mWid, mHgt, webhook, whSecret],
     )
     return cdekShipmentDto(rows.rows[0])
   })
+}
+
+/**
+ * Секрет URL вебхука СДЭК — для сверки в /api/cdek/webhook. Наружу (DTO/клиент)
+ * не отдаётся. null — вебхук ещё не регистрировался с секретом.
+ */
+export async function getCdekWebhookSecret(): Promise<string | null> {
+  if (!isDbConfigured()) return null
+  const rows = await query<{ cdek_webhook_secret: string | null }>(
+    'SELECT cdek_webhook_secret FROM store_settings WHERE singleton = true',
+  )
+  return rows[0]?.cdek_webhook_secret ?? null
 }
 
 /** Удалить скомпрометированные ключи: выключить + стереть id/ciphertext, тариф оставить. */

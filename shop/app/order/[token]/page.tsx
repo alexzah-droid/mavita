@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getOrderByToken } from '@/lib/orders'
-import { buildPaymentUrl, isRobokassaConfigured } from '@/lib/robokassa'
+import { isRobokassaConfigured } from '@/lib/robokassa'
 import { formatRub } from '@/lib/price'
 import { CARRIER_LABEL } from '@/lib/store-settings'
 import ShopHeader from '@/app/components/ShopHeader'
@@ -52,22 +52,12 @@ export default async function OrderPage({
 
   const carrierLabel = order.deliveryCarrier ? CARRIER_LABEL[order.deliveryCarrier] : null
 
-  let paymentUrl: string | null = null
-  if (order.status === 'pending' && isRobokassaConfigured()) {
-    // Чек повторной оплаты должен совпадать с total_kopecks: при доставке добавляем
-    // её строкой, иначе сумма позиций не сойдётся с суммой платежа (I10).
-    const deliveryName = carrierLabel ? `Доставка ${carrierLabel} до ПВЗ` : 'Доставка до ПВЗ'
-    paymentUrl = buildPaymentUrl(
-      order.id,
-      order.totalKopecks,
-      [
-        ...order.items.map((it) => ({ name: it.productName, priceKopecks: it.priceKopecks, quantity: it.quantity })),
-        ...(order.deliveryKopecks ? [{ name: deliveryName, priceKopecks: order.deliveryKopecks, quantity: 1 }] : []),
-      ],
-      order.customerEmail,
-      `Заказ №${order.id} — МАВИТА`,
-    )
-  }
+  // Оплата — через /api/robokassa/pay: роут строит платёжный URL с чеком в момент
+  // клика и ставит order-ref cookie, без которой возврат с fail не докажет владельца
+  // заказа (см. lib/order-ref-cookie).
+  const paymentUrl = order.status === 'pending' && isRobokassaConfigured()
+    ? `/api/robokassa/pay?token=${encodeURIComponent(token)}`
+    : null
 
   return (
     <>

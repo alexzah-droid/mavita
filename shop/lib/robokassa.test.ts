@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import {
   buildPaymentUrl,
   verifyResultSignature,
+  verifySuccessSignature,
   kopecksToOutSum,
   isRobokassaConfigured,
   isAllowedResultIp,
@@ -32,6 +33,26 @@ afterEach(() => {
   delete process.env.ROBOKASSA_HASH_ALGO
   delete process.env.ROBOKASSA_RESULT_IPS
   vi.unstubAllEnvs()
+})
+
+// Подпись success-редиректа покупателя: HASH(OutSum:InvId:Password1). Без неё
+// (или order-ref cookie) success не отдаёт /order/<token> — иначе InvId перебирается.
+describe('verifySuccessSignature', () => {
+  it('принимает подпись OutSum:InvId:Password1 в любом регистре', () => {
+    const sig = md5(`1800.00:5:${PW1}`)
+    expect(verifySuccessSignature('1800.00', '5', sig)).toBe(true)
+    expect(verifySuccessSignature('1800.00', '5', sig.toLowerCase())).toBe(true)
+  })
+  it('отвергает чужой InvId, пустую подпись и подпись на Password2', () => {
+    expect(verifySuccessSignature('1800.00', '6', md5(`1800.00:5:${PW1}`))).toBe(false)
+    expect(verifySuccessSignature('1800.00', '5', '')).toBe(false)
+    expect(verifySuccessSignature('1800.00', '5', md5(`1800.00:5:${PW2}`))).toBe(false)
+  })
+  it('уважает ROBOKASSA_HASH_ALGO', () => {
+    process.env.ROBOKASSA_HASH_ALGO = 'sha256'
+    expect(verifySuccessSignature('900.00', '8', sha256(`900.00:8:${PW1}`))).toBe(true)
+    expect(verifySuccessSignature('900.00', '8', md5(`900.00:8:${PW1}`))).toBe(false)
+  })
 })
 
 describe('kopecksToOutSum', () => {
