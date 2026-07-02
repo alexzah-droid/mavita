@@ -72,9 +72,9 @@ public/uploads/      — загружаемые фото товаров (Nginx �
 
 | Таблица | Назначение |
 |---|---|
-| `products` | товары: slug, name, price (копейки), in_stock, sort_order, visibility (`public`/`unlisted`/`hidden`), поля скидки (`sale_price_kopecks`, `sale_starts_at`, `sale_ends_at`) |
+| `products` | товары: slug, name, price (копейки), in_stock, sort_order, visibility (`public`/`unlisted`/`hidden`), поля скидки (`sale_price_kopecks`, `sale_starts_at`, `sale_ends_at`), вес/габариты для СДЭК и публичные характеристики (`burn_time_hours`, `wax`, `wick`) |
 | `product_images` | фото товара; `is_cover` — главное на витрине |
-| `orders` | заказ: статус `pending → paid → cancelled`, `token` для URL, `inv_id` для Робокассы |
+| `orders` | заказ: статус `pending → paid → cancelled`, `token` для URL, `inv_id` для Робокассы, `customer_comment` — комментарий покупателя (≤500) |
 | `order_items` | состав заказа — snapshot названия и цены на момент покупки |
 
 ### Флоу оплаты

@@ -80,7 +80,7 @@ Certbot              — Let's Encrypt SSL
 │
 ├── lib/
 │   ├── db.ts                     — Postgres-клиент (pg / postgres.js)
-│   ├── robokassa.ts              — генерация и проверка MD5-подписи
+│   ├── robokassa.ts              — генерация и проверка подписи (алгоритм — ROBOKASSA_HASH_ALGO; на проде SHA-256)
 │   ├── auth.ts                   — сессия для админки (iron-session)
 │   ├── orders.ts                 — snapshot заказа, оплаты и delivery
 │   ├── secret-box{,-core}.ts     — AES-256-GCM шифрование ключей перевозчиков (server-only обёртка + core)
@@ -89,6 +89,7 @@ Certbot              — Let's Encrypt SSL
 │   ├── cdek.ts                   — СДЭК: OAuth, города/ПВЗ, widget proxy
 │   ├── cdek-shipment.ts          — создание/аннулирование отправлений, waybill/barcode, webhook helpers
 │   ├── cdek-outbox.ts            — outbox-дрейнер задач автоотправки СДЭК
+│   ├── telegram-notifications.ts — outbox уведомлений владельцу о заказах (drain по systemd-таймеру)
 │   └── ops-alert.ts              — алерт оператору (Telegram) с подтверждением доставки
 │
 ├── public/
@@ -110,9 +111,9 @@ Certbot              — Let's Encrypt SSL
 
 | Сущность | Существенные поля и ограничения |
 | --- | --- |
-| `products` | `price_kopecks INTEGER`, visibility, окно скидки, `updated_at`; эффективная цена считается в `lib/pricing.ts` |
+| `products` | `price_kopecks INTEGER`, visibility, окно скидки, `updated_at`; вес/габариты для СДЭК (миграция `015`) и публичные характеристики — время горения, воск, фитиль (миграция `020`); эффективная цена считается в `lib/pricing.ts` |
 | `product_images` | несколько фото, единственная обложка на товар через partial unique index |
-| `orders` | неугадываемый `token`, `inv_id`, `items_kopecks + delivery_kopecks = total_kopecks`, payment status и отдельный fulfillment status |
+| `orders` | неугадываемый `token`, `inv_id`, `items_kopecks + delivery_kopecks = total_kopecks`, payment status и отдельный fulfillment status; `customer_comment` — необязательный комментарий покупателя ≤500 символов (миграция `021`) |
 | `order_items` | snapshot названия, цены и количества позиции |
 | `store_settings` | синглтон: флаг/тариф СДЭК, **шифрованные** credentials (`cdek_client_id`, `cdek_client_secret_enc`) и параметры автоотправки; открытый секрет в БД не хранится |
 | `order_admin_events` | неизменяемый аудит отмены, переходов исполнения и `cdek_status_update` |
@@ -138,10 +139,10 @@ Ozon позже снят миграцией `013_drop_ozon.sql`.
 Единый источник статуса фаз — [ROADMAP.md](ROADMAP.md). Здесь не дублируется,
 чтобы не расходиться. Известный техдолг — [docs/tech-debt.md](docs/tech-debt.md).
 
-> ResultURL/SuccessURL/FailURL уже описаны в `docs/environments.md`. Перед
-> реальным платежом проверить на VPS конкретный режим `ROBOKASSA_TEST_MODE` и
-> прохождение ResultURL; не считать значение режима подтверждённым только по
-> этому документу.
+> ResultURL/SuccessURL/FailURL и фактический `.env` прода описаны в
+> `docs/environments.md`. Робокасса — в боевом режиме с 2026-06-21
+> (`ROBOKASSA_TEST_MODE=false`), подпись SHA-256 с 2026-06-23; реальные оплаты
+> проходят.
 
 ---
 
@@ -154,13 +155,14 @@ Ozon позже снят миграцией `013_drop_ozon.sql`.
         ↓
 2. POST /api/robokassa/init
    — создаёт заказ в БД со статусом pending
-   — считает подпись: MD5(Login:OutSum:InvId:Password1)
+   — считает подпись: hash(Login:OutSum:InvId:Password1), алгоритм — ROBOKASSA_HASH_ALGO
+     (на проде SHA-256, синхронно с ЛК; в тестах/легаси — MD5)
    — редиректит на https://auth.robokassa.ru/Merchant/Index.aspx
         ↓
 3. Робокасса проводит оплату
         ↓
 4. GET или POST /api/robokassa/result  ← сервер Робокассы → наш сервер
-   — проверяет подпись: MD5(OutSum:InvId:Password2)
+   — проверяет подпись: hash(OutSum:InvId:Password2)
    — сверяет OutSum с total_kopecks заказа (защита от недоплаты)
    — атомарно меняет `pending/awaiting_payment` → `paid/new` (идемпотентно)
    — возвращает "OK{InvId}"
@@ -256,10 +258,10 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;      # https за прокси
     }
 }
+```
 
 > `Host` обязателен: на нём держится same-origin проверка админки (**I8**) — Node за
 > прокси видит `request.url` как `http://`, поэтому сверяется хост `Host`, а не протокол.
-```
 
 ---
 

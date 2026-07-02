@@ -1,6 +1,6 @@
 # Бизнес-требования и функции — МАВИТА-ШОП
 
-Дата актуализации: 2026-06-28
+Дата актуализации: 2026-07-02
 
 Назначение документа: единый каталог бизнес-требований и функций интернет-магазина
 свечей МАВИТА. Служит основой для **трассировки** (требование → код → тест) и
@@ -56,7 +56,7 @@
 | FR-CAT-3 | Галерея фото товара | Несколько фото, обложка (`is_cover`) — главная на витрине | `app/components/ProductGallery.tsx`, `product_images` |
 | FR-CAT-4 | Отображение цены и скидки | Эффективная цена и зачёркнутая регулярная при активной скидке | `app/components/PriceDisplay.tsx`, `lib/pricing.ts` |
 | FR-CAT-5 | Признак наличия | `in_stock=false` — товар виден, но не покупается | `lib/catalog.ts` |
-| FR-CAT-6 | Атрибуты товара | Серия, подзаголовок, описание, ароматы (`scent[]`) | `products` |
+| FR-CAT-6 | Атрибуты товара | Серия, подзаголовок, описание, ароматы (`scent[]`); физические характеристики — вес, время горения, состав воска, фитиль (опциональны, пустые скрываются; миграции `015`/`020`) | `products`, `app/product/[slug]/page.tsx` |
 | FR-CAT-7 | Фоллбэк без БД | Без `DATABASE_URL` — seed-каталог; БД настроена, но недоступна → `503`, не seed | `lib/catalog.ts` |
 
 ### 3.2 Корзина
@@ -81,13 +81,14 @@
 | FR-CHK-5 | Защита от подмены цены | Цена/название позиций берутся из БД (snapshot), не от клиента (I9) | `buildOrderLines`, `fetchCatalog` |
 | FR-CHK-6 | Сверка ожидаемой суммы | Клиентские `expectedTotalKopecks`/`expectedDeliveryKopecks` сверяются с серверным расчётом → `PriceChangedError` при расхождении | `createOrder` |
 | FR-CHK-7 | Схлопывание дублей | Повтор одного slug суммируется в одну позицию (TD-10) | `buildOrderLines` |
+| FR-CHK-8 | Комментарий к заказу | Необязательное поле (например, текст открытки к подарку), ≤500 символов; сохраняется в `orders.customer_comment` (миграция `021`), виден в админке заказа и в Telegram-уведомлении | `app/checkout/page.tsx`, `lib/orders.ts`, `lib/telegram-notifications.ts` |
 
 ### 3.4 Оплата (Робокасса)
 
 | ID | Функция | Правила | Код |
 | --- | --- | --- | --- |
-| FR-PAY-1 | Инициация оплаты | `POST /api/robokassa/init`: пересчёт сумм, создание `pending`, подпись `MD5(Login:OutSum:InvId:Password1)`, редирект в Робокассу | `app/api/robokassa/init/route.ts`, `lib/robokassa.ts` |
-| FR-PAY-2 | Подтверждение оплаты (ResultURL) | `/api/robokassa/result`: проверка `MD5(OutSum:InvId:Password2)`, сверка суммы, `pending→paid`, ответ `OK{InvId}` (I3) | `app/api/robokassa/result/route.ts`, `markOrderPaid` |
+| FR-PAY-1 | Инициация оплаты | `POST /api/robokassa/init`: пересчёт сумм, создание `pending`, подпись `hash(Login:OutSum:InvId:Password1)` (алгоритм — `ROBOKASSA_HASH_ALGO`, на проде SHA-256), редирект в Робокассу | `app/api/robokassa/init/route.ts`, `lib/robokassa.ts` |
+| FR-PAY-2 | Подтверждение оплаты (ResultURL) | `/api/robokassa/result`: проверка `hash(OutSum:InvId:Password2)`, сверка суммы, `pending→paid`, ответ `OK{InvId}` (I3) | `app/api/robokassa/result/route.ts`, `markOrderPaid` |
 | FR-PAY-3 | Идемпотентность колбэка | Повтор по оплаченному → `already_paid`; гонка двух колбэков → ровно один `paid` (по `RETURNING`, TD-18) | `markOrderPaid` |
 | FR-PAY-4 | Защита от недоплаты | Сумма от Робокассы ≠ `total_kopecks` → `amount_mismatch`, статус не меняется (TD-4) | `markOrderPaid` |
 | FR-PAY-5 | Оплата отменённого заказа | `cancelled` + оплата → `cancelled` (нужен ручной разбор, не теряем ретраи Робокассы, TD-17) | `markOrderPaid` |

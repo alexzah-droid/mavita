@@ -29,10 +29,10 @@ sequenceDiagram
     RI->>DB: INSERT INTO order_items (…) × N позиций
     RI->>DB: UPDATE orders SET inv_id = $1 WHERE id = $1
 
-    RI->>RI: buildPaymentUrl:<br/>sig = MD5(login:outSum:invId:Password1)
+    RI->>RI: buildPaymentUrl:<br/>sig = hash(login:outSum:invId:Password1)<br/>(ROBOKASSA_HASH_ALGO; на проде SHA-256)
     RI-->>CH: {id, paymentUrl}
 
-    CH->>CH: cart.clear()
+    Note over CH: Корзина НЕ очищается перед редиректом —<br/>очистка на /order при подтверждённой оплате
     CH-->>U: window.location.href = paymentUrl
     U->>RK: GET paymentUrl (редирект браузера)
 
@@ -40,7 +40,7 @@ sequenceDiagram
 
     alt Оплата успешна
         RK->>RR: GET или POST OutSum, InvId, SignatureValue,<br/>+ прочие поля
-        RR->>RR: verifyResultSignature:<br/>MD5(OutSum:InvId:Password2) == SignatureValue
+        RR->>RR: verifyResultSignature:<br/>hash(OutSum:InvId:Password2) == SignatureValue
         RR->>RR: сверка OutSum с total_kopecks заказа (защита от недоплаты)
         RR->>DB: UPDATE orders SET status='paid', fulfillment='new',<br/>robokassa_data=$1 WHERE id=$2 AND pending/awaiting_payment
         RR-->>RK: 200 «OK{InvId}» (text/plain)
@@ -72,12 +72,12 @@ sequenceDiagram
 | 4 | `/api/robokassa/init` → PostgreSQL | SQL INSERT | customer, items/delivery/total, `pending/awaiting_payment` | `order.id` | Заказ создаётся до редиректа в платёжку |
 | 5 | `/api/robokassa/init` → PostgreSQL | SQL INSERT × N | `order_id, product_id, product_name, price_kopecks, quantity` | — | Snapshot цены и названия на момент покупки |
 | 6 | `/api/robokassa/init` → PostgreSQL | SQL UPDATE | `inv_id = order.id` | — | У Робокассы `InvId` = `order.id`; поле заполняется сразу |
-| 7 | `/api/robokassa/init` внутри | MD5 | `MerchantLogin:OutSum:InvId:Password1` | `SignatureValue` | `Password1` — секрет только на сервере, никогда клиенту |
+| 7 | `/api/robokassa/init` внутри | hash (`ROBOKASSA_HASH_ALGO`, на проде SHA-256) | `MerchantLogin:OutSum:InvId:Password1` | `SignatureValue` | `Password1` — секрет только на сервере, никогда клиенту |
 | 8 | `/api/robokassa/init` → `/checkout` | `201 JSON` | — | `{id, paymentUrl}` | `paymentUrl = null` если Робокасса не сконфигурирована — тогда редирект сразу на `/order/{token}` |
-| 9 | `/checkout` | JS | — | — | `cart.clear()` из контекста чистит localStorage |
+| 9 | `/checkout` | JS | — | — | Корзина сохраняется до подтверждения оплаты; `clear()` вызывает `/order/[token]` (OrderPaidEffects) при первом просмотре `paid`-заказа. Исключение: `paymentUrl=null` (Робокасса не настроена) — тогда корзина чистится сразу |
 | 10 | Покупатель → Робокасса | Browser redirect | `paymentUrl` (GET с параметрами + подписью) | — | `window.location.href` — полный переход, не fetch |
 | 11 | Робокасса → `/api/robokassa/result` | GET или POST | `OutSum, InvId, SignatureValue` + дополнительные поля | — | **Сервер → сервер**, браузер покупателя не участвует |
-| 12 | `/api/robokassa/result` внутри | MD5 verify | `OutSum:InvId:Password2` | `bool` | `Password2` ≠ `Password1` — разные секреты для разных сторон |
+| 12 | `/api/robokassa/result` внутри | hash verify (`ROBOKASSA_HASH_ALGO`) | `OutSum:InvId:Password2` | `bool` | `Password2` ≠ `Password1` — разные секреты для разных сторон |
 | 13 | `/api/robokassa/result` → PostgreSQL | транзакционный UPDATE | `paid/new`, `robokassa_data`, id | — | Переход из `pending/awaiting_payment` идемпотентен и не смешивает оплату с отгрузкой |
 | 14 | `/api/robokassa/result` → Робокасса | `200 text/plain` | — | `«OK{InvId}»` | Робокасса ждёт именно эту строку; иначе будет повторять колбэк |
 | 15 | Робокасса → `/api/robokassa/success` | `GET` | `InvId, OutSum, SignatureValue` + order-ref cookie браузера | — | Параллельно с #11, но уже для браузера покупателя |

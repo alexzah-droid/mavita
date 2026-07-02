@@ -1,6 +1,6 @@
 # TESTING_PLAN — МАВИТА-ШОП
 
-Дата актуализации: 2026-06-28
+Дата актуализации: 2026-07-02
 
 Трассировка тестов по инвариантам и по требованиям. Каждый инвариант из
 `PROJECT_CORE.md` должен получить тест до перехода в следующую фазу; требования
@@ -9,10 +9,12 @@
 
 ## Статус
 
-> 255 тестов в 49 файлах зелёные (`npm test`, 2026-06-28). Покрыты Ф0–Ф3,
-> оба текущих компонента Ф4; `npm run typecheck` упомянут как release gate.
+> 290 тестов в 54 файлах зелёные (`npm test`, 2026-07-02). Покрыты Ф0–Ф4;
+> `npm run typecheck` упомянут как release gate.
 > I5/I8/I9/I10 покрыты unit/mock-интеграционными тестами. Прогон с реальной
 > PostgreSQL/ФС, CDEK и Робокассой остаётся отдельной проверкой стенда.
+> Раунд конверсии 2026-07-02 добавил: валидацию характеристик товара и
+> комментария к заказу, контрактные тесты миграций `020`/`021`.
 
 Telegram-уведомления: покрыты AES-GCM round-trip и битый tag, валидация
 credentials, формат обезличенного сообщения, лимит retry, transaction snapshot
@@ -48,10 +50,11 @@ Live-прогон PostgreSQL `SKIP LOCKED` и реальных ответов Te
 | FR-CAT-1/2/5/7 каталог, видимость, наличие, фоллбэк | I9 | `lib/catalog.test.ts`, `lib/products.test.ts`, `app/api/products.test.ts` | ✅ |
 | FR-CAT-2 URL по slug | — | `lib/slug.test.ts`, `lib/product-url.test.ts` | ✅ |
 | FR-CAT-4 эффективная цена/скидка на витрине | I2 | `lib/pricing.test.ts`, `lib/price.test.ts` | ✅ |
-| FR-CAT-3/6 галерея, атрибуты, ароматы | — | — (UI) | ⬜ |
+| FR-CAT-3/6 галерея, атрибуты, ароматы, характеристики | — | `lib/products-admin.test.ts` (валидация характеристик), `sql/migrations/020_product_specs.test.ts`; отображение — UI | 🟡 |
 | FR-SEO-1 robots/sitemap/metadata/JSON-LD | — | `lib/seo.test.ts` + структурная проверка app routes | ✅ |
 | FR-CART-1…4 корзина, количество, итог | — | `lib/cart.test.ts` | ✅ |
 | FR-CHK-1/2 валидация формы и контактов | — | `lib/orders.test.ts` | ✅ |
+| FR-CHK-8 комментарий к заказу (≤500, опционален) | — | `lib/orders.test.ts`, `sql/migrations/021_order_customer_comment.test.ts` | ✅ |
 | FR-CHK-4/5/7 создание заказа, snapshot цены, дубли | I9 | `lib/orders.test.ts` | ✅ (live PostgreSQL открыт) |
 | FR-CHK-3/6 ПВЗ-режим и сверка сумм | I10 | `lib/orders.test.ts`, `lib/checkout-amounts.test.ts`, `app/api/robokassa/init/route.test.ts` | 🟡 |
 | FR-PAY-1 init: подпись + редирект | I1 | `lib/robokassa.test.ts`, `app/api/robokassa/init/route.test.ts` | ✅ |
