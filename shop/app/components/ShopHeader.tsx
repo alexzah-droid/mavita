@@ -11,8 +11,8 @@ export default function ShopHeader({ showCart = true }: { showCart?: boolean }) 
   return (
     <header className="site-header scrolled" style={{ position: 'sticky' }}>
       <Link href="/" className="header-brand">
-        <Image src="/images/logo.png" alt="МАВИТА" width={38} height={38} className="header-logo" />
-        <span className="header-name">МАВИТА</span>
+        {/* Логотип содержит словесный знак «МАВИТА» — дублирующий текст не нужен */}
+        <Image src="/images/logo.png" alt="МАВИТА" width={98} height={72} className="header-logo" />
       </Link>
       <div className="header-actions">
         <nav className="header-nav">

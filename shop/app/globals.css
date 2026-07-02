@@ -230,7 +230,7 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   left: 0;
   right: 0;
   z-index: 100;
-  padding: 20px 48px;
+  padding: 14px 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -249,18 +249,12 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   align-items: center;
   gap: 14px;
 }
+/* Логотип — главный опознавательный знак шапки: крупный, словесный знак внутри */
 .header-logo {
-  width: 38px;
-  height: 38px;
+  width: auto;
+  height: 72px;
   filter: var(--logo-filter);
-  opacity: 0.9;
-}
-.header-name {
-  font-family: var(--f-mono);
-  font-size: 13px;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: var(--paper-dim);
+  opacity: 0.95;
 }
 
 .header-nav {
@@ -311,7 +305,8 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   position: absolute;
   inset: 0;
   object-fit: cover;
-  object-position: center;
+  /* Портрет автора: держим лицо в кадре при обрезке под широкий экран */
+  object-position: center 22%;
   opacity: 0.18;
   mix-blend-mode: luminosity;
   filter: contrast(1.1) saturate(0.4);
@@ -393,6 +388,19 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   content: '↓';
   font-size: 14px;
   letter-spacing: 0;
+}
+
+/* Главный CTA hero — заливка акцентом, самая заметная кнопка первого экрана */
+.hero-cta--buy {
+  background: var(--ember);
+  color: var(--ink);
+  font-size: 13px;
+  padding: 18px 44px;
+}
+.hero-cta--buy:hover {
+  background: var(--ember-2);
+  border-color: var(--ember-2);
+  color: var(--ink);
 }
 
 .hero-scroll-hint {
@@ -657,6 +665,32 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   border-color: var(--ember);
   color: var(--ember);
   background: var(--ember-glow);
+}
+
+/* «Купить» в один клик — сразу под фото товара, во всю ширину карточки */
+.product-card-buy {
+  display: block;
+  width: 100%;
+  padding: 14px 20px;
+  background: var(--ember);
+  color: var(--ink);
+  border: none;
+  cursor: pointer;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  transition: background 0.25s;
+  position: relative;
+  z-index: 2;
+}
+.product-card-buy:hover {
+  background: var(--ember-2);
+}
+.product-card-buy:disabled {
+  background: var(--ink-3);
+  color: var(--paper-mute);
+  cursor: default;
 }
 
 /* ── Atmosphere / about section ─────────────────────── */
@@ -1331,6 +1365,7 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   .stihii-grid { grid-template-columns: 1fr; }
   .hero-scroll-hint { display: none; }
   .header-nav { display: none; }
+  .header-logo { height: 56px; }
   .footer-inner { grid-template-columns: 1fr; gap: 48px; }
   .footer-right { text-align: left; }
   .footer-mission { text-align: left; }
@@ -1341,7 +1376,8 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   .ritual-steps { grid-template-columns: 1fr; }
   .hero { padding: 0 20px 48px; }
   .ritual, .catalog, .atmosphere, .stihii { padding-left: 20px; padding-right: 20px; }
-  .site-header { padding: 14px 20px; }
+  .site-header { padding: 12px 20px; }
+  .header-logo { height: 48px; }
   .product-page-inner { padding: 40px 20px 80px; grid-template-columns: 1fr; gap: 40px; }
   .site-footer { padding: 48px 20px 32px; }
 }
@@ -1729,6 +1765,7 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
 }
 :root[data-theme='svet'] .product-card:hover::after { border-color: transparent; }
 :root[data-theme='svet'] .product-card-image-wrap img { opacity: 1; filter: saturate(0.95) contrast(1.02); }
+:root[data-theme='svet'] .product-card-buy { border-radius: 6px; margin-top: 10px; }
 
 /* ── «Камень»: карточки-«плиты» с тенью и тактильным подъёмом ── */
 :root[data-theme='kamen'] .product-card {

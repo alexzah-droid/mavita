@@ -28,7 +28,7 @@ type CartContextValue = {
   ready: boolean // true после гидрации из localStorage — чтобы счётчик не «прыгал»
   count: number
   totalKopecks: number
-  add: (product: Product, qty?: number) => void
+  add: (product: Product, qty?: number, opts?: { silent?: boolean }) => void
   remove: (slug: string) => void
   setQty: (slug: string, qty: number) => void
   clear: () => void
@@ -76,9 +76,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       ready,
       count: cartCount(cart),
       totalKopecks: cartTotalKopecks(cart),
-      add: (product, qty = 1) => {
+      // silent — без тоста: кнопка «Купить» сразу уводит на чекаут,
+      // и плашка «добавлено» там только мешала бы.
+      add: (product, qty = 1, opts) => {
         setCart((c) => addItem(c, product, qty))
-        setToast({ name: product.name, nonce: Date.now() })
+        if (!opts?.silent) setToast({ name: product.name, nonce: Date.now() })
       },
       remove: (slug) => setCart((c) => removeItem(c, slug)),
       setQty: (slug, qty) => setCart((c) => setQuantity(c, slug, qty)),

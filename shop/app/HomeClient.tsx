@@ -48,8 +48,8 @@ export default function HomeClient({ products }: { products: Product[] }) {
       {/* ── Header ── */}
       <header className="site-header" ref={headerRef}>
         <div className="header-brand">
-          <Image src="/images/logo.png" alt="МАВИТА" width={38} height={38} className="header-logo" />
-          <span className="header-name">МАВИТА</span>
+          {/* Логотип содержит словесный знак «МАВИТА» — дублирующий текст не нужен */}
+          <Image src="/images/logo.png" alt="МАВИТА" width={98} height={72} className="header-logo" priority />
         </div>
         <div className="header-actions">
           <nav className="header-nav">
@@ -66,7 +66,7 @@ export default function HomeClient({ products }: { products: Product[] }) {
       <section className="hero">
         <div className="hero-bg">
           <Image
-            src="/images/about.jpeg"
+            src="/images/author.jpg"
             alt=""
             fill
             className="hero-image"
@@ -85,8 +85,8 @@ export default function HomeClient({ products }: { products: Product[] }) {
           <p className="hero-lede reveal" style={{ transitionDelay: '0.2s' }}>
             Тишина, которую можно зажечь. Ритуал возвращения к себе через аромат природы.
           </p>
-          <a href="#catalog" className="hero-cta reveal" style={{ transitionDelay: '0.3s' }}>
-            Смотреть каталог
+          <a href="#catalog" className="hero-cta hero-cta--buy reveal" style={{ transitionDelay: '0.3s' }}>
+            Купить
           </a>
         </div>
 
@@ -179,6 +179,11 @@ export default function HomeClient({ products }: { products: Product[] }) {
                     Горы
                   </div>
                 </div>
+                <AddToCartButton
+                  product={product}
+                  variant="buy"
+                  className="product-card-buy"
+                />
                 <div className="product-card-body">
                   <div className="product-card-series">
                     {product.subtitle}
