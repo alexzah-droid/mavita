@@ -7,6 +7,7 @@ import { formatRub } from '@/lib/price'
 import { CARRIER_LABEL } from '@/lib/store-settings'
 import ShopHeader from '@/app/components/ShopHeader'
 import SiteFooter from '@/app/components/SiteFooter'
+import CandleCareTips from '@/app/components/CandleCareTips'
 import OrderPaidEffects from './OrderPaidEffects'
 import { buildPageMetadata } from '@/lib/seo'
 
@@ -140,6 +141,8 @@ export default async function OrderPage({
               </p>
             </div>
           )}
+
+          {isPaid && <CandleCareTips variant="order" />}
 
           {order.status === 'pending' && paymentUrl && (
             <a href={paymentUrl} className="btn-add checkout-submit order-pay-btn">

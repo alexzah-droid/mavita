@@ -1338,6 +1338,70 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   line-height: 1.5;
 }
 
+/* ── Рекомендации по обращению со свечой ── */
+.product-care {
+  margin-top: 16px;
+  border: 1px solid var(--rule);
+  background: rgba(239, 229, 207, 0.02);
+}
+.product-care-summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 20px 24px;
+  font-family: var(--f-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ember);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.product-care-summary::-webkit-details-marker { display: none; }
+.product-care-summary::after {
+  content: '+';
+  font-size: 14px;
+  letter-spacing: 0;
+  color: var(--paper-mute);
+}
+.product-care[open] .product-care-summary::after { content: '−'; }
+.product-care-body { padding: 0 24px 20px; }
+.care-tips-intro {
+  font-family: var(--f-serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--paper-dim);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.care-tips-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.care-tips-list li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--paper-dim);
+  line-height: 1.55;
+}
+.care-tips-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.65em;
+  width: 7px;
+  height: 1px;
+  background: var(--ember);
+}
+.care-tips-list strong { color: var(--paper); font-weight: 400; }
+.order-card .care-tips-intro { margin-top: 12px; }
+.order-card .care-tips-list { padding-bottom: 4px; }
+
 .product-back {
   font-family: var(--f-mono);
   font-size: 10px;

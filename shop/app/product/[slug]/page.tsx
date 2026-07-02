@@ -7,6 +7,7 @@ import ShopHeader from '@/app/components/ShopHeader'
 import PriceDisplay from '@/app/components/PriceDisplay'
 import ProductGallery from '@/app/components/ProductGallery'
 import SiteFooter from '@/app/components/SiteFooter'
+import CandleCareTips from '@/app/components/CandleCareTips'
 import { CARRIER_LABEL, resolveDeliveryMode } from '@/lib/store-settings'
 import { formatRub } from '@/lib/price'
 import { productPath } from '@/lib/product-url'
@@ -173,6 +174,8 @@ export default async function ProductPage({
                 К каждой свече прилагается дизайнерская открытка с сургучной печатью и QR-кодом. Зажгите свечу, считайте код — и окажитесь в природе.
               </p>
             </div>
+
+            <CandleCareTips variant="product" />
           </div>
         </div>
       </div>
