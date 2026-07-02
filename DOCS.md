@@ -50,6 +50,9 @@
 | `docs/environments.md` | стенды, SSH, VPS, запреты | актуален |
 | `docs/operations.md` | runbook деплоя, backup, откат | актуален (создан 2026-06-20) |
 | `docs/legal-business-guide.md` | юр./бухгалтерия для самозанятого, Робокасса, 54-ФЗ (справочник) | reference |
+| `docs/audits/2026-06-site-audit.md` | одноразовый аудит сайта (июнь 2026): UX/SEO-гипотезы | historical; НЕ источник статуса |
+| `docs/source/goods.md` | исходник каталога: артикулы, ароматы, цены, фото по `docs/source/<артикул>/` | reference (контент) |
+| `docs/source/handoff/` | дизайн-пакет редизайна: токены, компоненты, эталонные вёрстки «Свет»/«Камень» | reference (дизайн) |
 
 ## docs/project-bootstrap/
 

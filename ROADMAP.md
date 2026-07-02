@@ -232,11 +232,11 @@ waybill/barcode` на первом реальном заказе после вк
 Ниже — приоритеты по итогам критического чтения
 `docs/specs/admin-security.md`, `docs/specs/delivery-options.md`,
 `docs/specs/yandex-delivery-pvz.md`, `docs/specs/rupost-integration.md`,
-`docs/tech-debt.md` и `mavita-audit.md`.
+`docs/tech-debt.md` и `docs/audits/2026-06-site-audit.md`.
 Источник release-gate и статусов — этот `ROADMAP.md`, `docs/tech-debt.md` и
 актуализированные planning specs из `docs/specs/`;
-`mavita-audit.md` используем как источник UX/SEO-гипотез, но не как источник
-security- или rollout-статуса. `admin-security` уже обновлён под текущий код:
+`docs/audits/2026-06-site-audit.md` (historical) используем как источник
+UX/SEO-гипотез, но не как источник security- или rollout-статуса. `admin-security` уже обновлён под текущий код:
 login rate-limit реализован process-local, поэтому следующий шаг — усилить его
 до PG-backed limiter, добавить audit и затем TOTP.
 
