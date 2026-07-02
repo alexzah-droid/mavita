@@ -22,6 +22,11 @@ export type Product = {
   category?: string // «Аромасвеча» / «Свеча»
   aroma?: string // описание аромата одной строкой
   tagline?: string // слоган-подпись (курсивом)
+  // Физические характеристики (миграции 015/020). Пустые скрываются на карточке.
+  weightGrams?: number | null
+  burnTimeHours?: number | null
+  wax?: string | null
+  wick?: string | null
 }
 
 // Строка из SQL-запроса каталога (см. lib/catalog.ts).
@@ -40,6 +45,10 @@ export type ProductRow = {
   sale_price_kopecks?: number | string | null
   sale_starts_at?: Date | string | null
   sale_ends_at?: Date | string | null
+  weight_grams?: number | null
+  burn_time_hours?: number | null
+  wax?: string | null
+  wick?: string | null
 }
 
 function iso(value: Date | string | null | undefined): string | null {
@@ -69,6 +78,10 @@ export function mapRowToProduct(row: ProductRow): Product {
       startsAt: iso(row.sale_starts_at),
       endsAt: iso(row.sale_ends_at),
     },
+    weightGrams: row.weight_grams ?? null,
+    burnTimeHours: row.burn_time_hours ?? null,
+    wax: row.wax ?? null,
+    wick: row.wick ?? null,
   }
 }
 

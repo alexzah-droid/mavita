@@ -7,6 +7,7 @@ import { formatRub } from '@/lib/price'
 import { CARRIER_LABEL } from '@/lib/store-settings'
 import ShopHeader from '@/app/components/ShopHeader'
 import SiteFooter from '@/app/components/SiteFooter'
+import OrderPaidEffects from './OrderPaidEffects'
 import { buildPageMetadata } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
@@ -62,6 +63,13 @@ export default async function OrderPage({
   return (
     <>
       <ShopHeader />
+      {isPaid && (
+        <OrderPaidEffects
+          orderId={order.id}
+          revenueKopecks={order.totalKopecks}
+          items={order.items.map((it) => ({ name: it.productName, priceKopecks: it.priceKopecks, quantity: it.quantity }))}
+        />
+      )}
 
       <div className="order-page">
         <div className="order-inner">

@@ -19,6 +19,7 @@ import {
   EMPTY_CART,
   type Cart,
 } from '@/lib/cart'
+import CartToast, { type CartToastData } from '@/app/cart/CartToast'
 
 const STORAGE_KEY = 'mavita.cart.v1'
 
@@ -50,6 +51,8 @@ function loadCart(): Cart {
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart>(EMPTY_CART)
   const [ready, setReady] = useState(false)
+  // Тост «добавлено в корзину» — глобальный, показывается после add() на любой странице.
+  const [toast, setToast] = useState<CartToastData | null>(null)
 
   // Гидрация из localStorage только на клиенте после монтирования.
   useEffect(() => {
@@ -73,7 +76,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       ready,
       count: cartCount(cart),
       totalKopecks: cartTotalKopecks(cart),
-      add: (product, qty = 1) => setCart((c) => addItem(c, product, qty)),
+      add: (product, qty = 1) => {
+        setCart((c) => addItem(c, product, qty))
+        setToast({ name: product.name, nonce: Date.now() })
+      },
       remove: (slug) => setCart((c) => removeItem(c, slug)),
       setQty: (slug, qty) => setCart((c) => setQuantity(c, slug, qty)),
       clear: () => setCart(clearCart()),
@@ -81,7 +87,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [cart, ready],
   )
 
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>
+  return (
+    <CartContext.Provider value={value}>
+      {children}
+      <CartToast toast={toast} onDismiss={() => setToast(null)} />
+    </CartContext.Provider>
+  )
 }
 
 export function useCart(): CartContextValue {

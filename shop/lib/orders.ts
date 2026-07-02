@@ -15,6 +15,8 @@ export type OrderInput = {
   customerName: string
   customerEmail: string
   customerPhone: string
+  // Комментарий покупателя (например, текст открытки к подарку). Необязателен.
+  customerComment?: string | null
   // Доставка обязательна, когда checkout в режиме pickup_required (есть ≥1 валидно
   // настроенный перевозчик и DELIVERY_ENABLED≠false). Способ определяет перевозчика.
   delivery?: { method: PickupMethod; pickupPointCode: string; expectedDeliveryKopecks: number } | null
@@ -61,6 +63,7 @@ export type ValidationResult = { ok: boolean; errors: string[] }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MAX_QTY = 99
+const MAX_COMMENT_LENGTH = 500
 
 /** Ошибка с пользовательскими сообщениями — API превращает её в 400. */
 export class OrderValidationError extends Error {
@@ -88,6 +91,7 @@ export function validateOrderInput(input: OrderInput, deliveryRequired = true): 
   const email = input.customerEmail?.trim() ?? ''
   if (!email || !EMAIL_RE.test(email)) errors.push('Укажите корректный email')
   if (!normalizePhone(input.customerPhone ?? '')) errors.push('Укажите корректный телефон получателя')
+  if ((input.customerComment ?? '').trim().length > MAX_COMMENT_LENGTH) errors.push(`Комментарий к заказу — не более ${MAX_COMMENT_LENGTH} символов`)
   if (deliveryRequired) {
     const method = input.delivery?.method
     if (method !== 'cdek_pickup' || !input.delivery?.pickupPointCode?.trim()) errors.push('Выберите пункт выдачи')
@@ -253,14 +257,15 @@ export async function createOrder(
     const totalKopecks = itemsKopecks + deliveryKopecks
     if ((deliveryRequired && input.delivery!.expectedDeliveryKopecks !== deliveryKopecks) || input.expectedTotalKopecks !== totalKopecks) throw new PriceChangedError({ itemsKopecks, deliveryKopecks, totalKopecks })
     const orderRes = await client.query<{ id: number }>(
-      `INSERT INTO orders (token, customer_name, customer_email, customer_phone, total_kopecks, items_kopecks, delivery_kopecks, delivery_method, delivery_carrier, pickup_point_code, pickup_point_city, pickup_point_name, pickup_point_address, fulfillment_status, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'awaiting_payment', 'pending')
+      `INSERT INTO orders (token, customer_name, customer_email, customer_phone, customer_comment, total_kopecks, items_kopecks, delivery_kopecks, delivery_method, delivery_carrier, pickup_point_code, pickup_point_city, pickup_point_name, pickup_point_address, fulfillment_status, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'awaiting_payment', 'pending')
        RETURNING id`,
       [
         token,
         input.customerName.trim(),
         input.customerEmail.trim(),
         normalizePhone(input.customerPhone)!,
+        input.customerComment?.trim() || null,
         totalKopecks,
         itemsKopecks,
         deliveryKopecks,

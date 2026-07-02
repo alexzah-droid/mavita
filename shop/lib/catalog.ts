@@ -19,6 +19,7 @@ const SELECT_PRODUCT = `
     p.slug, p.name, p.series, p.subtitle, p.description,
     p.price_kopecks, p.scent, p.in_stock, p.visibility,
     p.sale_price_kopecks, p.sale_starts_at, p.sale_ends_at,
+    p.weight_grams, p.burn_time_hours, p.wax, p.wick,
     cover.filename AS cover,
     COALESCE(imgs.filenames, '{}') AS images
   FROM products p

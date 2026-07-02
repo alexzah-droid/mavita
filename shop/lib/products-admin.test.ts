@@ -29,4 +29,17 @@ describe('validateProductInput', () => {
     expect(validateProductInput({ ...product, boxWidthCm: -1 }, 'create').errors).not.toHaveLength(0)
     expect(validateProductInput({ ...product, boxHeightCm: 1.5 }, 'create').errors).not.toHaveLength(0)
   })
+  it('принимает публичные характеристики свечи и различает null/отсутствие', () => {
+    expect(validateProductInput({ ...product, burnTimeHours: 40, wax: ' 100% соевый воск ', wick: 'Хлопковый' }, 'create').value)
+      .toMatchObject({ burnTimeHours: 40, wax: '100% соевый воск', wick: 'Хлопковый' })
+    expect(validateProductInput({ ...product, burnTimeHours: null, wax: null, wick: null }, 'create').value)
+      .toMatchObject({ burnTimeHours: null, wax: null, wick: null })
+    expect(validateProductInput(product, 'create').value?.burnTimeHours).toBeUndefined()
+  })
+  it('отвергает невалидные характеристики свечи', () => {
+    expect(validateProductInput({ ...product, burnTimeHours: 0 }, 'create').errors).not.toHaveLength(0)
+    expect(validateProductInput({ ...product, burnTimeHours: 2.5 }, 'create').errors).not.toHaveLength(0)
+    expect(validateProductInput({ ...product, wax: 'x'.repeat(201) }, 'create').errors).not.toHaveLength(0)
+    expect(validateProductInput({ ...product, wick: 'x'.repeat(201) }, 'create').errors).not.toHaveLength(0)
+  })
 })

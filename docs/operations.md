@@ -131,6 +131,9 @@ ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/mig
 ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/004_telegram_order_notifications.sql"
 # Секрет вебхука СДЭК + индекс cdek_order_uuid (применена на prod 2026-07-01):
 ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/019_cdek_webhook_secret_and_uuid_index.sql"
+# Публичные характеристики свечи + комментарий покупателя к заказу (раунд конверсии):
+ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/020_product_specs.sql"
+ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/021_order_customer_comment.sql"
 ```
 
 Перед миграцией `003` обязательно сделать `pg_dump` из раздела выше. После неё

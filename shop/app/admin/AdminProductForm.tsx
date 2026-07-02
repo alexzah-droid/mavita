@@ -49,6 +49,9 @@ export default function AdminProductForm({ product }: { product?: AdminProduct }
   const [startsAt, setStartsAt] = useState<DateState>(initDate(product?.sale?.startsAt ?? null))
   const [endsAt, setEndsAt] = useState<DateState>(initDate(product?.sale?.endsAt ?? null))
   const [weightGrams, setWeightGrams] = useState(product?.weightGrams != null ? String(product.weightGrams) : '')
+  const [burnTimeHours, setBurnTimeHours] = useState(product?.burnTimeHours != null ? String(product.burnTimeHours) : '')
+  const [wax, setWax] = useState(product?.wax ?? '')
+  const [wick, setWick] = useState(product?.wick ?? '')
   const [boxLengthCm, setBoxLengthCm] = useState(product?.boxLengthCm != null ? String(product.boxLengthCm) : '')
   const [boxWidthCm, setBoxWidthCm] = useState(product?.boxWidthCm != null ? String(product.boxWidthCm) : '')
   const [boxHeightCm, setBoxHeightCm] = useState(product?.boxHeightCm != null ? String(product.boxHeightCm) : '')
@@ -76,6 +79,8 @@ export default function AdminProductForm({ product }: { product?: AdminProduct }
     }
     const weightGramsNum = weightGrams.trim() ? Number(weightGrams.trim()) : null
     if (weightGramsNum !== null && (!Number.isInteger(weightGramsNum) || weightGramsNum <= 0)) return setMessage('Вес должен быть положительным целым числом')
+    const burnTimeHoursNum = burnTimeHours.trim() ? Number(burnTimeHours.trim()) : null
+    if (burnTimeHoursNum !== null && (!Number.isInteger(burnTimeHoursNum) || burnTimeHoursNum <= 0)) return setMessage('Время горения должно быть положительным целым числом часов')
     const boxLengthCmNum = boxLengthCm.trim() ? Number(boxLengthCm.trim()) : null
     const boxWidthCmNum = boxWidthCm.trim() ? Number(boxWidthCm.trim()) : null
     const boxHeightCmNum = boxHeightCm.trim() ? Number(boxHeightCm.trim()) : null
@@ -97,6 +102,9 @@ export default function AdminProductForm({ product }: { product?: AdminProduct }
       boxLengthCm: boxLengthCmNum,
       boxWidthCm: boxWidthCmNum,
       boxHeightCm: boxHeightCmNum,
+      burnTimeHours: burnTimeHoursNum,
+      wax: wax.trim() || null,
+      wick: wick.trim() || null,
     }
     const response = await fetch(product ? `/api/admin/products/${product.id}` : '/api/admin/products', { method: product ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     if (response.ok) { const saved = await response.json(); router.replace(`/admin/products/${saved.id}/edit`); router.refresh() }
@@ -155,7 +163,10 @@ export default function AdminProductForm({ product }: { product?: AdminProduct }
       <label>Серия<input value={series} onChange={(e) => setSeries(e.target.value)} /></label>
       <label>Подзаголовок<input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} /></label>
       <label>Ароматы через запятую<input value={scent} onChange={(e) => setScent(e.target.value)} /></label>
-      <label>Вес, г (для СДЭК)<input inputMode="numeric" value={weightGrams} placeholder="500" onChange={(e) => setWeightGrams(e.target.value)} /></label>
+      <label>Вес, г (витрина и СДЭК)<input inputMode="numeric" value={weightGrams} placeholder="500" onChange={(e) => setWeightGrams(e.target.value)} /></label>
+      <label>Время горения, ч<input inputMode="numeric" value={burnTimeHours} placeholder="40" onChange={(e) => setBurnTimeHours(e.target.value)} /></label>
+      <label>Состав воска<input maxLength={200} value={wax} placeholder="100% соевый воск" onChange={(e) => setWax(e.target.value)} /></label>
+      <label>Фитиль<input maxLength={200} value={wick} placeholder="Хлопковый" onChange={(e) => setWick(e.target.value)} /></label>
       <label>Коробка: длина, см<input inputMode="numeric" value={boxLengthCm} placeholder="11" onChange={(e) => setBoxLengthCm(e.target.value)} /></label>
       <label>Коробка: ширина, см<input inputMode="numeric" value={boxWidthCm} placeholder="11" onChange={(e) => setBoxWidthCm(e.target.value)} /></label>
       <label>Коробка: высота, см<input inputMode="numeric" value={boxHeightCm} placeholder="11" onChange={(e) => setBoxHeightCm(e.target.value)} /></label>

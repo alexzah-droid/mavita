@@ -7,6 +7,8 @@ import ShopHeader from '@/app/components/ShopHeader'
 import PriceDisplay from '@/app/components/PriceDisplay'
 import ProductGallery from '@/app/components/ProductGallery'
 import SiteFooter from '@/app/components/SiteFooter'
+import { CARRIER_LABEL, resolveDeliveryMode } from '@/lib/store-settings'
+import { formatRub } from '@/lib/price'
 import { productPath } from '@/lib/product-url'
 import {
   buildPageMetadata,
@@ -51,6 +53,11 @@ export default async function ProductPage({
   if (!product) notFound()
   const productJsonLd = buildProductJsonLd(product)
 
+  // Тариф доставки показываем прямо на карточке — цена «без сюрпризов» на чекауте.
+  // Ошибка настроек не должна ронять карточку: просто не показываем строку.
+  const delivery = await resolveDeliveryMode().catch(() => null)
+  const activeCarrier = delivery?.mode === 'pickup_required' ? delivery.carriers[0] : null
+
   return (
     <>
       <script
@@ -85,6 +92,14 @@ export default async function ProductPage({
               <PriceDisplay product={{ priceKopecks: product.priceKopecks, salePriceKopecks: product.sale?.priceKopecks ?? null, saleStartsAt: product.sale?.startsAt ?? null, saleEndsAt: product.sale?.endsAt ?? null }} />
             </div>
 
+            {activeCarrier && (
+              <p className="product-detail-delivery">
+                Доставка {CARRIER_LABEL[activeCarrier.carrier]} до пункта выдачи по России —{' '}
+                {activeCarrier.deliveryKopecks === 0 ? 'бесплатно' : formatRub(activeCarrier.deliveryKopecks)} ·{' '}
+                <Link href="/delivery">подробнее</Link>
+              </p>
+            )}
+
             <div className="product-detail-sep" />
 
             <p className="product-detail-desc">{product.description}</p>
@@ -109,6 +124,30 @@ export default async function ProductPage({
                 <dt>Аромат</dt>
                 <dd>«{product.subtitle}»</dd>
               </div>
+              {product.weightGrams != null && (
+                <div className="product-detail-spec">
+                  <dt>Вес</dt>
+                  <dd>{product.weightGrams} г</dd>
+                </div>
+              )}
+              {product.burnTimeHours != null && (
+                <div className="product-detail-spec">
+                  <dt>Время горения</dt>
+                  <dd>до {product.burnTimeHours} ч</dd>
+                </div>
+              )}
+              {product.wax && (
+                <div className="product-detail-spec">
+                  <dt>Воск</dt>
+                  <dd>{product.wax}</dd>
+                </div>
+              )}
+              {product.wick && (
+                <div className="product-detail-spec">
+                  <dt>Фитиль</dt>
+                  <dd>{product.wick}</dd>
+                </div>
+              )}
             </dl>
 
             <div className="product-detail-scents-label">Ноты аромата</div>
@@ -126,9 +165,6 @@ export default async function ProductPage({
                 variant="primary"
                 className="btn-add"
               />
-              <button className="btn-wishlist" aria-label="Сохранить">
-                ♡
-              </button>
             </div>
 
             <div className="product-ritual-hint">

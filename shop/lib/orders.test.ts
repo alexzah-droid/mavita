@@ -45,6 +45,14 @@ describe('validateOrderInput', () => {
     expect(validateOrderInput({ customerName: 'Виктория', customerEmail: 'vika@example.com', customerPhone: '+79991234567', expectedTotalKopecks: 410000, items: [{ slug: 'kvadratnaya', quantity: 2 }] }, true).ok).toBe(false)
   })
 
+  it('принимает необязательный комментарий и ограничивает его длину', () => {
+    expect(validateOrderInput(input({ customerComment: 'Это подарок — вложите открытку' })).ok).toBe(true)
+    expect(validateOrderInput(input({ customerComment: null })).ok).toBe(true)
+    const r = validateOrderInput(input({ customerComment: 'x'.repeat(501) }))
+    expect(r.ok).toBe(false)
+    expect(r.errors.some((e) => e.includes('Комментарий'))).toBe(true)
+  })
+
   it('требует непустую корзину', () => {
     const r = validateOrderInput(input({ items: [] }))
     expect(r.ok).toBe(false)

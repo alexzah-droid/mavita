@@ -7,6 +7,8 @@ import { useCart } from '@/app/cart/CartProvider'
 import { formatRub } from '@/lib/price'
 import { parsePriceChangedAmounts } from '@/lib/checkout-amounts'
 import ShopHeader from '@/app/components/ShopHeader'
+import SiteFooter from '@/app/components/SiteFooter'
+import { trackBeginCheckout } from '@/app/components/metrikaEvents'
 import CdekWidget from './CdekWidget'
 import { MOSCOW, cityLabel, localCitySuggestions, mergeCitySuggestions, type CdekCity } from './cdek-city-suggestions'
 import type { PickupPoint } from '@/lib/delivery/types'
@@ -22,6 +24,9 @@ export default function CheckoutPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  // Комментарий к заказу (например, текст открытки к подарку) — не персистим:
+  // он относится к конкретному заказу, а не к покупателю.
+  const [comment, setComment] = useState('')
   // null — статус доставки ещё не загружен; false — доставка отключена, заказ без ПВЗ.
   const [deliveryEnabled, setDeliveryEnabled] = useState<boolean | null>(null)
   const [carriers, setCarriers] = useState<DeliveryCarrier[]>([])
@@ -57,6 +62,22 @@ export default function CheckoutPage() {
     setPhone(localStorage.getItem('mavita_checkout_phone') ?? '')
     setName(localStorage.getItem('mavita_checkout_name') ?? '')
     setEmail(localStorage.getItem('mavita_checkout_email') ?? '')
+  }, [])
+
+  // Событие воронки: покупатель дошёл до оформления с непустой корзиной.
+  const beginCheckoutTracked = useRef(false)
+  useEffect(() => {
+    if (!ready || count === 0 || beginCheckoutTracked.current) return
+    beginCheckoutTracked.current = true
+    trackBeginCheckout()
+  }, [ready, count])
+
+  // Возврат «назад» со страницы Робокассы может восстановить страницу из bfcache
+  // с submitting=true (корзина теперь не очищается перед редиректом) — размораживаем кнопку.
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => { if (e.persisted) setSubmitting(false) }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
   }, [])
 
   // Начинаем качать бандл виджета сразу при открытии страницы — параллельно
@@ -174,6 +195,7 @@ export default function CheckoutPage() {
           customerName: name,
           customerEmail: email,
           customerPhone: phone,
+          customerComment: comment.trim() || undefined,
           // Доставку не отправляем, когда она отключена — сервер оформит заказ без ПВЗ.
           delivery: deliveryEnabled && carrier ? { method: `${carrier.carrier}_pickup`, pickupPointCode: pickupPoint?.code, expectedDeliveryKopecks: deliveryForPayment } : undefined,
           expectedTotalKopecks: totalWithDelivery,
@@ -190,10 +212,15 @@ export default function CheckoutPage() {
         setSubmitting(false)
         return
       }
-      clear()
+      // Корзину НЕ очищаем перед уходом в Робокассу: если покупатель передумает
+      // на платёжной странице и вернётся, корзина должна остаться. Очистка —
+      // на странице оплаченного заказа (OrderPaidEffects), по факту оплаты.
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl
       } else {
+        // Робокасса не настроена (dev): заказ создан без оплаты — корзину чистим
+        // сразу, иначе её нечему очистить и легко задвоить заказ.
+        clear()
         router.push(`/order/${data.token}`)
       }
     } catch {
@@ -340,6 +367,17 @@ export default function CheckoutPage() {
                 )}
                 {deliveryEnabled === false && <p className="checkout-pvz-selected">Доставку согласуем с вами после оплаты.</p>}
 
+                <label className="checkout-field">
+                  <span>Комментарий к заказу <em>— необязательно</em></span>
+                  <textarea
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    placeholder="Например: это подарок — вложите открытку с подписью «Для мамы»"
+                  />
+                </label>
+
                 <label className="checkout-consent">
                   <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} required />
                   <span>
@@ -352,6 +390,17 @@ export default function CheckoutPage() {
                 <button type="submit" className="btn-add checkout-submit" disabled={submitting || deliveryEnabled === null || (!!deliveryEnabled && !pickupPoint) || !consent}>
                   {submitting ? 'Переходим к оплате…' : deliveryEnabled ? 'Оплатить заказ с доставкой' : 'Оплатить заказ'}
                 </button>
+                {/* Кнопка выше дизейблится молча — объясняем, какого шага не хватает. */}
+                {!submitting && deliveryEnabled && !pickupPoint && (
+                  <p className="checkout-hint-blocked">Чтобы перейти к оплате, выберите пункт выдачи выше.</p>
+                )}
+                {!submitting && (deliveryEnabled === false || (deliveryEnabled && pickupPoint)) && !consent && (
+                  <p className="checkout-hint-blocked">Осталось отметить согласие с офертой — и можно оплачивать.</p>
+                )}
+                <p className="checkout-note checkout-payment-note">
+                  Оплата — на защищённой странице Робокассы: банковская карта, СБП и другие способы.
+                  Данные карты мы не видим и не храним.
+                </p>
               </form>
 
               <aside className="cart-summary checkout-summary">
@@ -377,6 +426,7 @@ export default function CheckoutPage() {
           )}
         </div>
       </div>
+      <SiteFooter />
     </>
   )
 }

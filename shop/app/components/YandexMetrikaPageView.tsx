@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { YANDEX_METRIKA_ID, shouldTrackYandexMetrikaPath } from '@/app/components/yandexMetrikaConfig'
+import { YANDEX_METRIKA_ID, shouldTrackYandexMetrikaPath, yandexMetrikaHitPath } from '@/app/components/yandexMetrikaConfig'
 
 type YandexMetrikaFn = (counterId: number, method: string, ...args: unknown[]) => void
 
@@ -20,7 +20,8 @@ export default function YandexMetrikaPageView() {
 
   useEffect(() => {
     const query = searchParams.toString()
-    const url = `${window.location.origin}${pathname}${query ? `?${query}` : ''}`
+    // Токен заказа из /order/<token> в Метрику не отправляем — см. yandexMetrikaConfig.
+    const url = `${window.location.origin}${yandexMetrikaHitPath(pathname)}${query ? `?${query}` : ''}`
 
     if (!skippedInitialHit.current) {
       skippedInitialHit.current = true

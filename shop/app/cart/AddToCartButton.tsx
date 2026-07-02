@@ -3,6 +3,8 @@
 import { useState, type MouseEvent } from 'react'
 import type { Product } from '@/lib/products'
 import { useCart } from '@/app/cart/CartProvider'
+import { effectivePrice } from '@/lib/pricing'
+import { trackAddToCart } from '@/app/components/metrikaEvents'
 
 type Props = {
   product: Product
@@ -27,6 +29,12 @@ export default function AddToCartButton({
     e.stopPropagation()
     if (!product.inStock) return
     add(product, 1)
+    trackAddToCart(product, effectivePrice({
+      priceKopecks: product.priceKopecks,
+      salePriceKopecks: product.sale?.priceKopecks ?? null,
+      saleStartsAt: product.sale?.startsAt ?? null,
+      saleEndsAt: product.sale?.endsAt ?? null,
+    }, new Date()).kopecks)
     setAdded(true)
     window.setTimeout(() => setAdded(false), 1600)
   }

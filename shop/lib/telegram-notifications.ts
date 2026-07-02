@@ -6,14 +6,14 @@ import { getTelegramDeliveryCredentials, recordTelegramDeliveryError } from '@/l
 
 type DbClient = Pick<PoolClient, 'query'>
 export type NotificationEventType = 'order_created' | 'payment_paid' | 'order_cancelled' | 'fulfillment_changed'
-export type OrderNotificationPayload = { orderId: number; eventType: NotificationEventType; status: string; fulfillmentStatus: string; totalKopecks: number; items: { productName: string; quantity: number }[]; createdAt: string; eventAt: string; reason?: string; trackingNumber?: string | null }
-type OrderRow = { id: number; status: string; fulfillment_status: string; total_kopecks: number | string; created_at: Date | string; tracking_number: string | null }
+export type OrderNotificationPayload = { orderId: number; eventType: NotificationEventType; status: string; fulfillmentStatus: string; totalKopecks: number; items: { productName: string; quantity: number }[]; createdAt: string; eventAt: string; reason?: string; trackingNumber?: string | null; customerComment?: string | null }
+type OrderRow = { id: number; status: string; fulfillment_status: string; total_kopecks: number | string; created_at: Date | string; tracking_number: string | null; customer_comment: string | null }
 
 export async function readNotificationSnapshot(client: DbClient, orderId: number): Promise<Omit<OrderNotificationPayload, 'eventType' | 'reason' | 'eventAt'>> {
-  const order = (await client.query<OrderRow>('SELECT id, status, fulfillment_status, total_kopecks, created_at, tracking_number FROM orders WHERE id = $1', [orderId])).rows[0]
+  const order = (await client.query<OrderRow>('SELECT id, status, fulfillment_status, total_kopecks, created_at, tracking_number, customer_comment FROM orders WHERE id = $1', [orderId])).rows[0]
   if (!order) throw new Error(`Order ${orderId} disappeared before notification enqueue`)
   const items = await client.query<{ product_name: string; quantity: number }>('SELECT product_name, quantity FROM order_items WHERE order_id = $1 ORDER BY id', [orderId])
-  return { orderId: order.id, status: order.status, fulfillmentStatus: order.fulfillment_status, totalKopecks: Number(order.total_kopecks), items: items.rows.map((item) => ({ productName: item.product_name, quantity: item.quantity })), createdAt: new Date(order.created_at).toISOString(), trackingNumber: order.tracking_number }
+  return { orderId: order.id, status: order.status, fulfillmentStatus: order.fulfillment_status, totalKopecks: Number(order.total_kopecks), items: items.rows.map((item) => ({ productName: item.product_name, quantity: item.quantity })), createdAt: new Date(order.created_at).toISOString(), trackingNumber: order.tracking_number, customerComment: order.customer_comment }
 }
 
 export async function enqueueOrderNotification(client: DbClient, event: { eventType: NotificationEventType; eventKey: string; orderId: number; reason?: string }): Promise<void> {
@@ -27,6 +27,9 @@ export function formatTelegramOrderNotification(payload: OrderNotificationPayloa
   const status = payload.eventType === 'order_created' ? 'ожидает оплаты' : payload.eventType === 'payment_paid' ? 'оплачен' : payload.eventType === 'order_cancelled' ? 'отменён' : fulfillmentLabel[payload.fulfillmentStatus] ?? payload.fulfillmentStatus
   const lines = ['МАВИТА · заказ №' + payload.orderId, `Статус: ${status}`, `Сумма: ${formatRub(payload.totalKopecks)}`, `Позиции: ${payload.items.map((item) => `${item.productName} × ${item.quantity}`).join(', ') || '—'}`, `Время: ${new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Moscow' }).format(new Date(payload.eventAt))} (МСК)`]
   if (payload.reason) lines.push(`Причина: ${payload.reason}`)
+  // Комментарий покупателя (текст открытки и т.п.) важен при сборке — показываем
+  // в создании/оплате; старые payload'ы без поля просто не дают строки.
+  if (payload.customerComment && (payload.eventType === 'order_created' || payload.eventType === 'payment_paid')) lines.push(`Комментарий: ${payload.customerComment.slice(0, 300)}`)
   if (payload.trackingNumber && payload.eventType === 'fulfillment_changed' && payload.fulfillmentStatus === 'handed_to_carrier') lines.push(`Трек: ${payload.trackingNumber}`)
   const base = process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, '')
   if (base) lines.push(`Админка: ${base}/admin/orders/${payload.orderId}`)

@@ -50,9 +50,9 @@ describe('createOrder (multi-carrier)', () => {
     expect(mocks.provider).toHaveBeenCalledWith('cdek', { clientId: 'cid', secret: 'k', fingerprint: 'fp' })
     expect(getPickupPoint).toHaveBeenCalledWith('MSK1')
     expect(result.deliveryCarrier).toBe('cdek')
-    // INSERT orders params: [..., delivery_method($8), delivery_carrier($9), code($10) ...]
+    // INSERT orders params: [..., customer_comment($5), ..., delivery_method($9), delivery_carrier($10), code($11) ...]
     const p = capture.params!
-    expect(p[7]).toBe('cdek_pickup'); expect(p[8]).toBe('cdek'); expect(p[9]).toBe('MSK1')
+    expect(p[8]).toBe('cdek_pickup'); expect(p[9]).toBe('cdek'); expect(p[10]).toBe('MSK1')
   })
 
   it('mode=error из снимка → DeliveryUnavailableError (503)', async () => {
@@ -103,8 +103,9 @@ describe('createOrder (multi-carrier)', () => {
     })
     expect(result.deliveryCarrier).toBeNull()
     const p = capture.params!
-    expect(p[6]).toBe(0)    // delivery_kopecks
-    expect(p[7]).toBeNull() // delivery_method
-    expect(p[8]).toBeNull() // delivery_carrier
+    expect(p[4]).toBeNull() // customer_comment
+    expect(p[7]).toBe(0)    // delivery_kopecks
+    expect(p[8]).toBeNull() // delivery_method
+    expect(p[9]).toBeNull() // delivery_carrier
   })
 })

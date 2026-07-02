@@ -23,11 +23,15 @@ CREATE TABLE IF NOT EXISTS products (
     sort_order    INTEGER NOT NULL DEFAULT 0,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    -- СДЭК: вес и габариты (миграция 015)
+    -- СДЭК: вес и габариты (миграция 015); вес также показывается на витрине
     weight_grams   INTEGER  CONSTRAINT products_weight_positive   CHECK (weight_grams IS NULL OR weight_grams > 0),
     box_length_cm  SMALLINT CONSTRAINT products_box_length_positive CHECK (box_length_cm IS NULL OR box_length_cm > 0),
     box_width_cm   SMALLINT CONSTRAINT products_box_width_positive  CHECK (box_width_cm IS NULL OR box_width_cm > 0),
     box_height_cm  SMALLINT CONSTRAINT products_box_height_positive CHECK (box_height_cm IS NULL OR box_height_cm > 0),
+    -- Публичные характеристики свечи (миграция 020)
+    burn_time_hours SMALLINT CONSTRAINT products_burn_time_positive CHECK (burn_time_hours IS NULL OR burn_time_hours > 0),
+    wax            TEXT,
+    wick           TEXT,
     CONSTRAINT products_sale_below_price CHECK (sale_price_kopecks IS NULL OR sale_price_kopecks < price_kopecks),
     CONSTRAINT products_sale_window CHECK (sale_starts_at IS NULL OR sale_ends_at IS NULL OR sale_ends_at > sale_starts_at)
 );
@@ -70,6 +74,8 @@ CREATE TABLE IF NOT EXISTS orders (
     customer_name  TEXT NOT NULL,
     customer_email TEXT NOT NULL,
     customer_phone TEXT,
+    -- Комментарий покупателя, например текст открытки (миграция 021)
+    customer_comment TEXT CONSTRAINT orders_customer_comment_length CHECK (customer_comment IS NULL OR char_length(customer_comment) <= 500),
     total_kopecks  INTEGER NOT NULL CHECK (total_kopecks >= 0),  -- I2
     items_kopecks  INTEGER NOT NULL CHECK (items_kopecks >= 0),
     delivery_kopecks INTEGER NOT NULL CHECK (delivery_kopecks >= 0),

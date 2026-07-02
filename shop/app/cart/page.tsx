@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useCart } from '@/app/cart/CartProvider'
@@ -7,9 +8,31 @@ import { formatRub } from '@/lib/price'
 import ShopHeader from '@/app/components/ShopHeader'
 import SiteFooter from '@/app/components/SiteFooter'
 
+// Тариф доставки показываем уже в корзине, а не сюрпризом на чекауте.
+type CartDelivery =
+  | { mode: 'pickup_required'; label: string; deliveryKopecks: number }
+  | { mode: 'disabled' }
+  | null
+
 export default function CartPage() {
   const { cart, ready, count, totalKopecks, setQty, remove } = useCart()
   const isEmpty = ready && count === 0
+  const [delivery, setDelivery] = useState<CartDelivery>(null)
+
+  useEffect(() => {
+    fetch('/api/checkout/delivery')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.mode === 'pickup_required' && Array.isArray(data.carriers) && data.carriers.length) {
+          setDelivery({ mode: 'pickup_required', label: data.carriers[0].label, deliveryKopecks: data.carriers[0].deliveryKopecks })
+        } else if (data?.mode === 'disabled') {
+          setDelivery({ mode: 'disabled' })
+        }
+      })
+      .catch(() => {}) // строка доставки — необязательная подсказка, итог посчитает чекаут
+  }, [])
+
+  const deliveryKopecks = delivery?.mode === 'pickup_required' ? delivery.deliveryKopecks : null
 
   return (
     <>
@@ -96,15 +119,27 @@ export default function CartPage() {
                   <span>Товаров</span>
                   <span>{count}</span>
                 </div>
+                {delivery?.mode === 'pickup_required' && (
+                  <>
+                    <div className="cart-summary-row">
+                      <span>Товары</span>
+                      <span>{formatRub(totalKopecks)}</span>
+                    </div>
+                    <div className="cart-summary-row">
+                      <span>Доставка {delivery.label} до ПВЗ</span>
+                      <span>{delivery.deliveryKopecks === 0 ? 'бесплатно' : formatRub(delivery.deliveryKopecks)}</span>
+                    </div>
+                  </>
+                )}
                 <div className="cart-summary-row cart-summary-total">
                   <span>Итого</span>
-                  <span>{formatRub(totalKopecks)}</span>
+                  <span>{formatRub(totalKopecks + (deliveryKopecks ?? 0))}</span>
                 </div>
                 <Link href="/checkout" className="btn-add cart-checkout">
                   Оформить заказ
                 </Link>
                 <p className="cart-summary-note">
-                  Оплата (Робокасса) подключается на следующем шаге.
+                  Оплата — на защищённой странице Робокассы: банковская карта, СБП и другие способы.
                 </p>
               </aside>
             </div>

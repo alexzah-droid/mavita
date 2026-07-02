@@ -48,6 +48,13 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             {order.customerPhone ?? 'Телефон отсутствует в legacy-заказе'}
           </p>
 
+          {order.customerComment && (
+            <>
+              <h2>Комментарий покупателя</h2>
+              <p>{order.customerComment}</p>
+            </>
+          )}
+
           <h2>Доставка</h2>
           {order.pickupPoint ? (
             <p>

@@ -19,6 +19,7 @@ export async function POST(req: Request) {
     customerName: String(body.customerName ?? ''),
     customerEmail: String(body.customerEmail ?? ''),
     customerPhone: String(body.customerPhone ?? ''),
+    customerComment: typeof body.customerComment === 'string' ? body.customerComment : null,
     // Доставку принимаем, только если клиент её прислал. createOrder сам решает по
     // режиму доставки (resolveDeliveryMode), обязательна она или нет, и валиден ли способ.
     delivery: body.delivery
