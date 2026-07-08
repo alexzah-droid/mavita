@@ -111,7 +111,7 @@ Certbot              — Let's Encrypt SSL
 
 | Сущность | Существенные поля и ограничения |
 | --- | --- |
-| `products` | `price_kopecks INTEGER`, visibility, окно скидки, `updated_at`; вес/габариты для СДЭК (миграция `015`) и публичные характеристики — время горения, воск, фитиль (миграция `020`); эффективная цена считается в `lib/pricing.ts` |
+| `products` | `price_kopecks INTEGER`, visibility, окно скидки, `updated_at`; вес/габариты для СДЭК (миграция `015`) и публичные характеристики — время горения, воск, фитиль (миграция `020`), вес чистого воска (миграция `022`); эффективная цена считается в `lib/pricing.ts` |
 | `product_images` | несколько фото, единственная обложка на товар через partial unique index |
 | `orders` | неугадываемый `token`, `inv_id`, `items_kopecks + delivery_kopecks = total_kopecks`, payment status и отдельный fulfillment status; `customer_comment` — необязательный комментарий покупателя ≤500 символов (миграция `021`) |
 | `order_items` | snapshot названия, цены и количества позиции |

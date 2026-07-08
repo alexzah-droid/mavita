@@ -49,6 +49,7 @@ export default function AdminProductForm({ product }: { product?: AdminProduct }
   const [startsAt, setStartsAt] = useState<DateState>(initDate(product?.sale?.startsAt ?? null))
   const [endsAt, setEndsAt] = useState<DateState>(initDate(product?.sale?.endsAt ?? null))
   const [weightGrams, setWeightGrams] = useState(product?.weightGrams != null ? String(product.weightGrams) : '')
+  const [waxWeight, setWaxWeight] = useState(product?.waxWeight ?? '')
   const [burnTimeHours, setBurnTimeHours] = useState(product?.burnTimeHours != null ? String(product.burnTimeHours) : '')
   const [wax, setWax] = useState(product?.wax ?? '')
   const [wick, setWick] = useState(product?.wick ?? '')
@@ -99,6 +100,7 @@ export default function AdminProductForm({ product }: { product?: AdminProduct }
       inStock,
       sale,
       weightGrams: weightGramsNum,
+      waxWeight: waxWeight.trim() || null,
       boxLengthCm: boxLengthCmNum,
       boxWidthCm: boxWidthCmNum,
       boxHeightCm: boxHeightCmNum,
@@ -163,7 +165,8 @@ export default function AdminProductForm({ product }: { product?: AdminProduct }
       <label>Серия<input value={series} onChange={(e) => setSeries(e.target.value)} /></label>
       <label>Подзаголовок<input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} /></label>
       <label>Ароматы через запятую<input value={scent} onChange={(e) => setScent(e.target.value)} /></label>
-      <label>Вес, г (витрина и СДЭК)<input inputMode="numeric" value={weightGrams} placeholder="500" onChange={(e) => setWeightGrams(e.target.value)} /></label>
+      <label>Вес изделия, г (витрина и СДЭК)<input inputMode="numeric" value={weightGrams} placeholder="500" onChange={(e) => setWeightGrams(e.target.value)} /></label>
+      <label>Вес чистого воска<input maxLength={200} value={waxWeight} placeholder="120 г" onChange={(e) => setWaxWeight(e.target.value)} /></label>
       <label>Время горения, ч<input inputMode="numeric" value={burnTimeHours} placeholder="40" onChange={(e) => setBurnTimeHours(e.target.value)} /></label>
       <label>Состав воска<input maxLength={200} value={wax} placeholder="100% соевый воск" onChange={(e) => setWax(e.target.value)} /></label>
       <label>Фитиль<input maxLength={200} value={wick} placeholder="Хлопковый" onChange={(e) => setWick(e.target.value)} /></label>

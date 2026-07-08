@@ -9,7 +9,8 @@
 ```bash
 # 1) синхронизировать код (секреты, node_modules, .next, загружаемые фото — не трогаем)
 rsync -avz \
-  --exclude='.env' --exclude='node_modules' --exclude='.next' --exclude='public/uploads' \
+  --exclude='.env' --exclude='node_modules' --exclude='.next' \
+  --exclude='public/uploads' --exclude='test-results' \
   shop/ mavita:/var/www/mavita-repo/shop/
 
 # 2) если изменились package.json или package-lock.json — установить точные зависимости
@@ -142,6 +143,8 @@ ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/mig
 # Публичные характеристики свечи + комментарий покупателя к заказу (раунд конверсии):
 ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/020_product_specs.sql"
 ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/021_order_customer_comment.sql"
+# Вес чистого воска на карточке товара (перед применением — pg_dump):
+ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/022_product_wax_weight.sql"
 ```
 
 Перед миграцией `003` обязательно сделать `pg_dump` из раздела выше. После неё

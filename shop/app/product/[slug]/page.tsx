@@ -127,8 +127,14 @@ export default async function ProductPage({
               </div>
               {product.weightGrams != null && (
                 <div className="product-detail-spec">
-                  <dt>Вес</dt>
+                  <dt>Вес изделия</dt>
                   <dd>{product.weightGrams} г</dd>
+                </div>
+              )}
+              {product.waxWeight && (
+                <div className="product-detail-spec">
+                  <dt>Вес чистого воска</dt>
+                  <dd>{product.waxWeight}</dd>
                 </div>
               )}
               {product.burnTimeHours != null && (

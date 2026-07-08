@@ -2,8 +2,11 @@ import { expect, test } from '@playwright/test'
 
 test('PRICE_CHANGED replaces the displayed sums and retries with the authoritative total', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('mavita.cart.v1', JSON.stringify({ lines: [{ slug: 'candle', name: 'Свеча', priceKopecks: 100000, image: '', quantity: 1 }] })))
-  await page.route('**/api/checkout/delivery', (route) => route.fulfill({ json: { cdekPickupDeliveryKopecks: 50000 } }))
-  await page.route('**/api/cdek?city=*', (route) => route.fulfill({ json: { pickupPoints: [{ code: 'MSK1', city: 'Москва', name: 'ПВЗ СДЭК', address: 'ул. Тестовая, 1' }] } }))
+  await page.route('**/api/checkout/delivery', (route) => route.fulfill({
+    json: { mode: 'pickup_required', carriers: [{ carrier: 'cdek', label: 'СДЭК', deliveryKopecks: 50000 }] },
+  }))
+  await page.route('**/api/checkout/city', (route) => route.fulfill({ json: { city: { code: 44, city: 'Москва', region: 'Москва' } } }))
+  await page.route('**/api/cdek?cityCode=*', (route) => route.fulfill({ json: { pickupPoints: [{ code: 'MSK1', city: 'Москва', name: 'ПВЗ СДЭК', address: 'ул. Тестовая, 1' }] } }))
   const payloads: unknown[] = []
   await page.route('**/api/robokassa/init', async (route) => {
     payloads.push(route.request().postDataJSON())
@@ -14,8 +17,6 @@ test('PRICE_CHANGED replaces the displayed sums and retries with the authoritati
   await page.getByLabel('ФИО получателя').fill('Иван Иванов')
   await page.getByLabel('Email').fill('ivan@example.com')
   await page.getByLabel('Телефон получателя').fill('+79991234567')
-  await page.getByPlaceholder('Город').fill('Москва')
-  await page.getByRole('button', { name: 'Найти пункты' }).click()
   await page.locator('select').selectOption('MSK1')
   await page.getByRole('checkbox').check()
   await page.getByRole('button', { name: 'Оплатить заказ с доставкой' }).click()

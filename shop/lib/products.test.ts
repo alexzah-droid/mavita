@@ -25,12 +25,13 @@ function row(overrides: Partial<ProductRow> = {}): ProductRow {
 
 describe('mapRowToProduct', () => {
   it('маппит полную строку БД в Product', () => {
-    const p = mapRowToProduct(row())
+    const p = mapRowToProduct(row({ wax_weight: '120 г' }))
     expect(p.slug).toBe('test')
     expect(p.priceKopecks).toBe(180000)
     expect(p.image).toBe('/images/2.jpeg')
     expect(p.images).toEqual(['/images/2.jpeg', '/images/3.jpeg'])
     expect(p.inStock).toBe(true)
+    expect(p.waxWeight).toBe('120 г')
   })
 
   it('приводит price_kopecks из строки к числу (pg INTEGER)', () => {
@@ -76,5 +77,15 @@ describe('seed-каталог', () => {
   it('getSeedProduct находит товар и возвращает undefined для неизвестного', () => {
     expect(getSeedProduct(SEED_PRODUCTS[0].slug)?.slug).toBe(SEED_PRODUCTS[0].slug)
     expect(getSeedProduct('нет-такого')).toBeUndefined()
+  })
+
+  it('содержит известный вес чистого воска контейнерных свечей', () => {
+    const waxWeights = SEED_PRODUCTS.slice(0, 4).map((product) => product.waxWeight)
+    expect(waxWeights).toEqual([
+      'верхняя часть — 25 г, нижняя часть — 85 г',
+      '120 г',
+      '90 г',
+      '120 г',
+    ])
   })
 })

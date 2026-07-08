@@ -5,13 +5,13 @@ export type ProductInput = {
   name?: unknown; slug?: unknown; series?: unknown; subtitle?: unknown; description?: unknown
   priceKopecks?: unknown; scent?: unknown; inStock?: unknown; visibility?: unknown; sale?: unknown
   weightGrams?: unknown; boxLengthCm?: unknown; boxWidthCm?: unknown; boxHeightCm?: unknown
-  burnTimeHours?: unknown; wax?: unknown; wick?: unknown
+  waxWeight?: unknown; burnTimeHours?: unknown; wax?: unknown; wick?: unknown
 }
 export type ValidatedProductInput = {
   name?: string; slug?: string; series?: string | null; subtitle?: string | null; description?: string | null
   priceKopecks?: number; scent?: string[]; inStock?: boolean; visibility?: Visibility; sale?: SaleInput
   weightGrams?: number | null; boxLengthCm?: number | null; boxWidthCm?: number | null; boxHeightCm?: number | null
-  burnTimeHours?: number | null; wax?: string | null; wick?: string | null
+  waxWeight?: string | null; burnTimeHours?: number | null; wax?: string | null; wick?: string | null
 }
 
 const SLUG_RE = /^[a-z0-9-]{1,100}$/
@@ -106,6 +106,7 @@ export function validateProductInput(input: unknown, mode: 'create' | 'patch'): 
     else if (!Number.isInteger(raw.burnTimeHours) || (raw.burnTimeHours as number) <= 0 || (raw.burnTimeHours as number) > 10_000) errors.push('Время горения должно быть положительным целым числом часов')
     else value.burnTimeHours = raw.burnTimeHours as number
   }
+  value.waxWeight = optionalText(raw.waxWeight, 'Вес чистого воска', 200, errors)
   value.wax = optionalText(raw.wax, 'Состав воска', 200, errors)
   value.wick = optionalText(raw.wick, 'Фитиль', 200, errors)
   if (raw.sale !== undefined) {

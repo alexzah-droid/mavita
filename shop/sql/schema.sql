@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS products (
     box_width_cm   SMALLINT CONSTRAINT products_box_width_positive  CHECK (box_width_cm IS NULL OR box_width_cm > 0),
     box_height_cm  SMALLINT CONSTRAINT products_box_height_positive CHECK (box_height_cm IS NULL OR box_height_cm > 0),
     -- Публичные характеристики свечи (миграция 020)
+    wax_weight      TEXT,
     burn_time_hours SMALLINT CONSTRAINT products_burn_time_positive CHECK (burn_time_hours IS NULL OR burn_time_hours > 0),
     wax            TEXT,
     wick           TEXT,
