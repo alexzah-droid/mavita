@@ -1,6 +1,6 @@
 # МАВИТА-ШОП operations runbook
 
-Дата актуализации: 2026-06-30. URL, ключи и запреты — в `docs/environments.md`.
+Дата актуализации: 2026-07-09. URL, ключи и запреты — в `docs/environments.md`.
 
 ---
 
@@ -20,6 +20,14 @@ ssh mavita "cd /var/www/mavita-repo/shop && npm run build && pm2 reload mavita -
 ```
 
 Проверка: `curl -s https://mavita.ru/api/products | head -c 50`
+
+Если `npm run build` падает на `ENOENT ... .next/build-manifest.json`, значит на
+сервере сломан предыдущий build-output. Для code-only rollout допустима чистая
+пересборка без трогания исходников:
+
+```bash
+ssh mavita "cd /var/www/mavita-repo/shop && rm -rf .next && npm run build && pm2 reload mavita --update-env"
+```
 
 > **Примечание:** `public/images/catalog/` (статические фото товаров) синхронизируется
 > штатным rsync и попадает на прод. Это не то же самое, что `public/uploads/` (фото,
