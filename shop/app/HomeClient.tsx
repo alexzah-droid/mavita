@@ -10,7 +10,7 @@ import PriceDisplay from '@/app/components/PriceDisplay'
 import ThemeSwitcher from '@/app/components/ThemeSwitcher'
 import SiteFooter from '@/app/components/SiteFooter'
 
-export default function HomeClient({ products }: { products: Product[] }) {
+export default function HomeClient({ products, showQrRitual }: { products: Product[]; showQrRitual: boolean }) {
   const headerRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -54,7 +54,7 @@ export default function HomeClient({ products }: { products: Product[] }) {
         <div className="header-actions">
           <nav className="header-nav">
             <a href="#catalog">Каталог</a>
-            <a href="#ritual">Ритуал</a>
+            {showQrRitual ? <a href="#ritual">Ритуал</a> : null}
             <a href="#about">О бренде</a>
             <Link href="/delivery">Доставка</Link>
           </nav>
@@ -94,61 +94,63 @@ export default function HomeClient({ products }: { products: Product[] }) {
       </section>
 
       {/* ── Ritual ── */}
-      <section className="ritual" id="ritual">
-        <div className="ritual-inner">
-          <div>
-            <div className="eyebrow reveal">QR-ритуал</div>
-            <h2 className="ritual-heading reveal" style={{ transitionDelay: '0.1s' }}>
-              Четыре<br />
-              <em>шага</em><br />
-              к тишине
-            </h2>
-          </div>
-          <div>
-            <div className="ritual-steps">
-              {[
-                {
-                  n: '01',
-                  title: 'Зажгите свечу',
-                  text: 'Дайте огню разогреть воск. Почувствуйте первый выдох аромата.',
-                },
-                {
-                  n: '02',
-                  title: 'Считайте QR',
-                  text: 'Дизайнерская открытка с сургучной печатью — сканируйте QR-код.',
-                },
-                {
-                  n: '03',
-                  title: 'Включите звук',
-                  text: 'Лес, море или горы. Аудиодорожка натуральных звуков природы.',
-                },
-                {
-                  n: '04',
-                  title: 'Вернитесь к себе',
-                  text: 'Аромат + звук + огонь. Полное погружение. Настоящий момент.',
-                },
-              ].map((step, i) => (
-                <div
-                  className="ritual-step reveal"
-                  key={step.n}
-                  style={{ transitionDelay: `${i * 0.1}s` }}
-                >
-                  <div className="ritual-step-num">{step.n}</div>
-                  <h3>{step.title}</h3>
-                  <p>{step.text}</p>
-                </div>
-              ))}
+      {showQrRitual ? (
+        <section className="ritual" id="ritual">
+          <div className="ritual-inner">
+            <div>
+              <div className="eyebrow reveal">QR-ритуал</div>
+              <h2 className="ritual-heading reveal" style={{ transitionDelay: '0.1s' }}>
+                Четыре<br />
+                <em>шага</em><br />
+                к тишине
+              </h2>
+            </div>
+            <div>
+              <div className="ritual-steps">
+                {[
+                  {
+                    n: '01',
+                    title: 'Зажгите свечу',
+                    text: 'Дайте огню разогреть воск. Почувствуйте первый выдох аромата.',
+                  },
+                  {
+                    n: '02',
+                    title: 'Считайте QR',
+                    text: 'Дизайнерская открытка с сургучной печатью — сканируйте QR-код.',
+                  },
+                  {
+                    n: '03',
+                    title: 'Включите звук',
+                    text: 'Лес, море или горы. Аудиодорожка натуральных звуков природы.',
+                  },
+                  {
+                    n: '04',
+                    title: 'Вернитесь к себе',
+                    text: 'Аромат + звук + огонь. Полное погружение. Настоящий момент.',
+                  },
+                ].map((step, i) => (
+                  <div
+                    className="ritual-step reveal"
+                    key={step.n}
+                    style={{ transitionDelay: `${i * 0.1}s` }}
+                  >
+                    <div className="ritual-step-num">{step.n}</div>
+                    <h3>{step.title}</h3>
+                    <p>{step.text}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* ── Catalog ── */}
       <section className="catalog" id="catalog">
         <div className="catalog-inner">
           <div className="catalog-header">
             <div>
-              <div className="eyebrow reveal">Серия Горы · 2025</div>
+              <div className="eyebrow reveal">Серия «Горы»</div>
               <h2 className="catalog-title reveal" style={{ transitionDelay: '0.1s' }}>
                 Каталог
               </h2>
@@ -224,16 +226,42 @@ export default function HomeClient({ products }: { products: Product[] }) {
               Земля<br />
               и <em>жизнь</em>
             </h2>
-            <p className="atmosphere-body reveal" style={{ transitionDelay: '0.15s' }}>
-              МАВИТА вырос из личной истории. МА — Земля на языке древних, ВИТА — жизнь. Бренд создан, чтобы помогать людям возвращаться к себе через контакт с природой — даже в центре мегаполиса.
+            <p className="atmosphere-quote reveal" style={{ transitionDelay: '0.15s' }}>
+              «Я создала свечи, которые дают энергию стихий — даже если вы весь день не выходили из дома.»
             </p>
             <p className="atmosphere-body reveal" style={{ transitionDelay: '0.2s' }}>
-              Каждая свеча — ручная работа на натуральных маслах. Пихта, кипарис, можжевельник, пачули, эвкалипт. Формы камней, гор, гальки — природная фактура в воске.
+              Я Виктория, основатель МАВИТА. Наш дом всегда был связан с горами: отец — альпинист, и любовь к высоте, камню и тишине пришла оттуда.
             </p>
             <p className="atmosphere-body reveal" style={{ transitionDelay: '0.25s' }}>
-              Зажечь. Услышать. Выдохнуть. Вернуться.
+              Каждая свеча — это маленькое путешествие. Вы приходите домой: пробки, задачи, энергия на нуле. Берёте свечу в руки — она тяжёлая, фактурная, настоящая. Зажигаете. Считываете QR на открытке с сургучной печатью. Включается звук горной реки, шелест листвы, дыхание моря. Вы садитесь в кресло — и наполняетесь.
             </p>
-            <div className="atmosphere-signature reveal" style={{ transitionDelay: '0.3s' }}>
+            <p className="atmosphere-body reveal" style={{ transitionDelay: '0.3s' }}>
+              Здесь только натуральные масла: пачули, эвкалипт, кипарис, можжевельник, пихта, апельсин, имбирь. Лучшее, что может дать природа — собранное с заботой о вас.
+            </p>
+            <div className="atmosphere-meaning reveal" style={{ transitionDelay: '0.35s' }}>
+              <div className="atmosphere-meaning-label">Магия названия</div>
+              <div className="atmosphere-meaning-grid">
+                <article className="atmosphere-meaning-card">
+                  <div className="atmosphere-meaning-name">Ма</div>
+                  <div className="atmosphere-meaning-word">Земля</div>
+                  <p className="atmosphere-meaning-text">
+                    Опора, заземление, природная основа. Корень в древних языках, отсылающий к материнской земле — фундаменту всего живого.
+                  </p>
+                </article>
+                <div className="atmosphere-meaning-plus" aria-hidden="true">+</div>
+                <article className="atmosphere-meaning-card">
+                  <div className="atmosphere-meaning-name">Вита</div>
+                  <div className="atmosphere-meaning-word">Жизнь</div>
+                  <p className="atmosphere-meaning-text">
+                    Дыхание, движение, тепло. Огонь как основа жизни, чистая энергия, движущая сила Вселенной.
+                  </p>
+                </article>
+              </div>
+              <p className="atmosphere-body atmosphere-body--closing">
+                МАВИТА — земля, на которой стоит жизнь. Имя бренда буквально содержит то, что мы упаковываем в каждую свечу.
+              </p>
+            </div>
+            <div className="atmosphere-signature reveal" style={{ transitionDelay: '0.4s' }}>
               Виктория, основатель МАВИТА
             </div>
           </div>

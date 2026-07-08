@@ -29,6 +29,7 @@ export const metadata = buildPageMetadata({
 export default async function HomePage() {
   const products = await getProducts()
   const structuredData = [buildOrganizationJsonLd(), buildWebsiteJsonLd()]
+  const showQrRitual = process.env.NODE_ENV !== 'production'
 
   return (
     <>
@@ -36,7 +37,7 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <HomeClient products={products} />
+      <HomeClient products={products} showQrRitual={showQrRitual} />
     </>
   )
 }
