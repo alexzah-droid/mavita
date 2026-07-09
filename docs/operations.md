@@ -16,7 +16,11 @@ rsync -avz \
 # 2) если изменились package.json или package-lock.json — установить точные зависимости
 ssh mavita "cd /var/www/mavita-repo/shop && npm ci"
 
-# 3) пересобрать и перезапустить
+# 3) перед сборкой применить новые миграции (каждую — один раз; они идемпотентны)
+ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/023_site_content.sql"
+ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/024_site_content_stihii.sql"
+
+# 4) пересобрать и перезапустить
 ssh mavita "cd /var/www/mavita-repo/shop && npm run build && pm2 reload mavita --update-env"
 ```
 
@@ -116,13 +120,16 @@ git push origin main
 
 ```bash
 # backup (на VPS)
-ssh mavita "pg_dump -U mavita -d mavita -h localhost > /root/mavita_$(date +%Y%m%d_%H%M%S).sql"
+stamp=$(date +%Y%m%d_%H%M%S)
+ssh mavita "cd /var/www/mavita-repo/shop && set -a && . ./.env && set +a && \
+  pg_dump \"\$DATABASE_URL\" > /root/mavita_${stamp}.sql"
 
 # restore
 ssh mavita "psql -U mavita -d mavita -h localhost < /root/mavita_<timestamp>.sql"
 ```
 
-Пароль БД — в `/var/www/mavita-repo/shop/.env` (DATABASE_URL).
+Доступ к БД берётся из `/var/www/mavita-repo/shop/.env` (`DATABASE_URL`);
+не использовать `pg_dump -U mavita` без URL — сервер требует пароль.
 
 ---
 
@@ -145,7 +152,15 @@ ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/mig
 ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/021_order_customer_comment.sql"
 # Вес чистого воска на карточке товара (перед применением — pg_dump):
 ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/022_product_wax_weight.sql"
+# Редактируемый текст раздела «О бренде»:
+ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/023_site_content.sql"
+# Редактируемые тексты плиток раздела «Три стихии»:
+ssh mavita "sudo -u postgres psql -d mavita -f /var/www/mavita-repo/shop/sql/migrations/024_site_content_stihii.sql"
 ```
+
+Текст «О бренде», слоганы, описания и ноты плиток «Три стихии» редактируются в
+`/admin/settings/content`. Пустые поля не сохраняются; абзацы «О бренде»
+разделяются пустой строкой.
 
 Перед миграцией `003` обязательно сделать `pg_dump` из раздела выше. После неё
 проверить `\d orders`, `\d store_settings`, `\d order_admin_events` и только затем

@@ -196,9 +196,9 @@ graph TD
 
 | Слой | Компоненты | Ответственность |
 |---|---|---|
-| **Pages** | `app/admin/login`, `app/admin/(protected)/*` (список, создание, редактирование) | Вход по паролю + UI каталога; `requireAdminPage()`-гард |
-| **API Routes** | `app/api/auth/login\|logout`, `app/api/admin/products/**` (CRUD, reorder, images), `app/api/upload` | `requireAdminApi()` + same-origin (**I8**); загрузка фото файл + `product_images` атомарно (**I5**) |
-| **Lib** | `auth.ts` (iron-session, гарды, `assertSameOrigin`), `pricing.ts` (эффективная цена/скидка), `catalog.ts` (фильтр видимости), `admin-products-db.ts`, `slug.ts` | Авторизация и серверная бизнес-логика админки |
+| **Pages** | `app/admin/login`, `app/admin/(protected)/*` (каталог, заказы, настройки контента и доставки) | Вход по паролю + UI администрирования; `requireAdminPage()`-гард |
+| **API Routes** | `app/api/auth/login\|logout`, `app/api/admin/products/**`, `app/api/admin/settings/content`, `app/api/upload` | `requireAdminApi()` + same-origin (**I8**); CRUD каталога и контента; атомарная загрузка фото (**I5**) |
+| **Lib** | `auth.ts`, `pricing.ts`, `catalog.ts`, `admin-products-db.ts`, `site-content.ts`, `slug.ts` | Авторизация и серверная бизнес-логика каталога и редактируемого контента |
 
 Инварианты контура: **I8** (гард + same-origin по хосту за прокси, см. `docs/decisions.md`),
 **I9** (серверная эффективная цена в snapshot заказа), **I5** (атомарная загрузка фото).

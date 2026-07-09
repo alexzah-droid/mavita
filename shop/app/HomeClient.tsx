@@ -9,9 +9,11 @@ import AddToCartButton from '@/app/cart/AddToCartButton'
 import PriceDisplay from '@/app/components/PriceDisplay'
 import ThemeSwitcher from '@/app/components/ThemeSwitcher'
 import SiteFooter from '@/app/components/SiteFooter'
+import type { StihiiContent } from '@/lib/site-content'
 
-export default function HomeClient({ products, showQrRitual }: { products: Product[]; showQrRitual: boolean }) {
+export default function HomeClient({ products, showQrRitual, aboutText, stihii }: { products: Product[]; showQrRitual: boolean; aboutText: string; stihii: StihiiContent }) {
   const headerRef = useRef<HTMLElement>(null)
+  const heroLogoRef = useRef<HTMLImageElement>(null)
 
   useEffect(() => {
     const onScroll = () => {
@@ -24,6 +26,23 @@ export default function HomeClient({ products, showQrRitual }: { products: Produ
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
+    const header = headerRef.current
+    const heroLogo = heroLogoRef.current
+    if (!header || !heroLogo) return
+
+    const setHeaderLogoVisibility = (heroLogoIsVisible: boolean) => {
+      header.classList.toggle('hero-logo-visible', heroLogoIsVisible)
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setHeaderLogoVisibility(entry.isIntersecting && entry.intersectionRatio > 0),
+      { threshold: 0 }
+    )
+    observer.observe(heroLogo)
+    return () => observer.disconnect()
   }, [])
 
   useEffect(() => {
@@ -46,7 +65,7 @@ export default function HomeClient({ products, showQrRitual }: { products: Produ
   return (
     <>
       {/* ── Header ── */}
-      <header className="site-header" ref={headerRef}>
+      <header className="site-header hero-logo-visible" ref={headerRef}>
         <div className="header-brand">
           {/* Логотип содержит словесный знак «МАВИТА» — дублирующий текст не нужен */}
           <Image src="/images/logo.png" alt="МАВИТА" width={98} height={72} className="header-logo" priority />
@@ -78,8 +97,16 @@ export default function HomeClient({ products, showQrRitual }: { products: Produ
           <div className="hero-eyebrow reveal">
             Серия · Горы · Ручная работа
           </div>
-          <h1 className="hero-title reveal" style={{ transitionDelay: '0.1s' }}>
-            МАВИТА
+          <h1 className="hero-title hero-brand reveal" style={{ transitionDelay: '0.1s' }}>
+            <Image
+              ref={heroLogoRef}
+              src="/images/logo.png"
+              alt="МАВИТА"
+              width={856}
+              height={734}
+              className="hero-logo"
+              priority
+            />
             <em>Земля и жизнь</em>
           </h1>
           <p className="hero-lede reveal" style={{ transitionDelay: '0.2s' }}>
@@ -93,6 +120,7 @@ export default function HomeClient({ products, showQrRitual }: { products: Produ
         <div className="hero-scroll-hint">Прокрутить</div>
       </section>
 
+      <main className="home-sections">
       {/* ── Ritual ── */}
       {showQrRitual ? (
         <section className="ritual" id="ritual">
@@ -229,15 +257,11 @@ export default function HomeClient({ products, showQrRitual }: { products: Produ
             <p className="atmosphere-quote reveal" style={{ transitionDelay: '0.15s' }}>
               «Я создала свечи, которые дают энергию стихий — даже если вы весь день не выходили из дома.»
             </p>
-            <p className="atmosphere-body reveal" style={{ transitionDelay: '0.2s' }}>
-              Я Виктория, основатель МАВИТА. Наш дом всегда был связан с горами: отец — альпинист, и любовь к высоте, камню и тишине пришла оттуда.
-            </p>
-            <p className="atmosphere-body reveal" style={{ transitionDelay: '0.25s' }}>
-              Каждая свеча — это маленькое путешествие. Вы приходите домой: пробки, задачи, энергия на нуле. Берёте свечу в руки — она тяжёлая, фактурная, настоящая. Зажигаете. Считываете QR на открытке с сургучной печатью. Включается звук горной реки, шелест листвы, дыхание моря. Вы садитесь в кресло — и наполняетесь.
-            </p>
-            <p className="atmosphere-body reveal" style={{ transitionDelay: '0.3s' }}>
-              Здесь только натуральные масла: пачули, эвкалипт, кипарис, можжевельник, пихта, апельсин, имбирь. Лучшее, что может дать природа — собранное с заботой о вас.
-            </p>
+            {aboutText.split(/\n\s*\n/).map((paragraph, index) => (
+              <p className="atmosphere-body reveal" style={{ transitionDelay: `${0.2 + index * 0.05}s` }} key={index}>
+                {paragraph}
+              </p>
+            ))}
             <div className="atmosphere-meaning reveal" style={{ transitionDelay: '0.35s' }}>
               <div className="atmosphere-meaning-label">Магия названия</div>
               <div className="atmosphere-meaning-grid">
@@ -275,28 +299,22 @@ export default function HomeClient({ products, showQrRitual }: { products: Produ
           <div className="stihii-grid">
             {[
               {
-                cls: 'les',
-                icon: '↑',
-                name: 'Лес',
-                state: 'Заземление · Безопасность',
-                desc: 'Мох, хвоя, влажная земля, папоротник. Лес после дождя. Ощущение опоры и защиты — как под кроной старого дерева.',
-                scents: 'Пихта · Эвкалипт · Мох · Хвоя',
+                cls: 'gory',
+                icon: '△',
+                name: 'Горы',
+                ...stihii.gory,
               },
               {
                 cls: 'more',
                 icon: '~',
                 name: 'Море',
-                state: 'Расслабление · Отпускание',
-                desc: 'Соль, озон, бриз, минералы. Закат у воды. Ощущение пространства — когда горизонт раздвигается и можно просто дышать.',
-                scents: 'Озон · Соль · Минералы · Бриз',
+                ...stihii.more,
               },
               {
-                cls: 'gory',
-                icon: '△',
-                name: 'Горы',
-                state: 'Ясность · Сила',
-                desc: 'Холодный воздух, камень, древесина, лава. Высота тишины. Ощущение внутренней опоры — как горная порода: надёжная, неспешная, вечная.',
-                scents: 'Кипарис · Можжевельник · Камень · Лава',
+                cls: 'les',
+                icon: '↑',
+                name: 'Лес',
+                ...stihii.les,
               },
             ].map((s, i) => (
               <div
@@ -315,6 +333,7 @@ export default function HomeClient({ products, showQrRitual }: { products: Produ
           </div>
         </div>
       </section>
+      </main>
 
       {/* ── Footer ── */}
       <SiteFooter />

@@ -1,6 +1,6 @@
 # МАВИТА-ШОП environments
 
-Дата актуализации: 2026-06-30.
+Дата актуализации: 2026-07-09.
 
 ## Стенды
 
@@ -191,6 +191,11 @@ rsync -avz --exclude='.env' --exclude='node_modules' --exclude='.next' --exclude
 # на VPS
 ssh mavita "cd /var/www/mavita-repo/shop && npm run build && pm2 reload mavita --update-env"
 ```
+
+Если релиз содержит миграции контента `023_site_content.sql` и
+`024_site_content_stihii.sql`, после синхронизации кода и до сборки применить их.
+Они добавляют редактирование текста «О бренде» и плиток «Три стихии» в
+`/admin/settings/content`.
 
 ### Настройки Робокассы в ЛК (прописаны 2026-06-20)
 

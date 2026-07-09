@@ -168,6 +168,7 @@
 
 | ID | Функция | Правила | Код |
 | --- | --- | --- | --- |
+| FR-CONTENT-1 | Контент главной | Администратор редактирует текст «О бренде», а также слоган, описание и ноты для плиток «Горы», «Море», «Лес»; пустые/лишние поля отклоняются, изменения сразу видны на динамической главной | `app/admin/(protected)/settings/content`, `app/api/admin/settings/content`, `lib/site-content.ts`, `site_content` |
 | FR-SET-1 | Настройки перевозчика СДЭК | Включение/выключение, `clientId`, секрет, фиксированный тариф до ПВЗ; `0` — явная бесплатная доставка; при неполной конфигурации включение запрещено | `app/admin/settings/delivery`, `app/api/admin/settings/delivery`, `store_settings` |
 | FR-SET-2 | Автосоздание накладных СДЭК | Настройка точки сдачи, отправителя, дефолтных веса/габаритов, регистрация вебхука СДЭК | `app/admin/CdekShipmentSettingsForm.tsx`, `app/api/admin/settings/cdek-shipment`, `lib/cdek-shipment.ts` |
 | FR-SET-3 | Telegram-уведомления | Включение, `chat_id`, токен бота; токен хранится **только зашифрованным** (AES-GCM) | `app/admin/settings/notifications`, `lib/telegram-settings.ts` |

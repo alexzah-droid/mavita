@@ -265,3 +265,21 @@ CREATE TABLE IF NOT EXISTS cdek_task_outbox (
           OR (status IN ('pending', 'processing', 'failed') AND done_at IS NULL))
 );
 CREATE INDEX IF NOT EXISTS idx_cdek_task_outbox_ready ON cdek_task_outbox (available_at, id) WHERE status = 'pending';
+
+-- ─────────────────────────────────────────────────────────────
+-- Редактируемый контент витрины
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS site_content (
+    singleton BOOLEAN PRIMARY KEY DEFAULT true
+      CONSTRAINT site_content_singleton_check CHECK (singleton),
+    about_text TEXT NOT NULL
+      CONSTRAINT site_content_about_text_length_check
+      CHECK (char_length(btrim(about_text)) BETWEEN 1 AND 5000),
+    stihii JSONB NOT NULL DEFAULT '{
+      "gory":{"state":"Ясность · Сила","desc":"Холодный воздух, камень, древесина, лава. Высота тишины. Ощущение внутренней опоры — как горная порода: надёжная, неспешная, вечная.","scents":"Кипарис · Можжевельник · Камень · Лава"},
+      "more":{"state":"Расслабление · Отпускание","desc":"Соль, озон, бриз, минералы. Закат у воды. Ощущение пространства — когда горизонт раздвигается и можно просто дышать.","scents":"Озон · Соль · Минералы · Бриз"},
+      "les":{"state":"Заземление · Безопасность","desc":"Мох, хвоя, влажная земля, папоротник. Лес после дождя. Ощущение опоры и защиты — как под кроной старого дерева.","scents":"Пихта · Эвкалипт · Мох · Хвоя"}
+    }'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by_actor_login_at BIGINT NOT NULL
+);

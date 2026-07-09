@@ -61,6 +61,7 @@ Certbot              — Let's Encrypt SSL
 │   │   ├── products/new/         — создать товар
 │   │   ├── products/[id]/edit/   — редактировать товар
 │   │   ├── orders/               — список и карточка заказов
+│   │   ├── settings/content/     — тексты «О бренде» и плиток «Три стихии»
 │   │   └── settings/delivery/    — СДЭК: ключи, тариф, автоотправка, webhook
 │   │
 │   └── api/
@@ -85,6 +86,7 @@ Certbot              — Let's Encrypt SSL
 │   ├── orders.ts                 — snapshot заказа, оплаты и delivery
 │   ├── secret-box{,-core}.ts     — AES-256-GCM шифрование ключей перевозчиков (server-only обёртка + core)
 │   ├── store-settings.ts         — режим доставки, credentials СДЭК, locked snapshot, настройки автоотправки
+│   ├── site-content.ts           — чтение, валидация и сохранение контента главной
 │   ├── delivery/                 — общий интерфейс провайдера ПВЗ
 │   ├── cdek.ts                   — СДЭК: OAuth, города/ПВЗ, widget proxy
 │   ├── cdek-shipment.ts          — создание/аннулирование отправлений, waybill/barcode, webhook helpers

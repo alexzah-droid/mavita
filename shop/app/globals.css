@@ -168,6 +168,11 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
 .admin-images { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }.admin-images > div { width: 150px; }.admin-images img { width:150px; height:120px; object-fit:cover; }.admin-images button { font-size:11px; color:var(--ember); margin: 4px 6px 0 0; }.admin-image-order { display:flex; gap:6px; margin-top:4px; }.admin-image-order button { border:1px solid var(--rule); padding:0 8px; }.admin-image-order button:disabled { opacity:.4; cursor:not-allowed; }
 .admin-danger { border:1px solid #6e3a32; margin-top:22px; padding:14px; }.admin-danger legend { color:#f49b78; }.admin-danger hr { border:none; border-top:1px solid var(--rule); margin:14px 0; }.admin-danger-button { border:1px solid #6e3a32; color:#f49b78; padding:7px 12px; margin-top:8px; }.admin-danger-button:disabled { opacity:.4; cursor:not-allowed; }
 .admin-modal-overlay { position:fixed; inset:0; background:rgba(10,8,5,.7); display:flex; align-items:center; justify-content:center; padding:18px; z-index:50; }.admin-modal { background:var(--ink-2, #221c14); border:1px solid #6e3a32; max-width:440px; width:100%; padding:22px; }.admin-modal h2 { margin:0 0 10px; }.admin-modal input { width:100%; margin-top:10px; }.admin-modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:16px; }.admin-modal-actions button { border:1px solid var(--rule); padding:7px 12px; }
+.admin-content-textarea { min-height: 320px; resize: vertical; line-height: 1.6; }
+.admin-content-tile { display: grid; gap: 16px; margin: 24px 0; padding: 20px; border: 1px solid var(--line); }
+.admin-content-tile legend { padding: 0 8px; font-family: var(--font-display); font-size: 24px; }
+.admin-content-tile textarea { min-height: 110px; }
+.admin-success { color: #a8c478; }
 
 /* Панель технической карточки Ozon: независима от admin-form, поэтому все поля
    получают явный layout и не превращаются в браузерные inline-inputs. */
@@ -255,6 +260,12 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   height: 72px;
   filter: var(--logo-filter);
   opacity: 0.95;
+  transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
+}
+.site-header.hero-logo-visible .header-logo {
+  opacity: 0;
+  transform: translateY(-8px);
+  visibility: hidden;
 }
 
 .header-nav {
@@ -355,6 +366,17 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   display: block;
   margin-top: 8px;
 }
+.hero-brand {
+  width: fit-content;
+}
+.hero-logo {
+  width: clamp(300px, 48vw, 740px);
+  height: auto;
+  filter: var(--logo-filter);
+}
+.hero-brand em {
+  font-size: clamp(42px, 8.06vw, 124px);
+}
 
 .hero-lede {
   font-family: var(--f-serif);
@@ -431,6 +453,11 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
 }
 
 /* ── Ritual section ─────────────────────────────────── */
+.home-sections { display: flex; flex-direction: column; }
+.home-sections .atmosphere { order: 1; }
+.home-sections .stihii { order: 2; }
+.home-sections .catalog { order: 3; }
+.home-sections .ritual { order: 4; }
 .ritual {
   padding: 120px 80px;
   border-top: 1px solid var(--rule);
@@ -1557,6 +1584,9 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   .ritual, .catalog, .atmosphere, .stihii { padding-left: 20px; padding-right: 20px; }
   .site-header { padding: 12px 20px; }
   .header-logo { height: 48px; }
+  .hero-image { object-position: 58% 12%; }
+  .hero-logo { width: min(62vw, 300px); }
+  .hero-brand em { font-size: clamp(38px, 12vw, 64px); }
   .product-page-inner { padding: 40px 20px 80px; grid-template-columns: 1fr; gap: 40px; }
   .site-footer { padding: 48px 20px 32px; }
 }
