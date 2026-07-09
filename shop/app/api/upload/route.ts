@@ -27,7 +27,9 @@ export async function POST(request: Request) {
       // в reorderProductImages/deleteProductImage (lib/admin-products-db.ts), что
       // сериализует все фото-операции и сохраняет инвариант единственной обложки.
       const product = await client.query<{ id: number }>('SELECT id FROM products WHERE id = $1 FOR UPDATE', [id]); if (!product.rows[0]) throw new Error('NOT_FOUND')
-      const count = await client.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM product_images WHERE product_id = $1 FOR UPDATE', [id]); if (Number(count.rows[0].count) + prepared.length > MAX_FILES) throw new Error('У товара может быть до 10 фотографий')
+      // COUNT без FOR UPDATE: Postgres запрещает FOR UPDATE с агрегатами, а
+      // конкурентные фото-операции уже сериализованы локом строки товара выше.
+      const count = await client.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM product_images WHERE product_id = $1', [id]); if (Number(count.rows[0].count) + prepared.length > MAX_FILES) throw new Error('У товара может быть до 10 фотографий')
       const existing = Number(count.rows[0].count); const created: Created[] = []
       for (const [index, file] of prepared.entries()) {
         const result = await client.query<Created>(`INSERT INTO product_images (product_id, filename, sort_order, is_cover) VALUES ($1, $2, $3, $4) RETURNING id, filename, sort_order AS "sortOrder", is_cover AS "isCover"`, [id, file.filename, (existing + index + 1) * 10, existing === 0 && index === 0])
