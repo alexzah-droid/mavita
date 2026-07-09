@@ -116,6 +116,37 @@ git push origin main
 
 ---
 
+## Срез данных production
+
+Скрипт подключается к production-БД по SSH alias `mavita` только для чтения и
+сохраняет уникальный Markdown-файл в каталог, из которого запущена команда.
+
+Полный срез: разделы «О бренде» и «Три стихии», страницы «Оферта» и «Доставка»,
+все товары и их изображения:
+
+```bash
+npm --prefix shop run snapshot:production
+```
+
+Срез только со сведениями о товарах:
+
+```bash
+npm --prefix shop run snapshot:production -- goods
+```
+
+Excel-срезы создаются теми же командами с дополнительным аргументом `xlsx`:
+
+```bash
+# Полный Excel-срез
+npm --prefix shop run snapshot:production -- xlsx
+
+# Excel-срез только с товарами
+npm --prefix shop run snapshot:production -- goods xlsx
+```
+
+Имя результата: `срез данных Мавита от yy-MM-DD - hh-mm-ss.md` или `.xlsx`.
+Дата и время формируются в часовом поясе `Europe/Moscow`.
+
 ## Backup / restore PostgreSQL
 
 ```bash

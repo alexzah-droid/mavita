@@ -15,10 +15,12 @@
     "cdek:drain": "tsx --conditions react-server scripts/drainCdekOutbox.ts",
     "cdek:readiness": "tsx --conditions react-server scripts/checkCdekReadiness.ts",
     "delivery:backfill": "tsx scripts/backfill-delivery-credentials.ts",
-    "delivery:rotate-key": "tsx scripts/rotate-delivery-settings-key.ts"
+    "delivery:rotate-key": "tsx scripts/rotate-delivery-settings-key.ts",
+    "snapshot:production": "node scripts/snapshot-production.mjs"
   },
   "dependencies": {
     "@cdek-it/widget": "^3.11.1",
+    "exceljs": "^4.4.0",
     "iron-session": "^8.0.4",
     "maxmind": "^4.3.29",
     "next": "^15.3.3",
